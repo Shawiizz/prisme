@@ -6,6 +6,7 @@ use crate::view::Sees;
 use prisme_control::{
     DeckAction, DeckSwitch, FxAction, GeneralAction, MixerAction, MixerSwitch, Target, Turn,
 };
+use serde::{Deserialize, Serialize};
 
 /// A switch the actions turn.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,17 +16,30 @@ pub enum Switch {
     Fx(usize, usize),
     Mixer(MixerSwitch),
     /// A live source heard in the master.
-    LiveOn(Live),
+    LiveOn(LiveSource),
     /// A live source heard in the headphones.
-    LiveCue(Live),
+    LiveCue(LiveSource),
     Quantize,
 }
 
 /// A live source of the software mixer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Live {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LiveSource {
     Mic,
     Aux,
+}
+
+impl LiveSource {
+    pub const ALL: [LiveSource; 2] = [LiveSource::Mic, LiveSource::Aux];
+
+    /// The source beside it.
+    pub fn other(self) -> Self {
+        match self {
+            LiveSource::Mic => LiveSource::Aux,
+            LiveSource::Aux => LiveSource::Mic,
+        }
+    }
 }
 
 impl Switch {
@@ -38,10 +52,10 @@ impl Switch {
                 (Switch::Fx(deck, slot), turn)
             }
             Target::Mixer(MixerAction::Switch(switch, turn)) => (Switch::Mixer(switch), turn),
-            Target::Mixer(MixerAction::MicOn) => (Switch::LiveOn(Live::Mic), Turn::Over),
-            Target::Mixer(MixerAction::AuxOn) => (Switch::LiveOn(Live::Aux), Turn::Over),
-            Target::Mixer(MixerAction::MicCue) => (Switch::LiveCue(Live::Mic), Turn::Over),
-            Target::Mixer(MixerAction::AuxCue) => (Switch::LiveCue(Live::Aux), Turn::Over),
+            Target::Mixer(MixerAction::MicOn) => (Switch::LiveOn(LiveSource::Mic), Turn::Over),
+            Target::Mixer(MixerAction::AuxOn) => (Switch::LiveOn(LiveSource::Aux), Turn::Over),
+            Target::Mixer(MixerAction::MicCue) => (Switch::LiveCue(LiveSource::Mic), Turn::Over),
+            Target::Mixer(MixerAction::AuxCue) => (Switch::LiveCue(LiveSource::Aux), Turn::Over),
             Target::General(GeneralAction::Quantize(turn)) => (Switch::Quantize, turn),
             _ => return None,
         })
@@ -49,11 +63,11 @@ impl Switch {
 
     /// Whether it is on, as `sees` sees the application.
     pub fn is_on(self, sees: &impl Sees) -> bool {
-        let live = |live: Live| {
+        let live = |live: LiveSource| {
             let mixer = sees.mixer();
             match live {
-                Live::Mic => mixer.mic,
-                Live::Aux => mixer.aux,
+                LiveSource::Mic => mixer.mic,
+                LiveSource::Aux => mixer.aux,
             }
         };
         match self {

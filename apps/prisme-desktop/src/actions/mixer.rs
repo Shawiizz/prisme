@@ -4,10 +4,11 @@
 
 use super::take_over;
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
+use crate::dto::CrossfaderCurveDto;
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
-use prisme_actions::{engine_band, engine_side};
+use prisme_actions::switch::LiveSource;
+use prisme_actions::{engine_band, engine_live, engine_side};
 use prisme_control::{Band, Side};
 use prisme_engine::Command;
 use prisme_library::CueSlot;
@@ -105,12 +106,12 @@ pub fn set_crossfader_curve(state: &AppState, curve: CrossfaderCurveDto) -> AppR
 }
 
 /// The level of a live source (linear).
-pub fn set_live_level(state: &AppState, source: LiveSourceDto, gain: f32) -> AppResult<()> {
-    let command = Command::SetLiveLevel { source: source.into(), gain };
+pub fn set_live_level(state: &AppState, source: LiveSource, gain: f32) -> AppResult<()> {
+    let command = Command::SetLiveLevel { source: engine_live(source), gain };
     state.set_mixer(
         |m| match source {
-            LiveSourceDto::Mic => m.mic.level = gain,
-            LiveSourceDto::Aux => m.aux.level = gain,
+            LiveSource::Mic => m.mic.level = gain,
+            LiveSource::Aux => m.aux.level = gain,
         },
         command,
     )
@@ -158,15 +159,15 @@ pub fn set_split_cue(state: &AppState, enabled: bool) -> AppResult<()> {
 }
 
 /// Heard in the master, or not.
-pub fn set_live_on(state: &AppState, source: LiveSourceDto, on: bool) -> AppResult<()> {
+pub fn set_live_on(state: &AppState, source: LiveSource, on: bool) -> AppResult<()> {
     lock(&state.live)[source as usize].on = on;
-    state.send_if_running(Command::SetLiveOn { source: source.into(), on })
+    state.send_if_running(Command::SetLiveOn { source: engine_live(source), on })
 }
 
 /// Heard in the headphones, or not.
-pub fn set_live_cue(state: &AppState, source: LiveSourceDto, cue: bool) -> AppResult<()> {
+pub fn set_live_cue(state: &AppState, source: LiveSource, cue: bool) -> AppResult<()> {
     lock(&state.live)[source as usize].cue = cue;
-    state.send_if_running(Command::SetLiveCue { source: source.into(), cue })
+    state.send_if_running(Command::SetLiveCue { source: engine_live(source), cue })
 }
 
 /// While the microphone is on, the music ducks; kept for the next start.

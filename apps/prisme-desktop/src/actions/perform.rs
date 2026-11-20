@@ -2,7 +2,7 @@
 //! a fader's position, an encoder's steps.
 
 use super::{deck, fx, general, mixer, sampler, transport, Performing, Source};
-use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
+use crate::dto::CrossfaderCurveDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
 use prisme_actions::input::{Given, Input, KEY_STEPS};
@@ -12,6 +12,7 @@ use prisme_actions::scales::{
     balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
     trim_gain, Tempo,
 };
+use prisme_actions::switch::LiveSource;
 use prisme_actions::switch::Switch;
 use prisme_actions::view::band_index;
 use prisme_control::{
@@ -304,8 +305,8 @@ impl Performing<'_> {
             Switch::Mixer(MixerSwitch::HeadphonesSplit) => mixer::set_split_cue(state, on),
             Switch::Mixer(MixerSwitch::Talkover) => mixer::set_talkover(state, on),
             Switch::Mixer(MixerSwitch::CrossfaderReverse) => mixer::set_crossfader_reverse(state, on),
-            Switch::LiveOn(live) => mixer::set_live_on(state, live.into(), on),
-            Switch::LiveCue(live) => mixer::set_live_cue(state, live.into(), on),
+            Switch::LiveOn(live) => mixer::set_live_on(state, live, on),
+            Switch::LiveCue(live) => mixer::set_live_cue(state, live, on),
             Switch::Quantize => general::set_quantize(state, on),
         }
     }
@@ -365,7 +366,7 @@ impl Performing<'_> {
         let target = Target::Mixer(action);
         let Given::Value(at) = given else { return Ok(()) };
         let mixer = state.preferences.read(|p| p.mixer);
-        let live = |source: LiveSourceDto| {
+        let live = |source: LiveSource| {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
             self.memory().faders.give_silent_end(&target, at, live_knob(gain));
@@ -381,8 +382,8 @@ impl Performing<'_> {
             MixerAction::Booth => mixer::set_booth_gain(state, at),
             MixerAction::Headphones => mixer::set_headphone_gain(state, headphone_gain(at)),
             MixerAction::Main => mixer::set_main_gain(state, at),
-            MixerAction::Mic => live(LiveSourceDto::Mic),
-            MixerAction::Aux => live(LiveSourceDto::Aux),
+            MixerAction::Mic => live(LiveSource::Mic),
+            MixerAction::Aux => live(LiveSource::Aux),
             MixerAction::CrossfaderCurve => {
                 let sharp = self.memory().faders.give_stepped(&target, at, 2) == 1;
                 let curve = if sharp { CrossfaderCurveDto::Sharp } else { CrossfaderCurveDto::Smooth };

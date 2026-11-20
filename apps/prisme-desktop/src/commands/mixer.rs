@@ -2,13 +2,13 @@ use crate::actions::general;
 use crate::audio_host::{deck_pair, layer_partner};
 use crate::choices::{self, OutputNote};
 use crate::dto::{
-    AudioInfo, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto, MixModeDto, MixerStateDto,
-    RoutingStateDto,
+    AudioInfo, DeckSettingsDto, HeadphonesOutputDto, LiveStateDto, MixModeDto, MixerStateDto, RoutingStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_channels, live_preferences, lock, AppState, EXTERNAL_MIXER_OUTPUTS};
 use prisme_actions::knobs;
+use prisme_actions::switch::LiveSource;
 use prisme_actions::view::View;
 use prisme_engine::{Command, Rpm, MAX_DECKS};
 use tauri::State;
@@ -37,15 +37,15 @@ pub fn routing_of(state: &AppState, decks_in_use: usize) -> RoutingStateDto {
     let routing = info.as_ref().map(|info| state.routing(info));
     let switches = *lock(&state.live);
     let free = info.as_ref().map(free_inputs).unwrap_or_default();
-    let live = |source: LiveSourceDto| {
+    let live = |source: LiveSource| {
         let chosen = live_preferences(&mixer, source).input;
-        let other = live_preferences(&mixer, other_source(source)).input;
+        let other = live_preferences(&mixer, source.other()).input;
         let switches = switches[source as usize];
         let in_use = live_channels(chosen, &free).is_some();
         LiveStateDto {
             input: chosen,
             in_use,
-            choices: choices::inputs(&free, other, chosen, source == LiveSourceDto::Mic),
+            choices: choices::inputs(&free, other, chosen, source == LiveSource::Mic),
             note: info.as_ref().and_then(|_| choices::live_note(chosen, in_use, &free)),
             on: switches.on,
             cue: switches.cue,
@@ -76,8 +76,8 @@ pub fn routing_of(state: &AppState, decks_in_use: usize) -> RoutingStateDto {
             .as_ref()
             .filter(|_| internal)
             .and_then(|_| choices::booth_note(booth_in_use, mixer.booth, headphones_in_use)),
-        mic: live(LiveSourceDto::Mic),
-        aux: live(LiveSourceDto::Aux),
+        mic: live(LiveSource::Mic),
+        aux: live(LiveSource::Aux),
         record_options: general::record_options(internal, info.as_ref()),
     }
 }
@@ -160,12 +160,4 @@ fn route(state: &AppState) -> AppResult<()> {
 pub fn set_limiter(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.limiter = enabled);
     state.send_if_running(Command::SetLimiter { enabled })
-}
-
-/// The other live source than `source`.
-pub fn other_source(source: LiveSourceDto) -> LiveSourceDto {
-    match source {
-        LiveSourceDto::Mic => LiveSourceDto::Aux,
-        LiveSourceDto::Aux => LiveSourceDto::Mic,
-    }
 }

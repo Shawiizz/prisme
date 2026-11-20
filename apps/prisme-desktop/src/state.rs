@@ -6,9 +6,8 @@ use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, AutoDjStatusDto, BackendDto, ChannelStripDto, CueDto, DeckPadsDto, DeckStemsDto,
-    FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto,
-    MixModeDto, PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto,
-    VinylModeDto,
+    FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, MixModeDto,
+    PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -17,6 +16,7 @@ use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_actions::perform::PerformState;
+use prisme_actions::switch::LiveSource;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
     BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, LoopRegion, MixMode,
@@ -317,7 +317,7 @@ pub struct AppState {
     pub crossfader: Mirrored<f32>,
     /// The deck chosen to lead the others; `None`: the engine picks it.
     pub sync_leader: Mutex<Option<usize>>,
-    /// The microphone's and the aux line's, in the order of [`LiveSourceDto::ALL`].
+    /// The microphone's and the aux line's, in the order of [`LiveSource::ALL`].
     pub live: Mirrored<[LiveSwitches; 2]>,
     pub recorder: Mutex<Option<Recorder>>,
     /// The last recording ended.
@@ -937,7 +937,7 @@ impl AppState {
 
     /// Where `source` comes in on the device of `info`: the inputs chosen, if the turntables
     /// leave them free.
-    pub fn live_input(&self, source: LiveSourceDto, info: Option<&AudioInfo>) -> Option<InputChannelsDto> {
+    pub fn live_input(&self, source: LiveSource, info: Option<&AudioInfo>) -> Option<InputChannelsDto> {
         let chosen = self.preferences.read(|p| live_preferences(&p.mixer, source).input);
         live_channels(chosen, &free_inputs(info?))
     }
@@ -953,10 +953,10 @@ impl AppState {
             Command::SetBoothGain { gain: mixer.booth_gain },
             Command::SetTalkover { enabled: mixer.talkover, depth_db: mixer.talkover_depth_db },
         ];
-        for (source, switches) in LiveSourceDto::ALL.into_iter().zip(switches) {
+        for (source, switches) in LiveSource::ALL.into_iter().zip(switches) {
             let channels = self.live_input(source, info).map(Into::into);
             let gain = live_preferences(&mixer, source).level;
-            let source = source.into();
+            let source = prisme_actions::engine_live(source);
             commands.extend([
                 Command::SetLiveInput { source, channels },
                 Command::SetLiveLevel { source, gain },
@@ -1139,10 +1139,10 @@ fn places_of(
     })
 }
 
-pub fn live_preferences(mixer: &MixerPreferences, source: LiveSourceDto) -> &LivePreferences {
+pub fn live_preferences(mixer: &MixerPreferences, source: LiveSource) -> &LivePreferences {
     match source {
-        LiveSourceDto::Mic => &mixer.mic,
-        LiveSourceDto::Aux => &mixer.aux,
+        LiveSource::Mic => &mixer.mic,
+        LiveSource::Aux => &mixer.aux,
     }
 }
 

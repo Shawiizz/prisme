@@ -2,10 +2,10 @@
 
 use crate::actions::mixer;
 use crate::choices;
-use crate::commands::mixer::other_source;
-use crate::dto::{InputChannelsDto, LiveSourceDto};
+use crate::dto::InputChannelsDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{live_preferences, lock, AppState};
+use prisme_actions::switch::LiveSource;
 use prisme_engine::Command;
 use tauri::State;
 
@@ -14,34 +14,33 @@ use tauri::State;
 #[tauri::command]
 pub fn set_live_input(
     state: State<'_, AppState>,
-    source: LiveSourceDto,
+    source: LiveSource,
     input: Option<InputChannelsDto>,
 ) -> AppResult<()> {
     choose_live_input(&state, source, input)?;
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let channels = state.live_input(source, info.as_ref());
-    state.send_if_running(Command::SetLiveInput { source: source.into(), channels: channels.map(Into::into) })
+    state.send_if_running(Command::SetLiveInput {
+        source: prisme_actions::engine_live(source),
+        channels: channels.map(Into::into),
+    })
 }
 
 /// `source` kept on `input`, unless the other source has one of its inputs.
-fn choose_live_input(
-    state: &AppState,
-    source: LiveSourceDto,
-    input: Option<InputChannelsDto>,
-) -> AppResult<()> {
+fn choose_live_input(state: &AppState, source: LiveSource, input: Option<InputChannelsDto>) -> AppResult<()> {
     let mut taken = false;
     state.update_preferences(|p| {
-        let other = live_preferences(&p.mixer, other_source(source)).input;
+        let other = live_preferences(&p.mixer, source.other()).input;
         taken = input.zip(other).is_some_and(|(a, b)| choices::overlap(a, b));
         if !taken {
             match source {
-                LiveSourceDto::Mic => p.mixer.mic.input = input,
-                LiveSourceDto::Aux => p.mixer.aux.input = input,
+                LiveSource::Mic => p.mixer.mic.input = input,
+                LiveSource::Aux => p.mixer.aux.input = input,
             }
         }
     });
     if taken {
-        return Err(AppError::InputTaken(other_source(source)));
+        return Err(AppError::InputTaken(source.other()));
     }
     Ok(())
 }
@@ -55,11 +54,11 @@ mod tests {
         let state = AppState::new(prisme_session::JsonFile::in_memory(Default::default()));
         let pair = |first| Some(InputChannelsDto { first, stereo: true });
         let one = |first| Some(InputChannelsDto { first, stereo: false });
-        choose_live_input(&state, LiveSourceDto::Aux, pair(2)).unwrap();
-        let refused = choose_live_input(&state, LiveSourceDto::Mic, one(3));
-        assert!(matches!(refused, Err(AppError::InputTaken(LiveSourceDto::Aux))));
+        choose_live_input(&state, LiveSource::Aux, pair(2)).unwrap();
+        let refused = choose_live_input(&state, LiveSource::Mic, one(3));
+        assert!(matches!(refused, Err(AppError::InputTaken(LiveSource::Aux))));
         assert_eq!(state.preferences.read(|p| p.mixer.mic.input), None);
-        choose_live_input(&state, LiveSourceDto::Mic, one(4)).unwrap();
+        choose_live_input(&state, LiveSource::Mic, one(4)).unwrap();
         assert_eq!(state.preferences.read(|p| p.mixer.mic.input), one(4));
     }
 }

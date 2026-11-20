@@ -24,6 +24,7 @@ pub mod view;
 
 use prisme_control::{Band, Effect, Side};
 use prisme_engine::EffectKind;
+use switch::LiveSource;
 
 /// The engine's band of `band`.
 pub fn engine_band(band: Band) -> prisme_engine::Band {
@@ -40,6 +41,14 @@ pub fn engine_side(side: Side) -> prisme_engine::CrossfaderSide {
         Side::Left => prisme_engine::CrossfaderSide::Left,
         Side::Center => prisme_engine::CrossfaderSide::Center,
         Side::Right => prisme_engine::CrossfaderSide::Right,
+    }
+}
+
+/// The engine's live source of `source`.
+pub fn engine_live(source: LiveSource) -> prisme_engine::LiveSource {
+    match source {
+        LiveSource::Mic => prisme_engine::LiveSource::Mic,
+        LiveSource::Aux => prisme_engine::LiveSource::Aux,
     }
 }
 

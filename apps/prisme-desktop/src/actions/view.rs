@@ -3,12 +3,13 @@
 //! session's lock. A move of a control reads only the part it needs ([`Sees`]).
 
 use super::Performing;
-use crate::dto::{CrossfaderCurveDto, FxDto, LiveSourceDto};
+use crate::dto::{CrossfaderCurveDto, FxDto};
 use crate::preferences::{MixerPreferences, VinylSync};
 use crate::sampler::LoadedSample;
 use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
 use prisme_actions::input::Faders;
 use prisme_actions::perform::Memory;
+use prisme_actions::switch::LiveSource;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Sees, Strip, TrackView, View};
 use prisme_control::{HOT_CUES, SAMPLE_SLOTS};
 use prisme_engine::{DeckStatus, EngineStatus};
@@ -141,7 +142,7 @@ fn deck_view(
 }
 
 fn mixer_view(mixer: &MixerPreferences, switches: [LiveSwitches; 2], crossfader: f32) -> MixerView {
-    let live = |source: LiveSourceDto| {
+    let live = |source: LiveSource| {
         let on = switches[source as usize];
         Live { level: live_preferences(mixer, source).level, on: on.on, cue: on.cue }
     };
@@ -155,8 +156,8 @@ fn mixer_view(mixer: &MixerPreferences, switches: [LiveSwitches; 2], crossfader:
         main_gain: mixer.main_gain,
         balance: mixer.balance,
         booth_gain: mixer.booth_gain,
-        mic: live(LiveSourceDto::Mic),
-        aux: live(LiveSourceDto::Aux),
+        mic: live(LiveSource::Mic),
+        aux: live(LiveSource::Aux),
         talkover: mixer.talkover,
     }
 }

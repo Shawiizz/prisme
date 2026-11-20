@@ -2,7 +2,7 @@
 
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
 use prisme_actions::knobs::MixerKnobs;
-use prisme_engine::{InputChannels, LiveSource, MixMode};
+use prisme_engine::{InputChannels, MixMode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -171,35 +171,6 @@ impl InputChannelsDto {
 impl From<InputChannelsDto> for InputChannels {
     fn from(c: InputChannelsDto) -> Self {
         Self { first: c.first, stereo: c.stereo }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum LiveSourceDto {
-    Mic,
-    Aux,
-}
-
-impl LiveSourceDto {
-    pub const ALL: [LiveSourceDto; 2] = [LiveSourceDto::Mic, LiveSourceDto::Aux];
-}
-
-impl From<prisme_actions::switch::Live> for LiveSourceDto {
-    fn from(live: prisme_actions::switch::Live) -> Self {
-        match live {
-            prisme_actions::switch::Live::Mic => LiveSourceDto::Mic,
-            prisme_actions::switch::Live::Aux => LiveSourceDto::Aux,
-        }
-    }
-}
-
-impl From<LiveSourceDto> for LiveSource {
-    fn from(s: LiveSourceDto) -> Self {
-        match s {
-            LiveSourceDto::Mic => LiveSource::Mic,
-            LiveSourceDto::Aux => LiveSource::Aux,
-        }
     }
 }
 
