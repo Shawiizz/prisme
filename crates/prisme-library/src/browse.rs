@@ -9,7 +9,7 @@ use crate::catalogue::{folded, Catalogue, Track, TrackId, Tracks};
 use crate::db::{Crate, CrateId, HistorySession, SessionId, TrackRecord};
 use crate::duplicates::{duplicate_groups, song_key};
 use crate::mix::{MixReference, Rank};
-use crate::scan::within;
+use crate::scan::{root_of, within};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -383,8 +383,7 @@ impl Browser {
 
     /// The music folder `path` is in, the deepest if they hold one another.
     pub fn root_of(&self, path: &Path) -> Option<&PathBuf> {
-        let holding = self.roots.iter().filter(|root| within(path, root));
-        holding.max_by_key(|root| root.as_os_str().len())
+        root_of(path, &self.roots)
     }
 
     /// The folder above the folder shown, inside its music folder.

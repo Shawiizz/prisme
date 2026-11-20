@@ -83,6 +83,11 @@ pub fn within(path: &Path, folder: &Path) -> bool {
     names(path).starts_with(&names(folder))
 }
 
+/// The deepest of the music folders `roots` that `path` is or is in (see [`within`]).
+pub fn root_of<'r>(path: &Path, roots: &'r [PathBuf]) -> Option<&'r PathBuf> {
+    roots.iter().filter(|root| within(path, root)).max_by_key(|root| root.components().count())
+}
+
 fn scan_folder_at(root: &Path, cancel: &AtomicBool, now: SystemTime) -> Scan {
     let mut scan = Scan::default();
     let mut folders = vec![root.to_path_buf()];
@@ -175,6 +180,16 @@ impl Attributes {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_is_within_the_deepest_music_folder_it_is_in() {
+        let roots = [PathBuf::from("/music"), PathBuf::from("/music/sets"), PathBuf::from("/usb")];
+        assert_eq!(root_of(Path::new("/music/sets/2024"), &roots), Some(&roots[1]));
+        assert_eq!(root_of(Path::new("/music"), &roots), Some(&roots[0]));
+        assert_eq!(root_of(Path::new("/musical"), &roots), None, "a name that starts the same");
+        let windows = cfg!(windows).then_some(&roots[0]);
+        assert_eq!(root_of(Path::new("/Music/x"), &roots), windows, "a case of its own on Windows");
+    }
 
     #[test]
     fn finds_audio_files_in_sub_folders() {

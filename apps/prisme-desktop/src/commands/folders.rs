@@ -4,6 +4,7 @@ use crate::error::AppResult;
 use crate::folders;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
+use prisme_library::root_of;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
@@ -85,7 +86,7 @@ pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppRes
         cfg!(target_os = "android") && folders::storage_places().iter().any(|p| Path::new(&p.path) == path);
     let shown = |folder: &&PathBuf| !(top && folder.file_name().is_some_and(|name| name == "Android"));
     Ok(DirListingDto {
-        within: within(&path, &roots).map(|root| root.display().to_string()),
+        within: root_of(&path, &roots).map(|root| root.display().to_string()),
         path: path.display().to_string(),
         parent: path.parent().map(|p| p.display().to_string()),
         folders: listing.folders.iter().filter(shown).map(|folder| FolderDto::of(folder)).collect(),
@@ -93,22 +94,9 @@ pub fn list_dir(library: State<'_, Arc<LibraryService>>, path: String) -> AppRes
     })
 }
 
-/// The deepest of the music folders `roots` that `path` is or is in.
-fn within<'r>(path: &Path, roots: &'r [PathBuf]) -> Option<&'r PathBuf> {
-    roots.iter().filter(|root| path.starts_with(root)).max_by_key(|root| root.components().count())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_folder_is_within_the_deepest_music_folder_it_is_in() {
-        let roots = [PathBuf::from("/music"), PathBuf::from("/music/sets"), PathBuf::from("/usb")];
-        assert_eq!(within(Path::new("/music/sets/2024"), &roots), Some(&roots[1]));
-        assert_eq!(within(Path::new("/music"), &roots), Some(&roots[0]));
-        assert_eq!(within(Path::new("/musical"), &roots), None, "a name that starts the same");
-    }
 
     #[test]
     fn the_files_dropped_are_tracks_by_their_extension_the_rest_folders() {

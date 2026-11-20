@@ -37,5 +37,5 @@ pub use db::{
 pub use duplicates::duplicate_groups;
 pub use identity::{adopt, adopt_unless, Search};
 pub use metadata::{read_metadata, Metadata};
-pub use scan::{scan_folder, scan_folders, within, Scan, ScannedFile};
+pub use scan::{root_of, scan_folder, scan_folders, within, Scan, ScannedFile};
 pub use smart::{Rule, SmartRules, TextField};
