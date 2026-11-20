@@ -26,22 +26,22 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
                 let revision = state.revision();
-                let (mut status, garbage) = {
+                let (engine, garbage) = {
                     let mut session = lock(&state.session);
-                    match session.as_mut() {
-                        Some(s) => {
-                            let status = StatusDto::from_engine(
-                                &s.controller.status(),
-                                &s.stats,
-                                s.engine_config.sample_rate,
-                            );
-                            (status, s.controller.take_garbage())
-                        }
-                        None => (StatusDto::stopped(), Vec::new()),
-                    }
+                    session.as_mut().map_or((None, Vec::new()), |s| {
+                        let engine = (s.controller.status(), s.stats.clone(), s.engine_config.sample_rate);
+                        (Some(engine), s.controller.take_garbage())
+                    })
                 };
-                // freed with the session's lock released: the jogs and the clock wait on it
+                // freed, and the status built, with the session's lock released: the jogs and
+                // the clock wait on it
                 drop(garbage);
+                let mut status = match engine {
+                    Some((engine, stats, sample_rate)) => {
+                        StatusDto::from_engine(&engine, &stats, sample_rate)
+                    }
+                    None => StatusDto::stopped(),
+                };
                 if told != Some(revision) {
                     status.controls = Some(ControlStateDto::of(&state));
                     told = Some(revision);
