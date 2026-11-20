@@ -1,13 +1,12 @@
 //! Where the fader of an action stands, read from a [`View`], and what a value a profile shows
 //! on a controller is: a fader's position, or a deck's track measured.
 
-use crate::input::Stepped;
 use crate::scales::{balance_knob, eq_knob, filter_knob, headphone_knob, live_knob, trim_knob, Tempo};
-use crate::view::{band_index, FxSlot, View};
+use crate::view::{band_index, View};
 use prisme_control::{DeckAction, Effect, FxAction, Measure, MixerAction, Source, Target, FX_SLOTS};
 
 /// The periods an effect's period fader goes through, in beats.
-const FX_PERIODS: [f32; 7] = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+pub const FX_PERIODS: [f32; 7] = [0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
 /// Turns a minute of the record a jog wheel's ring shows.
 const RECORD_RPM: f64 = 100.0 / 3.0;
 
@@ -49,11 +48,20 @@ fn deck_position(deck: usize, action: DeckAction, view: &View) -> Option<f32> {
     let settings = &view.decks[deck];
     let status = view.status(deck);
     let slots = &settings.fx.slots;
+    let faders = &view.perform.faders;
+    let period = |slot: usize| {
+        let target = Target::Deck(deck, DeckAction::Fx(slot, FxAction::Period));
+        let step = FX_PERIODS.iter().position(|p| *p == slots[slot].beats).unwrap_or(0);
+        faders.stepped(&target).position(step, FX_PERIODS.len())
+    };
     Some(match action {
         DeckAction::Pitch => Tempo { ratio: settings.pitch, range: settings.tempo_range }.position(),
         DeckAction::Volume => settings.volume,
         DeckAction::Trim => trim_knob(settings.strip.trim),
-        DeckAction::Eq(band) => eq_knob(settings.strip.eq[band_index(band)]),
+        DeckAction::Eq(band) => {
+            let target = Target::Deck(deck, action);
+            faders.silent_end(&target).position(eq_knob(settings.strip.eq[band_index(band)]))
+        }
         DeckAction::Filter => filter_knob(settings.strip.filter),
         DeckAction::Position if status.duration_s > 0.0 => (status.position_s / status.duration_s) as f32,
         DeckAction::Position => 0.0,
@@ -63,38 +71,34 @@ fn deck_position(deck: usize, action: DeckAction, view: &View) -> Option<f32> {
         DeckAction::FxSuper => slots.iter().map(|s| s.amount).sum::<f32>() / FX_SLOTS as f32,
         DeckAction::FxKnob(knob) => match view.perform.decks[deck].fx_focus {
             None => slots[knob].amount,
-            Some(focused) => [slots[focused].amount, slots[focused].param2, period(&slots[focused])][knob],
+            Some(focused) => [slots[focused].amount, slots[focused].param2, period(focused)][knob],
         },
         DeckAction::Fx(slot, FxAction::Mix) => slots[slot].mix,
         DeckAction::Fx(slot, FxAction::Amount) => slots[slot].amount,
         DeckAction::Fx(slot, FxAction::Param2) => slots[slot].param2,
-        DeckAction::Fx(slot, FxAction::Period) => period(&slots[slot]),
+        DeckAction::Fx(slot, FxAction::Period) => period(slot),
         DeckAction::Fx(slot, FxAction::Kind) => {
             let step = Effect::NAMED.iter().position(|e| *e == slots[slot].effect).unwrap_or(0);
-            Stepped::centre(step, Effect::NAMED.len())
+            faders.stepped(&Target::Deck(deck, action)).position(step, Effect::NAMED.len())
         }
         _ => return None,
     })
 }
 
-/// Where an effect's period fader stands: the middle of its period's step.
-fn period(slot: &FxSlot) -> f32 {
-    let step = FX_PERIODS.iter().position(|p| *p == slot.beats).unwrap_or(0);
-    Stepped::centre(step, FX_PERIODS.len())
-}
-
 fn mixer_position(action: MixerAction, view: &View) -> Option<f32> {
     let mixer = &view.mixer;
+    let faders = &view.perform.faders;
+    let target = Target::Mixer(action);
     Some(match action {
         MixerAction::Crossfader => (mixer.crossfader + 1.0) / 2.0,
         MixerAction::CueMix => mixer.cue_mix,
         MixerAction::Balance => balance_knob(mixer.balance),
         MixerAction::Booth => mixer.booth_gain,
-        MixerAction::Mic => live_knob(mixer.mic.level),
-        MixerAction::Aux => live_knob(mixer.aux.level),
+        MixerAction::Mic => faders.silent_end(&target).position(live_knob(mixer.mic.level)),
+        MixerAction::Aux => faders.silent_end(&target).position(live_knob(mixer.aux.level)),
         MixerAction::Headphones => headphone_knob(mixer.headphone_gain),
         MixerAction::Main => mixer.main_gain,
-        MixerAction::CrossfaderCurve => Stepped::centre(usize::from(mixer.sharp_curve), 2),
+        MixerAction::CrossfaderCurve => faders.stepped(&target).position(usize::from(mixer.sharp_curve), 2),
         // it sets every deck in use: it stands where they do on the whole
         MixerAction::SamplerGain => {
             let decks = &view.decks[..view.decks_in_use];
@@ -191,6 +195,31 @@ mod tests {
         assert!(close(at("deck1.fx3.period", &v), 4.5 / 7.0));
         v.decks[0].fx.slots[2].effect = Effect::Flanger;
         assert!(close(at("deck1.fx3.kind", &v), 3.5 / 8.0));
+    }
+
+    #[test]
+    fn a_fader_over_steps_or_silent_at_an_end_stands_where_it_was_given_while_it_gives_the_setting() {
+        let mut v = view();
+        let target = |id: &str| id.parse::<Target>().unwrap();
+        // a period of 1/4 beat given at 0.2, the knob of the focused slot reading it too
+        v.decks[0].fx.slots[1].beats = 0.25;
+        v.perform.faders.give_stepped(&target("deck1.fx2.period"), 0.2, 7);
+        v.perform.decks[0].fx_focus = Some(1);
+        assert_eq!(at("deck1.fx2.period", &v), Some(0.2));
+        assert_eq!(at("deck1.fx.knob3", &v), Some(0.2));
+        v.decks[0].fx.slots[1].beats = 2.0;
+        assert!(close(at("deck1.fx2.period", &v), 4.5 / 7.0), "changed elsewhere");
+        // a band silent at 0.01, a live source at 0.015
+        v.decks[1].strip.eq[2] = 0.0;
+        v.perform.faders.give_silent_end(&target("deck2.eq.high"), 0.01, 0.0);
+        assert_eq!(at("deck2.eq.high", &v), Some(0.01));
+        assert_eq!(at("deck1.eq.high", &v), Some(eq_knob(1.0)), "the other deck's");
+        v.mixer.aux.level = 0.0;
+        v.perform.faders.give_silent_end(&target("mixer.aux"), 0.015, live_knob(0.0));
+        assert_eq!(at("mixer.aux", &v), Some(0.015));
+        v.perform.faders.give_stepped(&target("mixer.crossfaderCurve"), 0.9, 2);
+        v.mixer.sharp_curve = true;
+        assert_eq!(at("mixer.crossfaderCurve", &v), Some(0.9));
     }
 
     #[test]

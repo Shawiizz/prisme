@@ -1,8 +1,5 @@
 import { buildControls, Control, ControlActions, measuredControl } from './controls';
-import { Pickup } from './pickup';
-import { Band, CrossfaderCurve, LiveSource } from '../models/engine';
 import { nextTempoRange } from '../models/preferences';
-import { eqGain, eqKnob, liveGain, liveKnob } from '../../shared/mixer-scales';
 
 /** Controls whose actions record their calls; queries answer `true`. */
 function recorder() {
@@ -70,9 +67,8 @@ describe('controls', () => {
     find('mixer.crossfader').apply(1);
     find('library.browse').apply(-3);
     expect(calls).toEqual([
-      'setEq(1,low,0.25)',
-      'eqPosition(1,low)',
-      'setCrossfader(1)',
+      'perform(deck2.eq.low,0.25,false)',
+      'perform(mixer.crossfader,1,false)',
       'browse(-3)',
     ]);
   });
@@ -90,10 +86,9 @@ describe('controls', () => {
     find('deck2.headphones.solo').apply(1);
     find('deck1.mute').apply(1);
     expect(calls).toEqual([
-      'setBalance(0.25)',
-      'setBoothLevel(0.8)',
-      'setLiveLevel(aux,0.5)',
-      'liveLevelPosition(aux)',
+      'perform(mixer.balance,0.25,false)',
+      'perform(mixer.booth,0.8,false)',
+      'perform(mixer.aux,0.5,false)',
       'toggleLive(mic)',
       'talkover()',
       'setTalkover(false)',
@@ -141,7 +136,7 @@ describe('controls', () => {
       'pressFx(0,1,reverb)',
       'scaleFxBeats(0,0,0.5)',
       'scaleFxBeats(1,1,4)',
-      'setFxMix(1,1,0.5)',
+      'perform(deck2.fx2.mix,0.5,false)',
       'nextFxPart(0)',
     ]);
     expect(find('deck1.fx2.part')).toBeUndefined();
@@ -154,7 +149,7 @@ describe('controls', () => {
     find('deck2.fx3.held').apply(0);
     find('deck1.fx.focus').apply(1);
     expect(calls).toEqual([
-      'setFxParam2(0,1,0.3)',
+      'perform(deck1.fx2.param2,0.3,false)',
       'perform(deck2.fx3.held,1,false)',
       'perform(deck2.fx3.held,0,false)',
       'toggleFxFocus(0,0)',
@@ -162,24 +157,26 @@ describe('controls', () => {
     expect(find('deck1.fx.held').label).toBe('Effect 1 on while held');
   });
 
-  /** Effect controls over a deck's chain as `fx` holds it. */
+  /** Effect controls over a deck's chain as `fx` holds it, the backend performing their
+   * amounts, second knobs and periods (along a knob of 7 steps, from 1/8 beat). */
   function chainOf(fx: { kind: string; amount: number; param2: number; beats: number }[]) {
     const focus = { slot: null as number | null };
     const chain = { on: true };
     const actions = {
+      perform: (id: string, v: number) => {
+        const [, n, name] = /^deck1\.fx(\d?)\.(\w+)$/.exec(id)!;
+        const f = fx[n ? Number(n) - 1 : 0];
+        if (name === 'amount') f.amount = v;
+        if (name === 'param2') f.param2 = v;
+        if (name === 'period') f.beats = 2 ** (Math.min(Math.floor(v * 7), 6) - 3);
+      },
       fxFocused: () => focus.slot,
       toggleFxFocus: (_: number, slot: number) => {
         focus.slot = focus.slot === slot ? null : slot;
       },
       fxAmountPosition: (_: number, slot: number) => fx[slot].amount,
-      setFxAmount: (_: number, slot: number, v: number) => (fx[slot].amount = v),
-      setFxAmounts: (_: number, v: number) => fx.forEach((f) => (f.amount = v)),
       fxParam2Position: (_: number, slot: number) => fx[slot].param2,
-      setFxParam2: (_: number, slot: number, v: number) => (fx[slot].param2 = v),
       fxBeats: (_: number, slot: number) => fx[slot].beats,
-      setFxBeats: (_: number, slot: number, beats: number) => (fx[slot].beats = beats),
-      fxKind: (_: number, slot: number) => fx[slot].kind,
-      setFxKind: (_: number, slot: number, kind: string) => (fx[slot].kind = kind),
       fxChainOn: () => chain.on,
       setFxChainOn: (_: number, on: boolean) => (chain.on = on),
     } as unknown as ControlActions;
@@ -210,35 +207,17 @@ describe('controls', () => {
 
     find('deck1.fx2.focus').apply(1);
     expect(knobs[1].position!()).toBe(0.6);
-  });
 
-  it('move the period and the effect along a knob, keeping a controller within a step', () => {
-    const fx = slots();
-    const { find } = chainOf(fx);
-    const period = find('deck1.fx3.period');
-    const kind = find('deck1.fx3.kind');
-    expect(period.position!()).toBeCloseTo(3.5 / 7);
-    period.apply(1);
-    expect(fx[2].beats).toBe(8);
-    period.apply(0.2);
+    find('deck1.fx3.focus').apply(1);
+    knobs[2].apply(0.2);
     expect(fx[2].beats).toBe(1 / 4);
-    expect(period.position!()).toBe(0.2);
+    expect(knobs[2].position!()).toBe(0.2);
     fx[2].beats = 2;
-    expect(period.position!()).toBeCloseTo(4.5 / 7);
-
-    kind.apply(0.99);
-    expect(fx[2].kind).toBe('bitcrusher');
-    kind.apply(0.4);
-    expect(fx[2].kind).toBe('flanger');
-    expect(kind.position!()).toBe(0.4);
+    expect(knobs[2].position!()).toBeCloseTo(4.5 / 7);
   });
 
-  it('move the three amounts together, and switch the whole chain', () => {
-    const fx = slots();
-    const { find, chain } = chainOf(fx);
-    expect(find('deck1.fx.super').position!()).toBeCloseTo(0.2);
-    find('deck1.fx.super').apply(0.7);
-    expect(fx.map((f) => f.amount)).toEqual([0.7, 0.7, 0.7]);
+  it('switch the whole chain', () => {
+    const { find, chain } = chainOf(slots());
     find('deck1.fx.chain').apply(1);
     expect(chain.on).toBe(false);
     find('deck1.fx.chain.on').apply(1);
@@ -507,47 +486,5 @@ describe('controls', () => {
       'perform(deck2.sample3.velocity,0.25,false)',
       'perform(deck2.sample3.velocity,0,false)',
     ]);
-  });
-
-  /** A controller's fader sending each of `values` in turn, taken over as `ControllerService` does. */
-  function turn(control: Control, values: number[]) {
-    const pickup = new Pickup();
-    for (const v of values) if (pickup.takes(v, control.position!())) control.apply(v);
-  }
-
-  /** A 7-bit knob from full left to `to`. */
-  const knob = (to: number) => Array.from({ length: Math.round(to * 127) + 1 }, (_, i) => i / 127);
-
-  it('bring an EQ band and a live input back from their silent end', () => {
-    const levels = { eq: 0, mic: 0 };
-    const controls = buildControls({
-      setEq: (_: number, __: Band, v: number) => (levels.eq = eqGain(v)),
-      eqPosition: () => eqKnob(levels.eq),
-      setLiveLevel: (_: LiveSource, v: number) => (levels.mic = liveGain(v)),
-      liveLevelPosition: () => liveKnob(levels.mic),
-    } as unknown as ControlActions);
-    const find = (id: string) => controls.find((c) => c.id === id)!;
-    turn(find('deck1.eq.low'), knob(0.5));
-    turn(find('mixer.mic'), knob(0.75));
-    expect(levels.eq).toBeCloseTo(1, 1);
-    expect(levels.mic).toBeCloseTo(1, 1);
-
-    levels.eq = 0;
-    const low = find('deck1.eq.low');
-    for (let step = 0; step < 4; step++) low.apply(low.position!() + 1 / 64);
-    expect(levels.eq).toBeGreaterThan(0);
-  });
-
-  it('switch the crossfader curve along a knob', () => {
-    let curve: CrossfaderCurve = 'smooth';
-    const controls = buildControls({
-      crossfaderCurve: () => curve,
-      setCrossfaderCurve: (c: CrossfaderCurve) => (curve = c),
-    } as unknown as ControlActions);
-    const fader = controls.find((c) => c.id === 'mixer.crossfaderCurve')!;
-    turn(fader, knob(1));
-    expect(curve).toBe('sharp');
-    turn(fader, knob(1).reverse());
-    expect(curve).toBe('smooth');
   });
 });

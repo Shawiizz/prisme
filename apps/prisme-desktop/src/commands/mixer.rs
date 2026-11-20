@@ -1,5 +1,5 @@
 use crate::actions::mixer;
-use crate::auto_dj::{AutoDj, Takeover};
+use crate::auto_dj::AutoDj;
 use crate::dto::{
     BandDto, CrossfaderCurveDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto,
     LiveStateDto, MixModeDto, MixerStateDto,
@@ -8,11 +8,7 @@ use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
 use prisme_engine::{Command, OutputRouting};
-use prisme_library::CueSlot;
 use tauri::State;
-
-/// A channel fader this low is closed: fader start stops its deck there.
-const FADER_CLOSED: f32 = 1e-3;
 
 /// Deck and mixer settings as the backend knows them (to rebuild the UI).
 #[tauri::command]
@@ -123,15 +119,13 @@ pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> App
 /// Kept for the next start.
 #[tauri::command]
 pub fn set_booth_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.booth_gain = gain);
-    state.send_if_running(Command::SetBoothGain { gain })
+    mixer::set_booth_gain(&state, gain)
 }
 
 /// The master's level (linear); kept for the next start.
 #[tauri::command]
 pub fn set_main_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.main_gain = gain);
-    state.send_if_running(Command::SetMasterGain { gain })
+    mixer::set_main_gain(&state, gain)
 }
 
 /// The side of the crossfader `deck` is on.
@@ -149,8 +143,7 @@ pub fn set_crossfader_side(
 /// -1 = the master on the left only, 1 = on the right only; kept for the next start.
 #[tauri::command]
 pub fn set_balance(state: State<'_, AppState>, balance: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.balance = balance);
-    state.send_if_running(Command::SetBalance { balance })
+    mixer::set_balance(&state, balance)
 }
 
 /// Applies the routing the preferences give to the running audio, if any.
@@ -165,25 +158,7 @@ fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
 /// closed stops it on its cue point.
 #[tauri::command]
 pub fn set_volume(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    let (before, fader_start) = {
-        let mut decks = lock(&state.decks);
-        (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start)
-    };
-    state.send(Command::SetVolume { deck, gain })?;
-    let Some(play) = fader_start.then(|| opened(before, gain)).flatten() else { return Ok(()) };
-    if !state.mixes_itself() {
-        return Ok(());
-    }
-    let Ok(cue_s) = state.with_track(deck, |t| t.cue(CueSlot::Main).map_or(0.0, |c| c.position_s)) else {
-        return Ok(());
-    };
-    state.send(Command::SetPlaying { deck, playing: play })?;
-    if play {
-        Ok(())
-    } else {
-        state.send(Command::Seek { deck, seconds: cue_s })
-    }
+    mixer::set_volume(&state, deck, gain)
 }
 
 /// Software mixer: the channel fader starts and stops the deck; kept for the next start.
@@ -195,22 +170,13 @@ pub fn set_fader_start(state: State<'_, AppState>, deck: usize, enabled: bool) -
     Ok(())
 }
 
-/// A fader moved from `before` to `after`: `Some(true)` as it opens from closed, `Some(false)`
-/// as it closes.
-fn opened(before: f32, after: f32) -> Option<bool> {
-    let open = after > FADER_CLOSED;
-    (open != (before > FADER_CLOSED)).then_some(open)
-}
-
 #[tauri::command]
 pub fn set_crossfader(
     state: State<'_, AppState>,
     auto_dj: State<'_, AutoDj>,
     position: f32,
 ) -> AppResult<()> {
-    auto_dj.take_over(Takeover::Crossfader);
-    *lock(&state.crossfader) = position;
-    state.send(Command::SetCrossfader { position })
+    mixer::set_crossfader(&state, Some(&auto_dj), position)
 }
 
 /// Sends the deck to the headphones (software mixer).
@@ -239,8 +205,7 @@ pub fn set_mute(state: State<'_, AppState>, deck: usize, enabled: bool) -> AppRe
 /// Headphones: 0 = cued decks only, 1 = master only. Kept for the next start.
 #[tauri::command]
 pub fn set_cue_mix(state: State<'_, AppState>, mix: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.cue_mix = mix);
-    state.send_if_running(Command::SetCueMix { mix })
+    mixer::set_cue_mix(&state, mix)
 }
 
 /// Headphones: the cue on the left and the master on the right, each in mono, or blended.
@@ -253,24 +218,19 @@ pub fn set_split_cue(state: State<'_, AppState>, enabled: bool) -> AppResult<()>
 
 #[tauri::command]
 pub fn set_headphone_gain(state: State<'_, AppState>, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.headphone_gain = gain);
-    state.send_if_running(Command::SetHeadphoneGain { gain })
+    mixer::set_headphone_gain(&state, gain)
 }
 
 /// Software mixer: gain before the EQ (linear).
 #[tauri::command]
 pub fn set_trim(state: State<'_, AppState>, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.trim = gain;
-    state.send_if_running(Command::SetTrim { deck, gain })
+    mixer::set_trim(&state, deck, gain)
 }
 
 /// Software mixer: EQ band gain (linear, 1 = flat).
 #[tauri::command]
 pub fn set_eq(state: State<'_, AppState>, deck: usize, band: BandDto, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.eq[band as usize] = gain;
-    state.send_if_running(Command::SetEq { deck, band: band.into(), gain })
+    mixer::set_eq(&state, deck, band, gain)
 }
 
 #[tauri::command]
@@ -281,16 +241,13 @@ pub fn set_eq_kill(state: State<'_, AppState>, deck: usize, band: BandDto, kill:
 /// Software mixer: -1 = low-pass closed, 0 = off, 1 = high-pass open.
 #[tauri::command]
 pub fn set_filter(state: State<'_, AppState>, deck: usize, position: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].strip.filter = position;
-    state.send_if_running(Command::SetFilter { deck, position })
+    mixer::set_filter(&state, deck, position)
 }
 
 /// Kept for the next start.
 #[tauri::command]
 pub fn set_crossfader_curve(state: State<'_, AppState>, curve: CrossfaderCurveDto) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.crossfader_curve = curve);
-    state.send_if_running(Command::SetCrossfaderCurve { curve: curve.into() })
+    mixer::set_crossfader_curve(&state, curve)
 }
 
 /// Master limiter; kept for the next start.
@@ -298,18 +255,4 @@ pub fn set_crossfader_curve(state: State<'_, AppState>, curve: CrossfaderCurveDt
 pub fn set_limiter(state: State<'_, AppState>, enabled: bool) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.limiter = enabled);
     state.send_if_running(Command::SetLimiter { enabled })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fader_start_plays_as_the_fader_opens_and_stops_as_it_closes() {
-        assert_eq!(opened(0.0, 0.2), Some(true));
-        assert_eq!(opened(0.2, 0.8), None, "already open");
-        assert_eq!(opened(0.8, 0.0), Some(false));
-        assert_eq!(opened(0.0, 0.0), None);
-        assert_eq!(opened(0.0005, 0.0), None, "a closed fader trembling");
-    }
 }

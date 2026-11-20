@@ -5,8 +5,8 @@
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, BackendDto, BandDto, ChannelStripDto, CrossfaderSideDto, CueDto, DeckStemsDto, FxChainDto,
-    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto, StemMixDto,
-    TempoDto, TrackInfoDto, VinylModeDto,
+    FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, LiveSourceDto, MixModeDto, RpmDto,
+    SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -125,6 +125,11 @@ impl LoadedTrack {
     /// Its gain: the one bringing it to [`AUTO_GAIN_LUFS`] if `auto_gain`, else 1.
     pub fn level(&self, auto_gain: bool) -> f32 {
         self.loudness.filter(|_| auto_gain).map_or(1.0, auto_gain_for)
+    }
+
+    /// How far it is separated: the stems it has.
+    pub fn separation(&self) -> SeparationDto {
+        SeparationDto::of(|stem| self.stems[stem as usize].is_some())
     }
 
     pub fn cue(&self, slot: CueSlot) -> Option<&Cue> {

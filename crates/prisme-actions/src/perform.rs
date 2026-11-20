@@ -2,6 +2,7 @@
 //! cue played while held, its slicer and the slices and cuts held, its roll, its effect
 //! focused, its filter set aside, its tempo tapped, its search, when its level last clipped.
 
+use crate::input::Faders;
 use crate::press::Held;
 use crate::tap::TapTempo;
 use prisme_control::MAX_DECKS;
@@ -13,6 +14,7 @@ const CLIP_SHOWN_S: f64 = 1.0;
 #[derive(Debug, Default)]
 pub struct PerformState {
     pub decks: [DeckPerform; MAX_DECKS],
+    pub faders: Faders,
     main_clip: ClipHold,
 }
 
@@ -57,6 +59,7 @@ impl ClipHold {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct PerformView {
     pub decks: [DeckPerformView; MAX_DECKS],
+    pub faders: Faders,
     pub main_clipping: bool,
 }
 
@@ -85,7 +88,11 @@ impl PerformState {
                 fx_focus: deck.fx_focus,
             }
         });
-        PerformView { decks, main_clipping: self.main_clip.heard(status.main_peak, now_s) }
+        PerformView {
+            decks,
+            faders: self.faders,
+            main_clipping: self.main_clip.heard(status.main_peak, now_s),
+        }
     }
 }
 

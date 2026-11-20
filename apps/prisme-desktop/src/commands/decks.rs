@@ -1,4 +1,4 @@
-use crate::actions::deck;
+use crate::actions::{deck, transport};
 use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
@@ -10,8 +10,6 @@ use crate::state::{deck_commands, lock, AppState};
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
 use tauri::{AppHandle, Manager, State};
-
-const MAX_KEY_SHIFT: u8 = 12;
 
 #[tauri::command]
 pub fn set_playing(
@@ -32,9 +30,7 @@ pub fn seek(
     deck: usize,
     seconds: f64,
 ) -> AppResult<()> {
-    state.has_deck(deck)?;
-    auto_dj.take_over(Takeover::Transport(deck));
-    state.send(Command::Seek { deck, seconds })
+    transport::seek(&state, Some(&auto_dj), deck, seconds)
 }
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
@@ -241,11 +237,7 @@ pub fn set_key_lock(state: State<'_, AppState>, deck: usize, enabled: bool) -> A
 /// Transposes the track on `deck` until the next load.
 #[tauri::command]
 pub fn set_key_shift(state: State<'_, AppState>, deck: usize, semitones: i8) -> AppResult<()> {
-    if semitones.unsigned_abs() > MAX_KEY_SHIFT {
-        return Err(AppError::Other(format!("a key shift is ±{MAX_KEY_SHIFT} semitones at most")));
-    }
-    state.with_track(deck, |track| track.key_shift = semitones)?;
-    state.send_if_running(Command::SetKeyShift { deck, semitones })
+    deck::set_key_shift(&state, deck, semitones)
 }
 
 #[tauri::command]

@@ -174,6 +174,37 @@ pub enum EffectKindDto {
     Bitcrusher,
 }
 
+impl From<EffectKindDto> for prisme_control::Effect {
+    fn from(k: EffectKindDto) -> Self {
+        match k {
+            EffectKindDto::Echo => Self::Echo,
+            EffectKindDto::PingPong => Self::PingPong,
+            EffectKindDto::Reverb => Self::Reverb,
+            EffectKindDto::Flanger => Self::Flanger,
+            EffectKindDto::Phaser => Self::Phaser,
+            EffectKindDto::Filter => Self::Filter,
+            EffectKindDto::Gate => Self::Gate,
+            EffectKindDto::Bitcrusher => Self::Bitcrusher,
+        }
+    }
+}
+
+impl From<prisme_control::Effect> for EffectKindDto {
+    fn from(e: prisme_control::Effect) -> Self {
+        use prisme_control::Effect;
+        match e {
+            Effect::Echo => Self::Echo,
+            Effect::PingPong => Self::PingPong,
+            Effect::Reverb => Self::Reverb,
+            Effect::Flanger => Self::Flanger,
+            Effect::Phaser => Self::Phaser,
+            Effect::Filter => Self::Filter,
+            Effect::Gate => Self::Gate,
+            Effect::Bitcrusher => Self::Bitcrusher,
+        }
+    }
+}
+
 impl From<EffectKindDto> for prisme_engine::EffectKind {
     fn from(k: EffectKindDto) -> Self {
         match k {

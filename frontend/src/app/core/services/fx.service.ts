@@ -101,16 +101,6 @@ export class FxService {
     return this.engine.call('set_fx_amount', { deck, slot, amount });
   }
 
-  /** The three slots' amounts at once: Mixxx's super knob. */
-  setAmounts(deck: number, amount: number) {
-    const chain = this.chain(deck);
-    const slots = chain.slots.map((fx) => ({ ...fx, amount }));
-    this.engine.patchDeck(deck, { fx: { ...chain, slots } });
-    return Promise.all(
-      slots.map((_, slot) => this.engine.call('set_fx_amount', { deck, slot, amount })),
-    );
-  }
-
   setParam2(deck: number, slot: number, param2: number) {
     this.patch(deck, slot, { param2 });
     return this.engine.call('set_fx_param2', { deck, slot, param2 });

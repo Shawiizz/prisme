@@ -12,20 +12,6 @@ import { RecordingService } from '../services/recording.service';
 import { TrackEditService } from '../services/track-edit.service';
 import { TapTempo } from '../../shared/tap-tempo';
 import { PREVIEW_STEP_S, PreviewService } from '../services/preview.service';
-import {
-  balanceAmount,
-  balanceKnob,
-  bandKnob,
-  eqGain,
-  filterAmount,
-  filterKnob,
-  liveGain,
-  liveKnob,
-  MAX_HEADPHONE_GAIN,
-  trimGain,
-  trimKnob,
-} from '../../shared/mixer-scales';
-import { partLevel } from '../stem-parts';
 import { Control, ControlActions, buildControls, measuredControl } from './controls';
 
 const LOOP_BEATS = 4;
@@ -79,11 +65,6 @@ export class ControlService {
     setKeyLock: (deck, on) => this.engine.setKeyLock(deck, on),
     keyLocked: (deck) => this.engine.decks()[deck].keyLock,
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
-    setStemLevel: (deck, part, position) => this.engine.setStemLevel(deck, part, position),
-    stemLevel: (deck, part) => {
-      const track = this.engine.tracks()[deck];
-      return track ? partLevel(track.stemMix, part) : 1;
-    },
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
     toggleFx: (deck, slot) => this.fx.setEnabled(deck, slot, !this.fx.settings(deck, slot).enabled),
@@ -91,17 +72,10 @@ export class ControlService {
     pressFx: (deck, slot, kind) => this.fx.press(deck, slot, kind),
     cycleFx: (deck, slot, step) => this.fx.cycle(deck, slot, step),
     nextFxPart: (deck) => this.fx.nextPart(deck),
-    setFxMix: (deck, slot, position) => this.fx.setMix(deck, slot, position),
-    setFxAmount: (deck, slot, position) => this.fx.setAmount(deck, slot, position),
     fxAmountPosition: (deck, slot) => this.fx.settings(deck, slot).amount,
-    setFxAmounts: (deck, position) => this.fx.setAmounts(deck, position),
-    setFxParam2: (deck, slot, position) => this.fx.setParam2(deck, slot, position),
     fxParam2Position: (deck, slot) => this.fx.settings(deck, slot).param2,
     scaleFxBeats: (deck, slot, factor) => this.fx.scaleBeats(deck, slot, factor),
-    setFxBeats: (deck, slot, beats) => this.fx.setBeats(deck, slot, beats),
     fxBeats: (deck, slot) => this.fx.settings(deck, slot).beats,
-    setFxKind: (deck, slot, kind) => this.fx.setKind(deck, slot, kind),
-    fxKind: (deck, slot) => this.fx.settings(deck, slot).kind,
     fxFocused: (deck) => this.fx.focused(deck),
     toggleFxFocus: (deck, slot) => this.fx.toggleFocus(deck, slot),
     setFxChainOn: (deck, on) => this.fx.setChainEnabled(deck, on),
@@ -111,33 +85,14 @@ export class ControlService {
       else this.rolls.set(deck, beats);
       this.performance.loopRoll(deck, beats);
     },
-    setVolume: (deck, position) => this.mixer.setVolume(deck, position),
-    setEq: (deck, band, position) => this.mixer.setEq(deck, band, eqGain(position)),
-    setFilter: (deck, position) => this.mixer.setFilter(deck, filterAmount(position)),
-    setTrim: (deck, position) => this.mixer.setTrim(deck, trimGain(position)),
-    setCrossfader: (position) => this.mixer.setCrossfader(position * 2 - 1),
-    setCueMix: (position) => this.mixer.setCueMix(position),
-    cueMixPosition: () => this.mixer.cueMix(),
     setSplitCue: (on) => this.mixer.setSplitCue(on),
     splitCue: () => this.mixer.splitCue(),
-    setBalance: (position) => this.mixer.setBalance(balanceAmount(position)),
-    balancePosition: () => balanceKnob(this.mixer.balance()),
-    setBoothLevel: (position) => this.mixer.setBoothGain(position),
-    boothLevelPosition: () => this.mixer.boothGain(),
-    setLiveLevel: (source, position) => this.mixer.setLiveLevel(source, liveGain(position)),
-    liveLevelPosition: (source) => liveKnob(this.mixer.live(source)().level),
     toggleLive: (source) => this.mixer.setLiveOn(source, !this.mixer.live(source)().on),
     toggleLiveCue: (source) => this.mixer.setLiveCue(source, !this.mixer.live(source)().cue),
     setTalkover: (on) => this.mixer.setTalkover(on),
     talkover: () => this.mixer.talkover(),
     setPassthrough: (deck, on) => this.engine.setPassthrough(deck, on),
     passthrough: (deck) => this.engine.decks()[deck].passthrough,
-    fxMixPosition: (deck, slot) => this.fx.settings(deck, slot).mix,
-    volumePosition: (deck) => this.engine.decks()[deck].volume,
-    eqPosition: (deck, band) => bandKnob(this.mixer.strip(deck), band),
-    filterPosition: (deck) => filterKnob(this.mixer.strip(deck).filter),
-    trimPosition: (deck) => trimKnob(this.mixer.strip(deck).trim),
-    crossfaderPosition: () => (this.mixer.crossfader() + 1) / 2,
     setHeadphones: (deck, on) => this.mixer.setDeckCue(deck, on),
     inHeadphones: (deck) => this.engine.decks()[deck].cue,
     soloHeadphones: (deck) => this.engine.soloCue(deck),
@@ -206,14 +161,6 @@ export class ControlService {
     },
     stepTempo: (deck, steps) =>
       this.engine.setPitch(deck, this.engine.decks()[deck].pitch + steps * TEMPO_STEP),
-    setPosition: (deck, position) => {
-      const duration = this.deck(deck)?.durationS ?? 0;
-      if (duration > 0) this.engine.seek(deck, position * duration);
-    },
-    positionInTrack: (deck) => {
-      const d = this.deck(deck);
-      return d && d.durationS > 0 ? d.positionS / d.durationS : 0;
-    },
     syncKey: (deck) => {
       const shift = this.engine.keyMatch(deck);
       if (shift !== null) this.engine.setKeyShift(deck, shift);
@@ -260,15 +207,8 @@ export class ControlService {
     setCrossfaderSide: (deck, side) => this.mixer.setCrossfaderSide(deck, side),
     setCrossfaderReverse: (on) => this.mixer.setCrossfaderReverse(on),
     crossfaderReversed: () => this.mixer.crossfaderReverse(),
-    setCrossfaderCurve: (curve) => this.mixer.setCrossfaderCurve(curve),
-    crossfaderCurve: () => this.mixer.crossfaderCurve(),
     nextCrossfaderCurve: () =>
       this.mixer.setCrossfaderCurve(this.mixer.crossfaderCurve() === 'sharp' ? 'smooth' : 'sharp'),
-    setSamplerGain: (deck, position) => {
-      for (const d of deck === null ? this.engine.deckIndexes() : [deck])
-        this.sampler.setGain(d, position);
-    },
-    samplerGainPosition: (deck) => this.engine.decks()[deck ?? 0].samplerGain,
     ejectSample: (deck, slot) => this.sampler.clear(deck, slot),
     loadSample: (deck, slot) => {
       const path = this.library.selected();
@@ -280,10 +220,6 @@ export class ControlService {
     jogScratching: (deck) => this.engine.decks()[deck].jogScratch,
     toggleRecording: () =>
       this.recordings.status() ? this.recordings.stop() : this.recordings.startPreferred(),
-    setHeadphonesLevel: (position) => this.mixer.setHeadphoneGain(position * MAX_HEADPHONE_GAIN),
-    headphonesLevelPosition: () => this.mixer.headphoneGain() / MAX_HEADPHONE_GAIN,
-    setMainLevel: (position) => this.mixer.setMainGain(position),
-    mainLevelPosition: () => this.mixer.mainGain(),
     moveFocus: () => this.library.focus.update((f) => (f === 'tracks' ? 'lists' : 'tracks')),
     browseLists: (steps) => this.library.movePointedList(steps),
     openPointedList: () => this.library.openPointedList(),

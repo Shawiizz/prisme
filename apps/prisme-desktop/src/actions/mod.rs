@@ -299,6 +299,12 @@ pub(crate) mod bench {
                 .perform(&target, input)
         }
 
+        /// Where the fader of `id` stands.
+        pub fn position(&self, id: &str) -> Option<f32> {
+            let view = view_of(&self.state, false, &self.actions.perform, 0.0);
+            position(&id.parse().unwrap(), &view)
+        }
+
         /// The commands the engine was sent since last asked.
         pub fn sent(&mut self) -> Vec<Command> {
             self.engine.take_commands()

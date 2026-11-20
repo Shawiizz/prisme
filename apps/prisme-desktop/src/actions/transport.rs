@@ -36,3 +36,10 @@ pub fn set_loop(
     let region = region.map(|(start_s, end_s)| LoopRegion { start_s, end_s });
     send(state, deck, Command::SetLoop { deck, region, active: active && region.is_some() })
 }
+
+/// To `seconds` into the track; the Auto DJ lets the deck go.
+pub fn seek(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f64) -> AppResult<()> {
+    state.has_deck(deck)?;
+    take_over(auto_dj, Takeover::Transport(deck));
+    state.send(Command::Seek { deck, seconds })
+}

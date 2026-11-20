@@ -1,7 +1,6 @@
 import {
   BANDS,
   Band,
-  CrossfaderCurve,
   CrossfaderSide,
   EFFECT_KINDS,
   EffectKind,
@@ -75,9 +74,6 @@ export interface ControlActions {
   setKeyShift(deck: number, semitones: number): void;
   /** Mutes or plays a part of a separated track. */
   toggleStem(deck: number, part: StemPart): void;
-  /** Sets how loud a part of a separated track plays. */
-  setStemLevel(deck: number, part: StemPart, position: number): void;
-  stemLevel(deck: number, part: StemPart): number;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
   /** The effects of a deck are in a chain of slots, played one after the other. */
@@ -89,23 +85,13 @@ export interface ControlActions {
   cycleFx(deck: number, slot: number, step: number): void;
   /** The chain on the next part of the track it can be on (the whole deck after the last). */
   nextFxPart(deck: number): void;
-  setFxMix(deck: number, slot: number, position: number): void;
   /** The slot's main knob (feedback, room size, depth: see each effect). */
-  setFxAmount(deck: number, slot: number, position: number): void;
   fxAmountPosition(deck: number, slot: number): number;
-  /** The three slots' amounts at once (Mixxx's super knob). */
-  setFxAmounts(deck: number, position: number): void;
   /** The slot's second knob (tone, resonance...: see each effect). */
-  setFxParam2(deck: number, slot: number, position: number): void;
   fxParam2Position(deck: number, slot: number): number;
   /** Multiplies the slot's period by `factor`. */
   scaleFxBeats(deck: number, slot: number, factor: number): void;
-  /** The slot's period, in beats. */
-  setFxBeats(deck: number, slot: number, beats: number): void;
   fxBeats(deck: number, slot: number): number;
-  /** Another effect in the slot, on or off as it was. */
-  setFxKind(deck: number, slot: number, kind: EffectKind): void;
-  fxKind(deck: number, slot: number): EffectKind;
   /** The slot the effect knobs are on (Mixxx's focused effect), or none. */
   fxFocused(deck: number): number | null;
   /** Focuses the slot, or lets it go if it is focused. */
@@ -115,24 +101,9 @@ export interface ControlActions {
   fxChainOn(deck: number): boolean;
   /** Rolls a loop of `beats` over the track, the track going on beneath; `null` ends it. */
   roll(deck: number, beats: number | null): void;
-  setVolume(deck: number, position: number): void;
-  setEq(deck: number, band: Band, position: number): void;
-  setFilter(deck: number, position: number): void;
-  setTrim(deck: number, position: number): void;
-  setCrossfader(position: number): void;
-  /** What the headphones play: the cued decks (0) to the master (1). */
-  setCueMix(position: number): void;
-  cueMixPosition(): number;
   /** The headphones split, the cue on the left and the master on the right, or blended. */
   setSplitCue(on: boolean): void;
   splitCue(): boolean;
-  /** The master's balance: left only (0), both sides (0.5), right only (1). */
-  setBalance(position: number): void;
-  balancePosition(): number;
-  setBoothLevel(position: number): void;
-  boothLevelPosition(): number;
-  setLiveLevel(source: LiveSource, position: number): void;
-  liveLevelPosition(source: LiveSource): number;
   /** A live source heard in the master, or not. */
   toggleLive(source: LiveSource): void;
   toggleLiveCue(source: LiveSource): void;
@@ -142,13 +113,6 @@ export interface ControlActions {
   /** The deck plays its input as it comes instead of its track. */
   setPassthrough(deck: number, on: boolean): void;
   passthrough(deck: number): boolean;
-  /** Where the faders' settings stand (0 to 1). */
-  fxMixPosition(deck: number, slot: number): number;
-  volumePosition(deck: number): number;
-  eqPosition(deck: number, band: Band): number;
-  filterPosition(deck: number): number;
-  trimPosition(deck: number): number;
-  crossfaderPosition(): number;
   setHeadphones(deck: number, on: boolean): void;
   inHeadphones(deck: number): boolean;
   /** The headphones on this deck alone. */
@@ -210,9 +174,6 @@ export interface ControlActions {
   search(deck: number, direction: -1 | 1, held: boolean): void;
   /** The tempo moved by so many tenths of a percent, and kept. */
   stepTempo(deck: number, steps: number): void;
-  /** Where the deck plays in its track (0 to 1). */
-  setPosition(deck: number, position: number): void;
-  positionInTrack(deck: number): number;
   /** The key of the deck brought to the key of the deck it mixes with. */
   syncKey(deck: number): void;
   /** Back to the start of the stored loop, playing it, stopped. */
@@ -231,11 +192,7 @@ export interface ControlActions {
   /** The crossfader's sides swapped, or back. */
   setCrossfaderReverse(on: boolean): void;
   crossfaderReversed(): boolean;
-  setCrossfaderCurve(curve: CrossfaderCurve): void;
-  crossfaderCurve(): CrossfaderCurve;
   nextCrossfaderCurve(): void;
-  setSamplerGain(deck: number | null, position: number): void;
-  samplerGainPosition(deck: number | null): number;
   ejectSample(deck: number, slot: number): void;
   /** The selected track into the slot. */
   loadSample(deck: number, slot: number): void;
@@ -246,10 +203,6 @@ export interface ControlActions {
   setJogScratch(deck: number, on: boolean): void;
   jogScratching(deck: number): boolean;
   toggleRecording(): void;
-  setHeadphonesLevel(position: number): void;
-  headphonesLevelPosition(): number;
-  setMainLevel(position: number): void;
-  mainLevelPosition(): number;
   /** The browse knob on the lists of the left, or on the tracks. */
   moveFocus(): void;
   /** The pointer on the lists of the left moved, or the list it points at opened. */
@@ -325,59 +278,6 @@ function fader(
   return { id, group, label, kind: 'fader', apply: run, position };
 }
 
-/**
- * A fader over a few steps (the effects, the periods), each an equal part of its travel. Its
- * position is the one it was last given while that still gives the step in use: a
- * controller's fader moving within a step keeps it.
- */
-function stepped<T>(
-  id: string,
-  group: string,
-  label: string,
-  steps: readonly T[],
-  current: () => T,
-  set: (step: T) => void,
-): Control {
-  let given: number | null = null;
-  const at = (v: number) => Math.min(Math.max(Math.floor(v * steps.length), 0), steps.length - 1);
-  return fader(
-    id,
-    group,
-    label,
-    (v) => {
-      given = v;
-      if (steps[at(v)] !== current()) set(steps[at(v)]);
-    },
-    () => {
-      const step = Math.max(steps.indexOf(current()), 0);
-      return given !== null && at(given) === step ? given : (step + 0.5) / steps.length;
-    },
-  );
-}
-
-/**
- * A fader silent over the start of its travel (an EQ band, a live input), where its setting
- * reads as full left: its position is the one it was last given while the setting is still the
- * one that gave, so that a controller's fader moving there keeps it.
- */
-function silentEnd(control: Control): Control {
-  const position = control.position!;
-  let given: number | null = null;
-  let left = 0;
-  return {
-    ...control,
-    apply: (v) => {
-      control.apply(v);
-      given = v;
-      left = position();
-    },
-    position: () => {
-      const now = position();
-      return given !== null && now === left ? given : now;
-    },
-  };
-}
-
 /** A control the controller reads itself (its shift): listed to be mapped, never applied here. */
 function direct(id: string, group: string, label: string): Control {
   return { id, group, label, kind: 'button', apply: () => undefined };
@@ -425,8 +325,6 @@ const FX_PERIODS = Array.from(
   (_, i) => FX_BEATS.min * 2 ** i,
 );
 
-const CROSSFADER_CURVES: readonly CrossfaderCurve[] = ['smooth', 'sharp'];
-
 /** The id of a control of a slot of a deck's effect chain: `deck1.fx…` for the first,
  * `deck1.fx2…` and `deck1.fx3…` for the next. */
 const fxId = (deck: number, slot: number, name: string) =>
@@ -452,26 +350,14 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
         () => a.pressFx(deck, slot, kind),
       ),
     ),
-    fader(
-      id('.mix'),
-      group,
-      t('Effect {n} level', { n }),
-      (v) => a.setFxMix(deck, slot, v),
-      () => a.fxMixPosition(deck, slot),
-    ),
-    fader(
-      id('.amount'),
-      group,
-      t('Effect {n} amount', { n }),
-      (v) => a.setFxAmount(deck, slot, v),
-      () => a.fxAmountPosition(deck, slot),
-    ),
-    fader(
+    performed(a, id('.mix'), group, t('Effect {n} level', { n }), 'fader'),
+    performed(a, id('.amount'), group, t('Effect {n} amount', { n }), 'fader'),
+    performed(
+      a,
       id('.param2'),
       group,
       t('Effect {n} second knob (tone, resonance… as the effect has)', { n }),
-      (v) => a.setFxParam2(deck, slot, v),
-      () => a.fxParam2Position(deck, slot),
+      'fader',
     ),
     {
       id: id('.beats'),
@@ -480,22 +366,8 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
       kind: 'encoder',
       apply: (steps) => a.scaleFxBeats(deck, slot, 2 ** steps),
     },
-    stepped(
-      id('.period'),
-      group,
-      t('Effect {n} period, along the knob', { n }),
-      FX_PERIODS,
-      () => a.fxBeats(deck, slot),
-      (beats) => a.setFxBeats(deck, slot, beats),
-    ),
-    stepped(
-      id('.kind'),
-      group,
-      t('Effect {n}: the effect, along the knob', { n }),
-      EFFECT_KINDS,
-      () => a.fxKind(deck, slot),
-      (kind) => a.setFxKind(deck, slot, kind),
-    ),
+    performed(a, id('.period'), group, t('Effect {n} period, along the knob', { n }), 'fader'),
+    performed(a, id('.kind'), group, t('Effect {n}: the effect, along the knob', { n }), 'fader'),
     lit(
       button(id('.focus'), group, t('Effect {n} focused on the effect knobs / let go', { n }), () =>
         a.toggleFxFocus(deck, slot),
@@ -517,24 +389,38 @@ const FX_KNOB_LABEL: Text[] = [
  * knob K is effect K's amount; with one focused, they are its amount, second knob and period. */
 function fxChainControls(a: ControlActions, deck: number, group: string): Control[] {
   const slots = Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group));
-  const of = (slot: number, name: string) =>
-    slots[slot].find((c) => c.id === fxId(deck, slot, name))!;
   const knob = (k: number) => {
+    /** Where the knob last left a focused period: moving within its step, it keeps it, as
+     * the backend's period faders do. */
+    let given: number | null = null;
     const target = () => {
       const focused = a.fxFocused(deck);
-      if (focused === null) return of(k, '.amount');
-      return of(focused, ['.amount', '.param2', '.period'][k]);
+      return focused === null
+        ? { slot: k, name: '.amount' }
+        : { slot: focused, name: ['.amount', '.param2', '.period'][k] };
+    };
+    const period = (slot: number) => {
+      const steps = FX_PERIODS.length;
+      const step = FX_PERIODS.indexOf(a.fxBeats(deck, slot));
+      const at = (v: number) => Math.min(Math.max(Math.floor(v * steps), 0), steps - 1);
+      return given !== null && at(given) === step ? given : (step + 0.5) / steps;
     };
     return fader(
       `deck${deck + 1}.fx.knob${k + 1}`,
       group,
       FX_KNOB_LABEL[k](),
-      (v) => target().apply(v),
-      () => target().position!(),
+      (v) => {
+        const { slot, name } = target();
+        if (name === '.period') given = v;
+        a.perform(fxId(deck, slot, name), v, false);
+      },
+      () => {
+        const { slot, name } = target();
+        if (name === '.amount') return a.fxAmountPosition(deck, slot);
+        return name === '.param2' ? a.fxParam2Position(deck, slot) : period(slot);
+      },
     );
   };
-  const amounts = () =>
-    slots.reduce((sum, _, slot) => sum + a.fxAmountPosition(deck, slot), 0) / FX_SLOTS;
   return [
     ...slots.flat(),
     ...switched(
@@ -545,12 +431,12 @@ function fxChainControls(a: ControlActions, deck: number, group: string): Contro
       (on) => a.setFxChainOn(deck, on),
     ),
     ...Array.from({ length: FX_SLOTS }, (_, k) => knob(k)),
-    fader(
+    performed(
+      a,
       `deck${deck + 1}.fx.super`,
       group,
       t('Effect amounts together (super knob)'),
-      (v) => a.setFxAmounts(deck, v),
-      amounts,
+      'fader',
     ),
   ];
 }
@@ -668,13 +554,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       button(id(name), group, label, () => a.toggleStem(deck, part)),
     ),
     ...stems.map(([name, part, , level]) =>
-      fader(
-        id(`${name}.level`),
-        group,
-        level,
-        (v) => a.setStemLevel(deck, part, v),
-        () => a.stemLevel(deck, part),
-      ),
+      performed(a, id(`${name}.level`), group, level, 'fader'),
     ),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) =>
       performed(a, id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 })),
@@ -709,39 +589,11 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       ),
     ),
     performed(a, id('pitch'), group, t('Tempo'), 'fader'),
-    fader(
-      id('volume'),
-      group,
-      t('Volume'),
-      (v) => a.setVolume(deck, v),
-      () => a.volumePosition(deck),
-    ),
-    fader(
-      id('trim'),
-      group,
-      t('Gain'),
-      (v) => a.setTrim(deck, v),
-      () => a.trimPosition(deck),
-    ),
-    ...BANDS.map((band) =>
-      silentEnd(
-        fader(
-          id(`eq.${band}`),
-          group,
-          EQ_LABEL[band](),
-          (v) => a.setEq(deck, band, v),
-          () => a.eqPosition(deck, band),
-        ),
-      ),
-    ),
+    performed(a, id('volume'), group, t('Volume'), 'fader'),
+    performed(a, id('trim'), group, t('Gain'), 'fader'),
+    ...BANDS.map((band) => performed(a, id(`eq.${band}`), group, EQ_LABEL[band](), 'fader')),
     ...BANDS.map((band) => performed(a, id(`eq.${band}.kill`), group, KILL_LABEL[band]())),
-    fader(
-      id('filter'),
-      group,
-      t('Filter'),
-      (v) => a.setFilter(deck, v),
-      () => a.filterPosition(deck),
-    ),
+    performed(a, id('filter'), group, t('Filter'), 'fader'),
     ...switched(
       id('headphones'),
       group,
@@ -807,21 +659,9 @@ function moreDeckControls(
     encoder('tempo', t('Tempo, 0.1 % a step'), (steps) => a.stepTempo(deck, steps)),
     performed(a, id('bend.down.small'), group, t('Slow down a little while held')),
     performed(a, id('bend.up.small'), group, t('Speed up a little while held')),
-    fader(
-      id('position'),
-      group,
-      t('Place in the track (a touch strip)'),
-      (v) => a.setPosition(deck, v),
-      () => a.positionInTrack(deck),
-    ),
+    performed(a, id('position'), group, t('Place in the track (a touch strip)'), 'fader'),
     button(id('key.sync'), group, t('Key matched to the other deck'), () => a.syncKey(deck)),
-    fader(
-      id('key'),
-      group,
-      t('Key, from 12 semitones down to 12 up'),
-      (v) => a.setKeyShift(deck, Math.round(v * 24 - 12)),
-      () => (a.keyShift(deck) + 12) / 24,
-    ),
+    performed(a, id('key'), group, t('Key, from 12 semitones down to 12 up'), 'fader'),
     performed(a, id('loop.clear'), group, t('Forget the loop')),
     button(id('reloop.stop'), group, t('Back to the loop, stopped'), () => a.reloopStopped(deck)),
     button(id('loop.in.goto'), group, t('To the start of the loop'), () =>
@@ -853,13 +693,7 @@ function moreDeckControls(
         a.setCrossfaderSide(deck, side),
       ),
     ),
-    fader(
-      id('sampler.gain'),
-      group,
-      t('Sampler level'),
-      (v) => a.setSamplerGain(deck, v),
-      () => a.samplerGainPosition(deck),
-    ),
+    performed(a, id('sampler.gain'), group, t('Sampler level'), 'fader'),
     ...Array.from({ length: SAMPLE_SLOTS }, (_, slot) => [
       performed(a, id(`sample${slot + 1}.stop`), group, t('Stop sample {n}', { n: slot + 1 })),
       button(
@@ -927,15 +761,7 @@ function liveControls(a: ControlActions): Control[] {
     ['aux', t('Aux line level'), t('Aux line on / off'), t('Aux line in the headphones')],
   ];
   return sources.flatMap(([source, level, on, cue]) => [
-    silentEnd(
-      fader(
-        `mixer.${source}`,
-        group,
-        level,
-        (v) => a.setLiveLevel(source, v),
-        () => a.liveLevelPosition(source),
-      ),
-    ),
+    performed(a, `mixer.${source}`, group, level, 'fader'),
     button(`mixer.${source}.on`, group, on, () => a.toggleLive(source)),
     button(`mixer.${source}.cue`, group, cue, () => a.toggleLiveCue(source)),
   ]);
@@ -993,20 +819,8 @@ export function buildControls(a: ControlActions): Control[] {
     ...Array.from({ length: MAX_DECKS }, (_, deck) =>
       deckControls(a, deck).map((control) => ({ ...control, deck })),
     ).flat(),
-    fader(
-      'mixer.crossfader',
-      t('Mixer'),
-      t('Crossfader'),
-      (v) => a.setCrossfader(v),
-      () => a.crossfaderPosition(),
-    ),
-    fader(
-      'mixer.cueMix',
-      t('Mixer'),
-      t('Headphones: cued decks or master'),
-      (v) => a.setCueMix(v),
-      () => a.cueMixPosition(),
-    ),
+    performed(a, 'mixer.crossfader', t('Mixer'), t('Crossfader'), 'fader'),
+    performed(a, 'mixer.cueMix', t('Mixer'), t('Headphones: cued decks or master'), 'fader'),
     ...switched(
       'mixer.headphones.split',
       t('Mixer'),
@@ -1014,20 +828,8 @@ export function buildControls(a: ControlActions): Control[] {
       () => a.splitCue(),
       (on) => a.setSplitCue(on),
     ),
-    fader(
-      'mixer.balance',
-      t('Mixer'),
-      t('Master balance'),
-      (v) => a.setBalance(v),
-      () => a.balancePosition(),
-    ),
-    fader(
-      'mixer.booth',
-      t('Mixer'),
-      t('Booth level'),
-      (v) => a.setBoothLevel(v),
-      () => a.boothLevelPosition(),
-    ),
+    performed(a, 'mixer.balance', t('Mixer'), t('Master balance'), 'fader'),
+    performed(a, 'mixer.booth', t('Mixer'), t('Booth level'), 'fader'),
     ...liveControls(a),
     ...switched(
       'mixer.talkover',
@@ -1119,27 +921,14 @@ export function buildControls(a: ControlActions): Control[] {
       ),
       lit: () => a.libraryOnly(),
     },
-    fader(
-      'mixer.headphones',
-      t('Mixer'),
-      t('Headphones level'),
-      (v) => a.setHeadphonesLevel(v),
-      () => a.headphonesLevelPosition(),
-    ),
-    fader(
-      'mixer.main',
-      t('Mixer'),
-      t('Master level'),
-      (v) => a.setMainLevel(v),
-      () => a.mainLevelPosition(),
-    ),
-    stepped(
+    performed(a, 'mixer.headphones', t('Mixer'), t('Headphones level'), 'fader'),
+    performed(a, 'mixer.main', t('Mixer'), t('Master level'), 'fader'),
+    performed(
+      a,
       'mixer.crossfaderCurve',
       t('Mixer'),
       t('Crossfader curve: smooth, then sharp'),
-      CROSSFADER_CURVES,
-      () => a.crossfaderCurve(),
-      (curve) => a.setCrossfaderCurve(curve),
+      'fader',
     ),
     button('mixer.crossfaderCurve.next', t('Mixer'), t('The other crossfader curve'), () =>
       a.nextCrossfaderCurve(),
@@ -1151,13 +940,7 @@ export function buildControls(a: ControlActions): Control[] {
       () => a.crossfaderReversed(),
       (on) => a.setCrossfaderReverse(on),
     ),
-    fader(
-      'sampler.gain',
-      t('Mixer'),
-      t("Level of every deck's sampler"),
-      (v) => a.setSamplerGain(null, v),
-      () => a.samplerGainPosition(null),
-    ),
+    performed(a, 'sampler.gain', t('Mixer'), t("Level of every deck's sampler"), 'fader'),
     light('main.clip', t('Mixer'), t('Light: the master past full scale')),
     button('general.record', t('General'), t('Record the mix'), () => a.toggleRecording()),
     performed(a, 'autodj.toggle', t('Auto DJ'), t('Auto DJ on / off')),

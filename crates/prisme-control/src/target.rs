@@ -406,7 +406,32 @@ impl Target {
                 | DeckAction::GridLater
                 | DeckAction::GridFaster
                 | DeckAction::GridSlower
-                | DeckAction::GridMove,
+                | DeckAction::GridMove
+                | DeckAction::Volume
+                | DeckAction::Trim
+                | DeckAction::Eq(_)
+                | DeckAction::Filter
+                | DeckAction::Position
+                | DeckAction::Key
+                | DeckAction::SamplerGain
+                | DeckAction::StemLevel(_)
+                | DeckAction::FxSuper
+                | DeckAction::Fx(
+                    _,
+                    FxAction::Mix | FxAction::Amount | FxAction::Param2 | FxAction::Period | FxAction::Kind,
+                ),
+            )
+            | Target::Mixer(
+                MixerAction::Crossfader
+                | MixerAction::CueMix
+                | MixerAction::Balance
+                | MixerAction::Booth
+                | MixerAction::Mic
+                | MixerAction::Aux
+                | MixerAction::Headphones
+                | MixerAction::Main
+                | MixerAction::CrossfaderCurve
+                | MixerAction::SamplerGain,
             )
             | Target::AutoDj(_) => Owner::Rust,
             _ => Owner::Ui,

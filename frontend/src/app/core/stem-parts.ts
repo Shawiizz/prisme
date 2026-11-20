@@ -48,8 +48,7 @@ export function partLevel(mix: StemMix, part: StemPart): number {
   return Math.max(...stemsOf(part).map((s) => mix[s].level));
 }
 
-/** `mix` with the level of `part` set (the instrumental's instruments together). */
-export function setPartLevel(mix: StemMix, part: StemPart, level: number): StemMix {
-  const clamped = Math.min(1, Math.max(0, level));
-  return stemsOf(part).reduce((m, s) => ({ ...m, [s]: { ...m[s], level: clamped } }), mix);
+/** The name of `part` in the actions' ids: `melody` for the other instruments. */
+export function partId(part: StemPart): string {
+  return part === 'other' ? 'melody' : part;
 }

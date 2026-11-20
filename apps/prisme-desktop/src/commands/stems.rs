@@ -1,11 +1,11 @@
 //! Stem separation: the models, the queue, and the stems a deck plays.
 
+use crate::actions::deck;
 use crate::dto::{StemMixDto, StemsStatusDto};
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::state::AppState;
 use crate::stems_service::{self, StemsService};
-use prisme_engine::Command;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::State;
@@ -55,6 +55,5 @@ pub fn cancel_separation(stems: State<'_, StemsService>) {
 /// or off from the next bar if `on_bar` (see `Command::SetStemMix`).
 #[tauri::command]
 pub fn set_stem_mix(state: State<'_, AppState>, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
-    state.with_track(deck, |t| t.stem_mix = mix)?;
-    state.send_if_running(Command::SetStemMix { deck, mix: mix.into(), on_bar })
+    deck::set_stem_mix(&state, deck, mix, on_bar)
 }

@@ -2,11 +2,11 @@
 //! under short locks, each let go before the next: the engine's state first, copied out of the
 //! session's lock.
 
-use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, EffectKindDto, FxDto, LiveSourceDto, SeparationDto};
+use crate::dto::{CrossfaderCurveDto, CrossfaderSideDto, FxDto, LiveSourceDto};
 use crate::state::{as_laid_out, live_preferences, lock, AppState, LoadedTrack};
 use prisme_actions::perform::PerformState;
 use prisme_actions::view::{DeckView, FxChain, FxSlot, Live, MixerView, Strip, TrackView, View};
-use prisme_control::{Effect, Side, HOT_CUES};
+use prisme_control::{Side, HOT_CUES};
 use prisme_library::CueSlot;
 use std::sync::Mutex;
 
@@ -97,7 +97,7 @@ fn track_view(track: &LoadedTrack) -> TrackView {
     TrackView {
         bpm: track.grid().map(|g| g.bpm),
         key_shift: track.key_shift,
-        separation: SeparationDto::of(|stem| track.stems[stem as usize].is_some()),
+        separation: track.separation(),
         stem_mix: track.stem_mix,
         main_cue_s,
         hot_cues,
@@ -106,25 +106,12 @@ fn track_view(track: &LoadedTrack) -> TrackView {
 
 fn fx_slot(fx: FxDto) -> FxSlot {
     FxSlot {
-        effect: effect(fx.kind),
+        effect: fx.kind.into(),
         enabled: fx.enabled,
         mix: fx.mix,
         amount: fx.amount,
         param2: fx.param2,
         beats: fx.beats,
-    }
-}
-
-fn effect(kind: EffectKindDto) -> Effect {
-    match kind {
-        EffectKindDto::Echo => Effect::Echo,
-        EffectKindDto::PingPong => Effect::PingPong,
-        EffectKindDto::Reverb => Effect::Reverb,
-        EffectKindDto::Flanger => Effect::Flanger,
-        EffectKindDto::Phaser => Effect::Phaser,
-        EffectKindDto::Filter => Effect::Filter,
-        EffectKindDto::Gate => Effect::Gate,
-        EffectKindDto::Bitcrusher => Effect::Bitcrusher,
     }
 }
 

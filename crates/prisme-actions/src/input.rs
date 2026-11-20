@@ -2,7 +2,8 @@
 //! encoder's steps below one add up, an encoder on a fader's action moves it from where it
 //! stands. Two controllers on one action each pick it up on their own.
 
-use prisme_control::{Kind, Pickup, Target};
+use crate::view::band_index;
+use prisme_control::{DeckAction, FxAction, Kind, MixerAction, Pickup, Target, FX_SLOTS, MAX_DECKS};
 use std::collections::HashMap;
 
 /// How far a step of an encoder moves a fader's action when its profile does not say.
@@ -108,7 +109,7 @@ impl Inputs {
 /// A fader over a few steps (the effects, the periods), each an equal part of its travel. Its
 /// position is the one it was last given while that still gives the step in use: a
 /// controller's fader moving within a step keeps it.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct Stepped {
     given: Option<f32>,
 }
@@ -142,7 +143,7 @@ impl Stepped {
 /// A fader silent over the start of its travel (an EQ band, a live input), where its setting
 /// reads as full left: its position is the one it was last given while the setting is still
 /// the one that gave, so that a controller's fader moving there keeps it.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct SilentEnd {
     /// The position given, and the setting's position it gave.
     given: Option<(f32, f32)>,
@@ -160,6 +161,65 @@ impl SilentEnd {
             Some((given, gave)) if gave == setting => given,
             _ => setting,
         }
+    }
+}
+
+/// Where the faders over a few steps or silent at an end were last given, by action, whoever
+/// moved them (see [`Stepped`], [`SilentEnd`]): every deck's EQ bands, effect periods and
+/// effects, the live sources' levels, the crossfader's curve.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Faders {
+    silent_ends: [SilentEnd; SILENT_ENDS],
+    stepped: [Stepped; STEPPED],
+}
+
+/// The EQ bands of every deck, then the microphone's and the aux line's levels.
+const SILENT_ENDS: usize = MAX_DECKS * 3 + 2;
+/// The period then the effect of every deck's slots, then the crossfader's curve.
+const STEPPED: usize = MAX_DECKS * FX_SLOTS * 2 + 1;
+
+impl Faders {
+    /// The memory of `target`, if it is silent at an end.
+    pub fn silent_end(&self, target: &Target) -> SilentEnd {
+        silent_end(target).map_or(SilentEnd::default(), |i| self.silent_ends[i])
+    }
+
+    /// The memory of `target`, if it is over steps.
+    pub fn stepped(&self, target: &Target) -> Stepped {
+        stepped(target).map_or(Stepped::default(), |i| self.stepped[i])
+    }
+
+    /// `target`, silent at an end, given `position`, its setting then reading as `setting`.
+    pub fn give_silent_end(&mut self, target: &Target, position: f32, setting: f32) {
+        if let Some(i) = silent_end(target) {
+            self.silent_ends[i].give(position, setting);
+        }
+    }
+
+    /// `target`, over `count` steps, given `position`: the step it gives.
+    pub fn give_stepped(&mut self, target: &Target, position: f32, count: usize) -> usize {
+        match stepped(target) {
+            Some(i) => self.stepped[i].give(position, count),
+            None => Stepped::step_at(position, count),
+        }
+    }
+}
+
+fn silent_end(target: &Target) -> Option<usize> {
+    match *target {
+        Target::Deck(deck, DeckAction::Eq(band)) => Some(deck * 3 + band_index(band)),
+        Target::Mixer(MixerAction::Mic) => Some(SILENT_ENDS - 2),
+        Target::Mixer(MixerAction::Aux) => Some(SILENT_ENDS - 1),
+        _ => None,
+    }
+}
+
+fn stepped(target: &Target) -> Option<usize> {
+    match *target {
+        Target::Deck(deck, DeckAction::Fx(slot, FxAction::Period)) => Some((deck * FX_SLOTS + slot) * 2),
+        Target::Deck(deck, DeckAction::Fx(slot, FxAction::Kind)) => Some((deck * FX_SLOTS + slot) * 2 + 1),
+        Target::Mixer(MixerAction::CrossfaderCurve) => Some(STEPPED - 1),
+        _ => None,
     }
 }
 

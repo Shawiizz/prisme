@@ -1,5 +1,6 @@
 //! The live sources of the software mixer: a microphone and an aux line, and talkover.
 
+use crate::actions::mixer;
 use crate::dto::{InputChannelsDto, LiveSourceDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
@@ -30,11 +31,7 @@ pub fn set_live_input(
 /// Kept for the next start.
 #[tauri::command]
 pub fn set_live_level(state: State<'_, AppState>, source: LiveSourceDto, gain: f32) -> AppResult<()> {
-    state.update_preferences(|p| match source {
-        LiveSourceDto::Mic => p.mixer.mic.level = gain,
-        LiveSourceDto::Aux => p.mixer.aux.level = gain,
-    });
-    state.send_if_running(Command::SetLiveLevel { source: source.into(), gain })
+    mixer::set_live_level(&state, source, gain)
 }
 
 /// Heard in the master, or not.

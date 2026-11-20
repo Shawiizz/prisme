@@ -3,14 +3,17 @@
 
 use super::{take_over, Performing};
 use crate::auto_dj::Takeover;
-use crate::error::AppResult;
-use crate::state::{lock, AppState};
+use crate::dto::StemMixDto;
+use crate::error::{AppError, AppResult};
+use crate::state::{lock, AppState, LoadedTrack};
 use prisme_actions::input::Input;
-use prisme_control::DeckAction;
+use prisme_control::{DeckAction, StemPart};
 use prisme_engine::Command;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
+/// How far a key moves, either way.
+pub const MAX_KEY_SHIFT: u8 = 12;
 
 /// A jog wheel of `deck` turned, touched or let go (`action`) by `input`, its turns not
 /// added up as an encoder's steps: they come as finely as the wheel tells them.
@@ -56,6 +59,31 @@ pub fn set_pitch(state: &AppState, deck: usize, ratio: f64) -> AppResult<()> {
     state.has_deck(deck)?;
     lock(&state.decks)[deck].pitch = ratio;
     state.send_if_running(Command::SetPitch { deck, ratio })
+}
+
+/// The key of the track on `deck` moved by `semitones`, until the next load.
+pub fn set_key_shift(state: &AppState, deck: usize, semitones: i8) -> AppResult<()> {
+    if semitones.unsigned_abs() > MAX_KEY_SHIFT {
+        return Err(AppError::Other(format!("a key shift is ±{MAX_KEY_SHIFT} semitones at most")));
+    }
+    state.with_track(deck, |track| track.key_shift = semitones)?;
+    state.send_if_running(Command::SetKeyShift { deck, semitones })
+}
+
+/// How the track on `deck` plays each part, until the next load: the parts it turns on or off
+/// from the next bar if `on_bar` (see `Command::SetStemMix`).
+pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
+    state.with_track(deck, |t| t.stem_mix = mix)?;
+    state.send_if_running(Command::SetStemMix { deck, mix: mix.into(), on_bar })
+}
+
+/// How loud `part` of the track on `deck` plays, 0 to 1: nothing on a track without it.
+pub fn set_stem_level(state: &AppState, deck: usize, part: StemPart, level: f32) -> AppResult<()> {
+    let mix = |t: &mut LoadedTrack| t.separation().has(part).then(|| t.stem_mix.with_level(part, level));
+    match state.with_track(deck, mix) {
+        Ok(Some(mix)) => set_stem_mix(state, deck, mix, false),
+        _ => Ok(()),
+    }
 }
 
 /// The deck chosen to lead the others; `None`: the engine picks it.

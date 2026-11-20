@@ -1,5 +1,13 @@
 import { StemMix } from './models/stems';
-import { hasPart, partIn, partLevel, partPlaying, setPartLevel, togglePart } from './stem-parts';
+import {
+  StemPart,
+  hasPart,
+  partId,
+  partIn,
+  partLevel,
+  partPlaying,
+  togglePart,
+} from './stem-parts';
 
 const ALL: StemMix = {
   vocals: { level: 1, on: true },
@@ -38,18 +46,23 @@ describe('stem parts', () => {
   });
 
   it('keeps a level through a mute', () => {
-    const low = setPartLevel(ALL, 'bass', 0.4);
+    const low = { ...ALL, bass: { level: 0.4, on: true } };
     const muted = togglePart(low, 'bass');
     expect(muted.bass).toEqual({ level: 0.4, on: false });
     expect(togglePart(muted, 'bass').bass).toEqual({ level: 0.4, on: true });
   });
 
-  it('sets the instrumental level on all its instruments, within 0 and 1', () => {
-    const mix = setPartLevel(ALL, 'instrumental', 1.5);
+  it('reads the instrumental level as its loudest instrument', () => {
+    const mix = { ...ALL, drums: { level: 0.25, on: true }, bass: { level: 0.5, on: true } };
     expect(partLevel(mix, 'instrumental')).toBe(1);
-    const low = setPartLevel(ALL, 'instrumental', 0.25);
-    expect([low.drums.level, low.bass.level, low.other.level, low.vocals.level]).toEqual([
-      0.25, 0.25, 0.25, 1,
+    expect(partLevel({ ...mix, other: { level: 0.1, on: true } }, 'instrumental')).toBe(0.5);
+  });
+
+  it('names the other instruments the melody in the actions', () => {
+    expect(['vocals', 'instrumental', 'other'].map((p) => partId(p as StemPart))).toEqual([
+      'vocals',
+      'instrumental',
+      'melody',
     ]);
   });
 });
