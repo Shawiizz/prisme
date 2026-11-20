@@ -14,7 +14,6 @@ import {
   EngineStatus,
   MixerState,
   SAMPLE_SLOTS,
-  TrackAnalysis,
   TrackInfo,
   VinylChange,
   Waveform,
@@ -417,12 +416,6 @@ export class EngineService {
         this.patch(this.waveforms, deck, addWaveformPiece(this.waveforms()[deck], piece));
     };
     invoke('watch_waveform', { deck, loadId, channel }).catch(() => {});
-  }
-
-  /** Replaces the tempo and key of the track on `deck` (after a correction). */
-  setAnalysis(deck: number, analysis: TrackAnalysis) {
-    const track = this.tracks()[deck];
-    if (track) this.patch(this.tracks, deck, { ...track, ...analysis });
   }
 
   private patch<T>(s: { (): T[]; set(v: T[]): void }, index: number, value: T) {

@@ -1,10 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { GridChange, MusicalKey, TrackAnalysis } from '../models/engine';
+import { GridChange, MusicalKey } from '../models/engine';
 import { EngineService } from './engine.service';
-import { errorText } from '../errors';
 
-/** Corrections of a loaded track's beat grid and key (kept by the library). */
+/** Corrections of a loaded track's beat grid and key (kept by the library): the decks playing
+ * the track show them as the backend tells it. */
 @Injectable({ providedIn: 'root' })
 export class TrackEditService {
   private readonly engine = inject(EngineService);
@@ -16,21 +16,12 @@ export class TrackEditService {
     if (!this.keys().length) this.keys.set(await invoke<MusicalKey[]>('key_choices'));
   }
 
-  editGrid(deck: number, change: GridChange): Promise<void> {
-    return this.apply(deck, 'edit_grid', { deck, change });
+  editGrid(deck: number, change: GridChange) {
+    return this.engine.call('edit_grid', { deck, change });
   }
 
   /** `null` goes back to the detected key. */
-  setKey(deck: number, camelot: string | null): Promise<void> {
-    return this.apply(deck, 'set_key', { deck, camelot });
-  }
-
-  private async apply(deck: number, command: string, args: Record<string, unknown>) {
-    try {
-      this.engine.setAnalysis(deck, await invoke<TrackAnalysis>(command, args));
-      this.engine.error.set(null);
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  setKey(deck: number, camelot: string | null) {
+    return this.engine.call('set_key', { deck, camelot });
   }
 }

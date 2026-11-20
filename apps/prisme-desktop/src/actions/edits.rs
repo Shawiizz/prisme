@@ -35,7 +35,7 @@ impl Performing<'_> {
     /// Corrects the beat grid of the track on `deck` by `change`.
     pub(super) fn change_grid(&self, deck: usize, change: GridChange) -> AppResult<()> {
         let (app, library) = self.library_service()?;
-        change_grid(app, self.state, &library, deck, change).map(drop)
+        change_grid(app, self.state, &library, deck, change)
     }
 }
 

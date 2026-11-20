@@ -1,5 +1,6 @@
 //! Corrections of a loaded track's beat grid and key: stored in the library, applied to
-//! the engine and shown in the library lists at once.
+//! the engine and shown in the library lists at once; the decks playing the track show them
+//! as they are told (`deck-track-update`).
 
 use crate::dto::{DeckTrackUpdateDto, KeyDto, TrackAnalysisDto};
 use crate::error::{AppError, AppResult};
@@ -35,18 +36,18 @@ pub fn edit_grid(
     library: State<'_, Arc<LibraryService>>,
     deck: usize,
     change: GridChange,
-) -> AppResult<TrackAnalysisDto> {
+) -> AppResult<()> {
     change_grid(&app, &state, &library, deck, change)
 }
 
-/// Corrects the beat grid of the track on `deck` by `change`; returns its analysis.
+/// Corrects the beat grid of the track on `deck` by `change`.
 pub fn change_grid(
     app: &AppHandle,
     state: &AppState,
     library: &LibraryService,
     deck: usize,
     change: GridChange,
-) -> AppResult<TrackAnalysisDto> {
+) -> AppResult<()> {
     let position_s = match change {
         GridChange::BeatHere => state.deck_status(deck)?.position_s,
         _ => 0.0,
@@ -75,7 +76,7 @@ pub fn set_key(
     library: State<'_, Arc<LibraryService>>,
     deck: usize,
     camelot: Option<String>,
-) -> AppResult<TrackAnalysisDto> {
+) -> AppResult<()> {
     let key = camelot.map(|code| Key::from_camelot(&code).ok_or(AppError::InvalidKey(code))).transpose()?;
     edit(&app, &state, &library, deck, |_, edits| {
         edits.key = key;
@@ -99,7 +100,7 @@ fn edit(
     library: &LibraryService,
     deck: usize,
     change: impl FnOnce(Option<GridEdit>, &mut TrackEdits) -> AppResult<()>,
-) -> AppResult<TrackAnalysisDto> {
+) -> AppResult<()> {
     let (path, detected) = state.with_track(deck, |track| (track.path.clone(), track.detected))?;
     let mut edits = library.db.edits(&path)?;
     change(edits.apply(detected).tempo.map(GridEdit::from), &mut edits)?;
@@ -108,16 +109,12 @@ fn edit(
         track.edits = edits;
         (track.grid(), TrackAnalysisDto::from(&*track))
     });
-    let mut analysis = None;
     for (on, load_id, (grid, dto)) in updated {
         state.send_if_running(Command::SetBeatGrid { deck: on, grid })?;
-        if on == deck {
-            analysis = Some(dto.clone());
-        }
         let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None };
         let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
     }
     library.announce(&path);
     library.write_tags_soon();
-    analysis.ok_or(AppError::NoTrack(deck))
+    Ok(())
 }
