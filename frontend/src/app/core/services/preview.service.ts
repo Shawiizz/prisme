@@ -9,7 +9,8 @@ import { MixerService } from './mixer.service';
  * The preview: a track of the library heard in the headphones alone before it goes on a deck,
  * about a third in. The backend previews the selected track (`library.preview`) or one the
  * screen names, and tells what it previews with the engine's state; the engine stops it at the
- * end of the track, when the track is loaded on a deck, or when the audio restarts. Its
+ * end of the track, when the track is loaded on a deck, or when the audio restarts, and the
+ * backend then tells it previews nothing. Its
  * waveform comes from the library, or once its file is read (`preview-update`).
  */
 @Injectable({ providedIn: 'root' })
@@ -32,8 +33,6 @@ export class PreviewService {
   readonly heard = computed(
     () => this.engine.audioRunning() && this.mixer.headphonesInUse() !== null,
   );
-  /** The preview the engine has reported: once it no longer does, it has stopped. */
-  private reported: number | null = null;
 
   constructor() {
     effect(() => {
@@ -42,15 +41,6 @@ export class PreviewService {
         this.waveform.set(null);
         if (id !== null && this.track()?.waveformReady) void this.fetchWaveform(id);
       });
-    });
-    effect(() => {
-      const id = this.trackId();
-      const status = this.status();
-      if (status) {
-        this.reported = status.id;
-      } else if (id !== null && this.reported === id) {
-        untracked(() => this.stop());
-      }
     });
   }
 

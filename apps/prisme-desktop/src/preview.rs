@@ -38,6 +38,8 @@ struct Current {
     /// Cleared when it is no longer wanted: the worker reading its file gives up.
     wanted: Arc<AtomicBool>,
     waveform: Option<Waveform>,
+    /// The engine reported it playing: once it no longer does, it stopped it.
+    reported: bool,
 }
 
 impl Current {
@@ -116,7 +118,7 @@ impl Previews {
         let start_s = audio.duration_s() * START;
         state.send(Command::Preview { id, track: audio, start_s })?;
         let waveform_missing = waveform.is_none();
-        let next = Current { id, path: path.clone(), wanted: wanted.clone(), waveform };
+        let next = Current { id, path: path.clone(), wanted: wanted.clone(), waveform, reported: false };
         if let Some(old) = current.replace(next) {
             old.give_up();
         }
@@ -136,6 +138,21 @@ impl Previews {
         }
         *lock(&state.preview) = PreviewStateDto::default();
         state.send_if_running(Command::StopPreview)
+    }
+
+    /// Follows the engine previewing `playing` (its id): a preview it reported then stopped (at
+    /// the end of its track, as it went on a deck, as the audio restarted) is over.
+    pub fn follow(&self, state: &AppState, playing: Option<u64>) {
+        let mut current = lock(&self.current);
+        let Some(shown) = current.as_mut() else { return };
+        if playing == Some(shown.id) {
+            shown.reported = true;
+        } else if shown.reported {
+            if let Some(old) = current.take() {
+                old.give_up();
+            }
+            *lock(&state.preview) = PreviewStateDto::default();
+        }
     }
 
     /// Stops the preview if it plays `path`: the track went on a deck.
@@ -191,4 +208,36 @@ fn read_rest(
         return;
     }
     let _ = app.emit(PREVIEW_UPDATE_EVENT, id);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::dto::PreviewDto;
+    use prisme_session::JsonFile;
+
+    #[test]
+    fn a_preview_the_engine_reported_then_stopped_is_over() {
+        let state = AppState::new(JsonFile::in_memory(Default::default()));
+        let previews = Previews::default();
+        let wanted = Arc::new(AtomicBool::new(true));
+        let current =
+            Current { id: 3, path: "a.mp3".into(), wanted: wanted.clone(), waveform: None, reported: false };
+        *lock(&previews.current) = Some(current);
+        let dto = PreviewDto {
+            id: 3,
+            path: "a.mp3".into(),
+            title: "A".into(),
+            artist: None,
+            duration_s: 200.0,
+            waveform_ready: false,
+        };
+        lock(&state.preview).track = Some(dto);
+        previews.follow(&state, None);
+        assert!(lock(&state.preview).track.is_some(), "not started yet");
+        previews.follow(&state, Some(3));
+        previews.follow(&state, None);
+        assert!(lock(&state.preview).track.is_none());
+        assert!(!wanted.load(Ordering::Relaxed), "its file no longer read");
+    }
 }

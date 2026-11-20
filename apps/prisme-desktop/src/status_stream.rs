@@ -2,6 +2,7 @@
 //! mirrors whenever it changed, and frees what the engine hands back at the same pace.
 
 use crate::dto::{ControlStateDto, StatusDto};
+use crate::preview::Previews;
 use crate::state::{lock, AppState};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -36,6 +37,10 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                 // freed, and the status built, with the session's lock released: the jogs and
                 // the clock wait on it
                 drop(garbage);
+                if let Some(previews) = app.try_state::<Previews>() {
+                    let playing = engine.as_ref().and_then(|(e, ..)| e.preview.as_ref()).map(|p| p.id);
+                    previews.follow(&state, playing);
+                }
                 let mut status = match engine {
                     Some((engine, stats, sample_rate)) => {
                         StatusDto::from_engine(&engine, &stats, sample_rate)
