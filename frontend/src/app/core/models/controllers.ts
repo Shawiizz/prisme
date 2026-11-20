@@ -14,8 +14,6 @@ export interface PluggedIn {
 export interface Controller {
   /** The MIDI port name, or the name Prisme gives a HID device. */
   name: string;
-  /** A HID device. */
-  hid: boolean;
   enabled: boolean;
   plugged: boolean;
   /** The model Prisme knows it as: its controls come mapped. */

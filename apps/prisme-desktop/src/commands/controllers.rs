@@ -39,7 +39,6 @@ pub fn list_controllers(controllers: State<'_, Controllers>) -> ControllersDto {
             profile_source: known.map(|k| k.source),
             replaces: library.replaced_on(&name).filter(|_| models).map(|k| k.profile.name.clone()),
             export_file: controller_profiles::file_name(&controllers.model_name(&name)),
-            hid,
             name,
             plugged,
         }

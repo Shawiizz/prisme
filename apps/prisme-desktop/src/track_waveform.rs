@@ -22,7 +22,7 @@ enum Shape {
     /// All of it: from the library, or once the track is all decoded.
     Whole(Waveform),
     /// While the track is decoded: the slices so far, of about `slices`, and the pages
-    /// watching it, which get each piece that follows.
+    /// watching it, which get it again each time it grows.
     Growing { so_far: Waveform, slices: usize, watchers: Vec<Channel> },
 }
 

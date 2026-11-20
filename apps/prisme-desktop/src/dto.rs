@@ -2140,8 +2140,6 @@ pub struct StoragePlaceDto {
 pub struct ControllerDto {
     /// Its MIDI port's name, or the name Prisme gives a HID device.
     pub name: String,
-    /// A HID device.
-    pub hid: bool,
     pub enabled: bool,
     pub plugged: bool,
     /// The model Prisme knows it as, its controls mapped by its profile.
