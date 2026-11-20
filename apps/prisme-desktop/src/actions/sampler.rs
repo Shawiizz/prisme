@@ -68,3 +68,38 @@ pub fn set_sampler_gain(state: &AppState, deck: usize, gain: f32) -> AppResult<(
     state.update_preferences(|p| p.decks[deck].sampler_gain = gain);
     state.send_if_running(Command::SetSamplerGain { deck, gain })
 }
+
+/// The sound of `slot` stopped if it plays, else taken off its pad.
+pub fn take_off(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {
+    let playing = state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0);
+    if playing {
+        stop_sample(state, deck, slot)
+    } else {
+        clear_sample(state, deck, slot)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::bench::Bench;
+    use prisme_media::TrackAudio;
+    use std::sync::Arc;
+
+    #[test]
+    fn a_sound_taken_off_is_stopped_while_it_plays_then_taken_off_its_pad() {
+        let bench = Bench::new();
+        let audio = Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 48_000]));
+        sampler::put(&bench.state, 0, 2, "kick.wav".into(), audio).unwrap();
+        trigger_sample(&bench.state, 0, 2, None).unwrap();
+        bench.run(0.01);
+        assert_eq!(bench.status(0).samples_playing, 1 << 2);
+        take_off(&bench.state, 0, 2).unwrap();
+        bench.run(0.01);
+        assert_eq!(bench.status(0).samples_playing, 0, "stopped");
+        assert!(lock(&bench.state.samplers)[0][2].is_some(), "still on its pad");
+        take_off(&bench.state, 0, 2).unwrap();
+        assert!(matches!(bench.sent()[..], [Command::SetSample { deck: 0, slot: 2, sample: None }]));
+        assert!(lock(&bench.state.samplers)[0][2].is_none());
+    }
+}
