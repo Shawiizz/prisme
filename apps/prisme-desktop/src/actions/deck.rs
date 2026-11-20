@@ -9,7 +9,6 @@ use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, DeckSettings, LoadedTrack};
 use prisme_actions::input::Input;
-use prisme_actions::key::heard;
 use prisme_actions::sync::{kept_tempo, matching_tempo};
 use prisme_actions::view::{mixed_with, tempo_rate};
 use prisme_control::{DeckAction, StemPart};
@@ -362,7 +361,7 @@ impl Performing<'_> {
         };
         let d = lock(&state.decks)[other];
         let rate = tempo_rate(&status.decks[other], d.pitch);
-        key_to(state, deck, own.semitones_to_mix(heard(theirs, d.key_lock, shift, rate)))
+        key_to(state, deck, own.semitones_to_mix(theirs.heard(d.key_lock, shift, rate)))
     }
 }
 

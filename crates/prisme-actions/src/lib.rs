@@ -4,7 +4,6 @@
 
 pub mod cue;
 pub mod input;
-pub mod key;
 pub mod lane;
 pub mod light;
 pub mod pads;

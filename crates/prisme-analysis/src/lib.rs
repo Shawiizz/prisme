@@ -22,7 +22,7 @@ pub mod waveform;
 pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
 pub use loudness::{loudness, Loudness};
 pub use stem_activity::{stem_activity, ACTIVITY_SLICES_PER_S};
-pub use tempo::{Tempo, DEFAULT_MIN_BPM};
+pub use tempo::{octave_ratio, Tempo, DEFAULT_MIN_BPM};
 pub use waveform::{compute_waveform, Waveform, WaveformBuilder};
 
 use prisme_media::{DecodeStream, MediaError, TrackAudio};

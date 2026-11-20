@@ -1,5 +1,6 @@
 //! Where two decks' beats are against each other.
 
+use prisme_analysis::octave_ratio;
 use prisme_engine::{DeckStatus, EngineStatus};
 
 /// Two decks this close in their beat (of a beat) are in phase.
@@ -19,11 +20,6 @@ impl Beat {
     pub fn playing(deck: &DeckStatus) -> Option<Self> {
         deck.playing.then_some(Beat { bpm: deck.bpm?, phase: deck.beat_phase? })
     }
-}
-
-/// The power of two bringing `bpm` closest to `other_bpm`: 70 BPM goes with 140.
-pub fn octave_ratio(bpm: f64, other_bpm: f64) -> f64 {
-    (bpm / other_bpm).log2().round().exp2()
 }
 
 /// How far a deck's beats are from another deck's, in beats within [-0.5, 0.5]; ahead above 0.
@@ -109,13 +105,6 @@ mod tests {
 
     fn close(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-9
-    }
-
-    #[test]
-    fn tempos_an_octave_apart_go_together() {
-        assert_eq!(octave_ratio(70.0, 140.0), 0.5);
-        assert_eq!(octave_ratio(174.0, 87.0), 2.0);
-        assert_eq!(octave_ratio(125.0, 128.0), 1.0);
     }
 
     #[test]

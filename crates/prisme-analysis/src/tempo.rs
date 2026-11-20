@@ -46,6 +46,11 @@ impl Tempo {
     }
 }
 
+/// The power of two bringing `bpm` closest to `other_bpm`: 70 BPM goes with 140.
+pub fn octave_ratio(bpm: f64, other_bpm: f64) -> f64 {
+    (bpm / other_bpm).log2().round().exp2()
+}
+
 /// Estimates the tempo in `[min_bpm, 2 * min_bpm)`. `None` for short or beatless audio.
 pub fn estimate_tempo(env: &OnsetEnvelopes, min_bpm: f64) -> Option<Tempo> {
     if (env.len() as f64) / env.frame_rate < MIN_DURATION_S {
@@ -196,4 +201,16 @@ fn beat_phase(env: &OnsetEnvelopes, bpm: f64) -> f64 {
 
     let period_s = 60.0 / bpm;
     env.time_of(phase_frames).rem_euclid(period_s)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tempos_an_octave_apart_go_together() {
+        assert_eq!(octave_ratio(70.0, 140.0), 0.5);
+        assert_eq!(octave_ratio(174.0, 87.0), 2.0);
+        assert_eq!(octave_ratio(125.0, 128.0), 1.0);
+    }
 }

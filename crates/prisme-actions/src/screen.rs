@@ -3,7 +3,6 @@
 //! tempo fader stands, the time left, who drives it, what its keys may do and light, its stems;
 //! and the strip comparing two decks' beats.
 
-use crate::key::heard;
 use crate::light::{cue_state, ending, slice_playing, State};
 use crate::scales::Tempo;
 use crate::stems::part_in;
@@ -236,7 +235,7 @@ fn reading(deck: Beat, other: Beat) -> Reading {
 fn heard_key(view: &View, deck: usize) -> Option<Key> {
     let settings = &view.decks[deck];
     let track = settings.track?;
-    Some(heard(track.key?, settings.key_lock, track.key_shift, view.tempo_rate(deck)))
+    Some(track.key?.heard(settings.key_lock, track.key_shift, view.tempo_rate(deck)))
 }
 
 /// Who drives `deck`: its record, unless the needle ran out and the deck plays on by itself.

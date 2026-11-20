@@ -167,6 +167,15 @@ impl Key {
         Self::new((i32::from(self.tonic) + semitones).rem_euclid(12) as u8, self.mode)
     }
 
+    /// The key heard of a track in this key played at `rate` (1 its own tempo): moved by the
+    /// speed, unless the key lock holds it (`key_lock`) or a shift of `key_shift` semitones,
+    /// which goes through the same stretcher, does.
+    pub fn heard(self, key_lock: bool, key_shift: i8, rate: f64) -> Self {
+        let held = key_lock || key_shift != 0;
+        let semitones = if held { i32::from(key_shift) } else { (12.0 * rate.log2()).round() as i32 };
+        self.transposed(semitones)
+    }
+
     /// Whether it mixes harmonically with `other`: the same key, a step around the wheel, or
     /// the relative major or minor.
     pub fn mixes_with(self, other: Key) -> bool {
@@ -176,6 +185,12 @@ impl Key {
         } else {
             a == b
         }
+    }
+
+    /// Whether `other` lifts the energy from it: two steps up the wheel in the same mode, a
+    /// whole tone higher.
+    pub fn lifts_to(self, other: Key) -> bool {
+        self.mode == other.mode && other.camelot_number() == (self.camelot_number() + 1) % 12 + 1
     }
 
     /// The smallest transposition (-5 to +6 semitones) after which it mixes with `target`,
@@ -405,6 +420,29 @@ mod tests {
         assert_eq!(camelot("8A").transposed(12), camelot("8A"));
         assert_eq!(camelot("8A").transposed(2), camelot("10A"));
         assert!(camelot("8A").mixes_with(camelot("8A").transposed(7)));
+    }
+
+    #[test]
+    fn a_deck_sped_up_a_semitone_is_heard_a_semitone_higher() {
+        let up = 2f64.powf(1.0 / 12.0);
+        assert_eq!(camelot("8A").heard(false, 0, up), camelot("3A"));
+        assert_eq!(camelot("8A").heard(false, 0, 1.02), camelot("8A"), "nearer its own");
+    }
+
+    #[test]
+    fn the_key_lock_and_a_key_shift_hold_the_key_whatever_the_speed() {
+        assert_eq!(camelot("8A").heard(true, 0, 1.1), camelot("8A"));
+        assert_eq!(camelot("8A").heard(false, -1, 1.1), camelot("8A").transposed(-1));
+    }
+
+    #[test]
+    fn two_steps_up_the_wheel_in_the_same_mode_lift_the_energy() {
+        assert!(camelot("8A").lifts_to(camelot("10A")));
+        assert!(camelot("11B").lifts_to(camelot("1B")), "around the wheel");
+        assert!(camelot("12A").lifts_to(camelot("2A")));
+        assert!(!camelot("8A").lifts_to(camelot("10B")), "another mode");
+        assert!(!camelot("10A").lifts_to(camelot("8A")), "down");
+        assert!(!camelot("8A").lifts_to(camelot("9A")));
     }
 
     #[test]
