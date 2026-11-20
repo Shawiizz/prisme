@@ -242,7 +242,7 @@ export class TrackTable {
   toggleColumn(id: ColumnId) {
     const hidden = new Set(this.hidden());
     if (!hidden.delete(id)) hidden.add(id);
-    this.preferences.updateLibrary({ hiddenColumns: [...hidden] });
+    this.preferences.set('hiddenColumns', [...hidden]);
   }
 
   openColumnMenu(event: MouseEvent) {

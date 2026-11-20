@@ -21,15 +21,9 @@ import { StemsService } from '../../core/services/stems.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
-import {
-  InputChannels,
-  LiveSource,
-  MAX_DECKS,
-  MixMode,
-  OutputNote,
-} from '../../core/models/engine';
-import { DjPreferences, LibraryPreferences, PITCH_RANGES } from '../../core/models/preferences';
-import { LANGUAGES, language, setLanguage, t } from '../../core/i18n/i18n';
+import { InputChannels, LiveSource, MixMode, OutputNote } from '../../core/models/engine';
+import { Settings } from '../../core/models/preferences';
+import { LANGUAGES, language, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
@@ -48,9 +42,6 @@ import { Dismiss, overlay } from '../../shared/overlay';
 function numbers(n: number): number[] {
   return Array.from({ length: n }, (_, i) => i + 1);
 }
-
-/** Talkover: how far the music can duck under the microphone (dB). */
-const TALKOVER_DEPTHS = [-6, -12, -18, -24];
 
 /** A choice of input channels as the value of an option. */
 function inputKey(input: InputChannels | null): string {
@@ -95,10 +86,10 @@ export class SettingsDialog implements OnInit {
   /** On a phone the head's button goes back to the pages, and there is no screen below. */
   protected readonly PHONE = PHONE;
   protected readonly ANDROID = ANDROID;
-  protected readonly pitchRanges = PITCH_RANGES;
   protected readonly languages = LANGUAGES;
   protected readonly decks = this.engine.deckIndexes;
-  protected readonly MAX_DECKS = MAX_DECKS;
+  /** What the settings offer where there are a few values. */
+  protected readonly choices = this.preferences.choices;
   protected readonly BACKEND_NAMES = BACKEND_NAMES;
 
   protected readonly category = computed(() => this.navigation.settings()?.category ?? 'audio');
@@ -109,7 +100,6 @@ export class SettingsDialog implements OnInit {
   private readonly body = viewChild.required<ElementRef<HTMLElement>>('body');
 
   protected readonly language = language;
-  protected readonly setLanguage = setLanguage;
   protected readonly draft = signal<AudioSettings | null>(null);
   protected readonly mixMode = signal<MixMode>(this.mixer.mode());
   protected readonly dj = this.preferences.dj;
@@ -141,7 +131,6 @@ export class SettingsDialog implements OnInit {
   protected readonly auxChoices = computed(() => this.mixer.aux().choices);
   protected readonly micHelp = computed(() => this.liveHelp('mic', 'mixing.mic'));
   protected readonly auxHelp = computed(() => this.liveHelp('aux', 'mixing.aux'));
-  protected readonly talkoverDepths = TALKOVER_DEPTHS;
   protected readonly inputKey = inputKey;
   protected readonly writeTags = computed(() => this.preferences.library().writeTags);
   protected readonly replaceTags = computed(() => this.preferences.library().replaceTags);
@@ -279,12 +268,8 @@ export class SettingsDialog implements OnInit {
     if (d) this.draft.set({ ...d, ...changes });
   }
 
-  setDj(changes: Partial<DjPreferences>) {
-    this.saved(this.preferences.updateDj(changes));
-  }
-
-  setLibrary(changes: Partial<LibraryPreferences>) {
-    this.saved(this.preferences.updateLibrary(changes));
+  set<K extends keyof Settings>(setting: K, value: Settings[K]) {
+    this.saved(this.preferences.set(setting, value));
   }
 
   /** Asks for another music folder; nothing if cancelled. */
@@ -306,7 +291,7 @@ export class SettingsDialog implements OnInit {
   /** Another number of decks is another engine: the audio starts again with it. */
   async setDeckCount(deckCount: number) {
     try {
-      await this.preferences.updateDj({ deckCount });
+      await this.preferences.set('deckCount', deckCount);
     } catch (e) {
       this.engine.error.set(errorText(e));
     } finally {

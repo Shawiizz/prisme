@@ -1,58 +1,74 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { PHONE } from '../platform';
-import { DjPreferences, LibraryPreferences, Preferences } from '../models/preferences';
-import { KeyChanges } from '../keyboard/shortcuts';
+import { Preferences, Settings } from '../models/preferences';
+import { showLanguage } from '../i18n/i18n';
+import { EngineService } from './engine.service';
 
-/** Preferences kept by the backend from one start to the next. */
+const told = signal<Preferences | null>(null);
+
+/** The preferences as the backend told them (`loadPreferences`, or a test). */
+export function tellPreferences(preferences: Preferences) {
+  told.set(preferences);
+}
+
+/** Where the interface kept the language and the phone's touch controls before the backend
+ * kept them: taken over once, then forgotten. */
+const STORED = { language: 'prisme.language', phoneTouch: 'prisme.phone.touch' } as const;
+
+/** What the page's storage kept under `key`, forgotten. */
+export function takeStored(key: string): string | null {
+  try {
+    const saved = localStorage.getItem(key);
+    localStorage.removeItem(key);
+    return saved;
+  } catch {
+    return null;
+  }
+}
+
+/** The preferences as the backend keeps them, read before the interface starts, the language
+ * shown in theirs. */
+export async function loadPreferences(): Promise<void> {
+  tellPreferences(await invoke<Preferences>('get_preferences'));
+  const language = takeStored(STORED.language);
+  if (language && !told()!.ui.language) await choose('language', language);
+  const touch = takeStored(STORED.phoneTouch);
+  if (touch && told()!.ui.phoneTouch === null) await choose('phoneTouch', touch === 'true');
+  await showLanguage(told()!.ui.language ?? language);
+}
+
+function choose<K extends keyof Settings>(setting: K, value: Settings[K]): Promise<void> {
+  return invoke('set_preference', { setting: { setting, value } });
+}
+
+/** Preferences kept by the backend from one start to the next, as it tells them: each change
+ * is one setting it puts in them. */
 @Injectable({ providedIn: 'root' })
 export class PreferencesService {
-  readonly dj = signal<DjPreferences>({
-    vinylSync: 'once',
-    quantize: true,
-    pitchRange: 0.08,
-    autoGain: true,
-    deckCount: 2,
-    knobMagnet: true,
-    lockControls: true,
-    cueOnLoad: false,
-    protectPlaying: false,
-  });
-  readonly library = signal<LibraryPreferences>({
-    musicFolder: null,
-    lastFolder: null,
-    hiddenColumns: [],
-    writeTags: true,
-    replaceTags: false,
-    pauseWhilePlaying: true,
-    stemsOnLoad: null,
-    stemsGpu: true,
-    stemsFast: PHONE,
-  });
+  private readonly engine = inject(EngineService);
+
+  // read before the interface starts (`loadPreferences`)
+  readonly dj = computed(() => told()!.dj);
+  readonly library = computed(() => told()!.library);
+  readonly ui = computed(() => told()!.ui);
   /** The keys the DJ changed, by control: the others keep their defaults. */
-  readonly keys = signal<KeyChanges>({});
+  readonly keys = computed(() => told()!.keys);
+  /** What the settings offer where there are a few values. */
+  readonly choices = computed(() => told()!.choices);
 
-  async load(): Promise<void> {
-    const p = await invoke<Preferences>('get_preferences');
-    this.dj.set(p.dj);
-    this.library.set(p.library);
-    this.keys.set(p.keys);
+  constructor() {
+    effect(() => {
+      const preferences = this.engine.controls()?.preferences;
+      if (preferences) untracked(() => told.set(preferences));
+    });
+    effect(() => {
+      const language = told()?.ui.language;
+      if (language !== undefined) untracked(() => void showLanguage(language));
+    });
   }
 
-  updateDj(changes: Partial<DjPreferences>): Promise<void> {
-    const dj = { ...this.dj(), ...changes };
-    this.dj.set(dj);
-    return invoke('set_dj_preferences', { dj });
-  }
-
-  updateLibrary(changes: Partial<LibraryPreferences>): Promise<void> {
-    const library = { ...this.library(), ...changes };
-    this.library.set(library);
-    return invoke('set_library_preferences', { library });
-  }
-
-  updateKeys(keys: KeyChanges): Promise<void> {
-    this.keys.set(keys);
-    return invoke('set_key_preferences', { keys });
+  /** `setting` changed to `value`: shown once the backend tells it. */
+  set<K extends keyof Settings>(setting: K, value: Settings[K]): Promise<void> {
+    return choose(setting, value);
   }
 }

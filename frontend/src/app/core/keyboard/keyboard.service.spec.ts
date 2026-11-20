@@ -2,6 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { ControlService } from '../control/control.service';
 import { KeyboardService } from './keyboard.service';
+import { tellPreferences } from '../services/preferences.service';
+import { Preferences } from '../models/preferences';
 
 describe('KeyboardService', () => {
   afterEach(() => {
@@ -12,6 +14,7 @@ describe('KeyboardService', () => {
 
   it('leaves a key pressed in a dialog to the dialog', async () => {
     mockIPC(() => undefined);
+    tellPreferences({ keys: {} } as unknown as Preferences);
     const applied: string[] = [];
     vi.spyOn(TestBed.inject(ControlService), 'act').mockImplementation(
       (id, value) => void (value && applied.push(id)),

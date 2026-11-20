@@ -64,9 +64,16 @@ mod tests {
     }
 }
 
-/// How far the music ducks under the microphone (dB); kept for the next start.
+/// How far the music can duck under the microphone (dB).
+pub const TALKOVER_DEPTHS: [f32; 4] = [-6.0, -12.0, -18.0, -24.0];
+
+/// How far the music ducks under the microphone (dB), one of [`TALKOVER_DEPTHS`]; kept for the
+/// next start.
 #[tauri::command]
 pub fn set_talkover_depth(state: State<'_, AppState>, db: f32) -> AppResult<()> {
-    state.update_preferences(|p| p.mixer.talkover_depth_db = db.min(0.0));
+    if !TALKOVER_DEPTHS.contains(&db) {
+        return Err(AppError::Other(format!("no talkover of {db} dB")));
+    }
+    state.update_preferences(|p| p.mixer.talkover_depth_db = db);
     mixer::send_talkover(&state)
 }

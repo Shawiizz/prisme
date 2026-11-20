@@ -403,8 +403,7 @@ pub fn run() {
             commands::auto_dj::auto_dj_status,
             commands::auto_dj::set_auto_dj_fade,
             commands::preferences::get_preferences,
-            commands::preferences::set_dj_preferences,
-            commands::preferences::set_library_preferences,
+            commands::preferences::set_preference,
             commands::preferences::set_key_preferences,
             #[cfg(desktop)]
             commands::update::download_update,

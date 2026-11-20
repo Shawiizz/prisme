@@ -1,3 +1,4 @@
+import { Preferences } from './preferences';
 /** Shapes exchanged with the Rust side (see apps/prisme-desktop/src/dto.rs). */
 
 import { Knob } from '../../shared/readout';
@@ -223,6 +224,7 @@ export interface ControlState {
   library: LibraryView;
   /** The lists the library keeps: the crates, the sets, the prepare list. */
   lists: LibraryLists;
+  preferences: Preferences;
 }
 
 /** What the headphones preview: the track the engine was given, and the file opening for the

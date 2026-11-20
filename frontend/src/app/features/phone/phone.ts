@@ -6,6 +6,7 @@ import { LockPlayer } from '../../core/lock-player';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { ANDROID } from '../../core/platform';
 import { EngineService } from '../../core/services/engine.service';
+import { PreferencesService } from '../../core/services/preferences.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { RecordingService } from '../../core/services/recording.service';
@@ -13,7 +14,6 @@ import { SettingsService } from '../../core/services/settings.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { errorText } from '../../core/errors';
-import { storeChoice, storedChoice } from '../../core/stored';
 import { decimal, formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
@@ -22,9 +22,6 @@ import { PhoneRecord } from './phone-record';
 import { PhoneSettings } from './phone-settings';
 
 type Tab = 'decks' | 'library' | 'settings';
-
-/** Where the choice of the controls key is kept. */
-const TOUCH_KEY = 'prisme.phone.touch';
 
 /**
  * Prisme on a phone: the decks, the library and the settings, a screen each. The decks
@@ -78,14 +75,14 @@ export class Phone {
   protected readonly missing = computed(() => this.settings.info()?.missing ?? null);
 
   /** The hands are elsewhere: on a controller in use, or on the records that drive a deck. */
+  private readonly preferences = inject(PreferencesService);
   private readonly hardware = computed(
     () =>
       this.controllers.controllers().some((c) => c.enabled && c.plugged) ||
       this.engine.deckIndexes().some((d) => this.engine.decks()[d].vinylEnabled),
   );
   /** What the DJ chose instead, with the key at the top. */
-  private readonly chosen = signal(storedChoice(TOUCH_KEY));
-  protected readonly touch = computed(() => this.chosen() ?? !this.hardware());
+  protected readonly touch = computed(() => this.preferences.ui().phoneTouch ?? !this.hardware());
 
   protected readonly clock = formatClock;
 
@@ -112,8 +109,8 @@ export class Phone {
   }
 
   protected toggleTouch() {
-    const touch = !this.touch();
-    this.chosen.set(touch);
-    storeChoice(TOUCH_KEY, touch);
+    this.preferences
+      .set('phoneTouch', !this.touch())
+      .catch((e) => this.engine.error.set(errorText(e)));
   }
 }

@@ -186,7 +186,7 @@ impl LibraryService {
     /// Saves the music folders added next to the main one, `roots[0]`.
     fn save(&self, roots: &[PathBuf]) {
         let added = roots[1..].iter().map(|folder| folder.display().to_string()).collect();
-        self.app.state::<AppState>().update_preferences(|p| p.library.folders = added);
+        self.app.state::<AppState>().update_settings(|p| p.library.folders = added);
     }
 
     fn announce_folders(&self) {

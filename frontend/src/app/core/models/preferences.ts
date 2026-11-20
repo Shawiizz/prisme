@@ -44,11 +44,47 @@ export interface LibraryPreferences {
   stemsFast: boolean;
 }
 
+/** How the interface shows itself. */
+export interface UiPreferences {
+  /** `null`: the system's. */
+  language: string | null;
+  /** On a phone, the decks' touch controls shown or not; `null`: as what is plugged in says. */
+  phoneTouch: boolean | null;
+  /** Spread over the screen under the main one. */
+  screenBelow: boolean;
+}
+
+/** What the settings show of the preferences (`commands/preferences.rs`), and what they offer. */
 export interface Preferences {
   dj: DjPreferences;
   library: LibraryPreferences;
+  ui: UiPreferences;
   /** The keys the DJ changed, by control. */
   keys: KeyChanges;
+  choices: {
+    tempoRanges: number[];
+    deckCounts: number[];
+    talkoverDepths: number[];
+    languages: string[];
+  };
 }
 
-export const PITCH_RANGES = [0.08, 0.16, 0.5] as const;
+/** Each setting the settings change, and its value (`commands::preferences::Setting`). */
+export interface Settings {
+  vinylSync: VinylSyncMode;
+  autoGain: boolean;
+  deckCount: number;
+  knobMagnet: boolean;
+  lockControls: boolean;
+  cueOnLoad: boolean;
+  protectPlaying: boolean;
+  hiddenColumns: string[];
+  writeTags: boolean;
+  replaceTags: boolean;
+  pauseWhilePlaying: boolean;
+  stemsOnLoad: boolean;
+  stemsGpu: boolean;
+  stemsFast: boolean;
+  language: string | null;
+  phoneTouch: boolean | null;
+}

@@ -26,6 +26,24 @@ pub struct Preferences {
     /// Sound cards the DJ chose not to use when plugged in, by their name wherever they are
     /// plugged ([`base_device_name`](prisme_audio_io::base_device_name)): not offered again.
     pub declined_cards: Vec<String>,
+    pub ui: UiPreferences,
+}
+
+/// How the interface shows itself, chosen in it.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct UiPreferences {
+    /// One of [`UiPreferences::LANGUAGES`], else the system's.
+    pub language: Option<String>,
+    /// On a phone, the decks' touch controls shown or not, else as what is plugged in says.
+    pub phone_touch: Option<bool>,
+    /// Spread over the screen under the main one, when there is one.
+    pub screen_below: bool,
+}
+
+impl UiPreferences {
+    /// The languages of the interface.
+    pub const LANGUAGES: [&str; 2] = ["en", "fr"];
 }
 
 /// A key of the keyboard (`KeyboardEvent.code`, so the layout does not matter), with the
@@ -178,12 +196,6 @@ impl DjPreferences {
     /// The decks of the engine.
     pub fn decks(&self) -> usize {
         self.deck_count.into()
-    }
-
-    /// These settings, but those the actions set (the quantize, the tempo range) as `current`
-    /// has them.
-    pub fn keeping_actions_of(self, current: &DjPreferences) -> Self {
-        DjPreferences { quantize: current.quantize, pitch_range: current.pitch_range, ..self }
     }
 }
 
@@ -401,14 +413,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn the_settings_keep_the_quantize_and_the_tempo_range_the_actions_set() {
-        let current = DjPreferences { quantize: false, pitch_range: 0.16, ..Default::default() };
-        let older = DjPreferences { quantize: true, pitch_range: 0.08, cue_on_load: true, ..current };
-        let kept = older.keeping_actions_of(&current);
-        assert_eq!((kept.quantize, kept.pitch_range, kept.cue_on_load), (false, 0.16, true));
-    }
-
-    #[test]
     fn a_partial_file_keeps_the_other_defaults() {
         let p: Preferences = serde_json::from_str(r#"{ "dj": { "vinylSync": "locked" } }"#).unwrap();
         assert_eq!(p.dj.vinyl_sync, VinylSync::Locked);
@@ -418,6 +422,7 @@ mod tests {
         assert_eq!(p.audio, AudioSettings::default());
         assert!(p.library.write_tags);
         assert!(!p.library.replace_tags);
+        assert_eq!(p.ui, UiPreferences::default(), "a file from before the interface kept its own");
         assert!(p.library.pause_while_playing);
         assert_eq!(p.library.music_folder, None, "the system's music folder");
         assert!(p.library.folders.is_empty());

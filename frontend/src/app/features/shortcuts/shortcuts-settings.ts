@@ -13,7 +13,6 @@ import {
 } from '../../core/keyboard/shortcuts';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { EngineService } from '../../core/services/engine.service';
-import { errorText } from '../../core/errors';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 
@@ -142,7 +141,7 @@ export class ShortcutsSettings implements OnDestroy {
   }
 
   private save(keys: KeyChanges) {
-    this.preferences.updateKeys(keys).catch((e) => this.engine.error.set(errorText(e)));
+    this.engine.call('set_key_preferences', { keys });
   }
 
   ngOnDestroy() {

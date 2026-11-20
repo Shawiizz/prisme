@@ -365,7 +365,7 @@
               </app-setting-row>
               <app-setting-row id="mixing.talkover">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
-                  @for (db of talkoverDepths; track db) {
+                  @for (db of choices().talkoverDepths; track db) {
                     <button
                       role="radio"
                       [attr.aria-checked]="mixer.talkoverDepthDb() === db"
@@ -419,7 +419,7 @@
                 <select
                   class="pr-select"
                   [value]="dj().vinylSync"
-                  (change)="setDj({ vinylSync: $any($event.target).value })"
+                  (change)="set('vinylSync', $any($event.target).value)"
                   settingControl
                 >
                   <option value="once">{{ 'One shot' | t }}</option>
@@ -428,7 +428,7 @@
               </app-setting-row>
               <app-setting-row id="dj.pitchRange">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
-                  @for (r of pitchRanges; track r) {
+                  @for (r of choices().tempoRanges; track r) {
                     <button
                       role="radio"
                       [attr.aria-checked]="pitchRange() === r"
@@ -452,7 +452,7 @@
               </app-setting-row>
               <app-setting-row id="dj.decks">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
-                  @for (count of [2, MAX_DECKS]; track count) {
+                  @for (count of choices().deckCounts; track count) {
                     <button
                       role="radio"
                       [attr.aria-checked]="decks().length === count"
@@ -469,7 +469,7 @@
                   role="switch"
                   [attr.aria-checked]="dj().autoGain"
                   settingControl
-                  (click)="setDj({ autoGain: !dj().autoGain })"
+                  (click)="set('autoGain', !dj().autoGain)"
                 >
                   <span></span>
                 </button>
@@ -480,7 +480,7 @@
                   role="switch"
                   [attr.aria-checked]="dj().knobMagnet"
                   settingControl
-                  (click)="setDj({ knobMagnet: !dj().knobMagnet })"
+                  (click)="set('knobMagnet', !dj().knobMagnet)"
                 >
                   <span></span>
                 </button>
@@ -491,7 +491,7 @@
                   role="switch"
                   [attr.aria-checked]="dj().cueOnLoad"
                   settingControl
-                  (click)="setDj({ cueOnLoad: !dj().cueOnLoad })"
+                  (click)="set('cueOnLoad', !dj().cueOnLoad)"
                 >
                   <span></span>
                 </button>
@@ -502,7 +502,7 @@
                   role="switch"
                   [attr.aria-checked]="dj().protectPlaying"
                   settingControl
-                  (click)="setDj({ protectPlaying: !dj().protectPlaying })"
+                  (click)="set('protectPlaying', !dj().protectPlaying)"
                 >
                   <span></span>
                 </button>
@@ -514,7 +514,7 @@
                     role="switch"
                     [attr.aria-checked]="dj().lockControls"
                     settingControl
-                    (click)="setDj({ lockControls: !dj().lockControls })"
+                    (click)="set('lockControls', !dj().lockControls)"
                   >
                     <span></span>
                   </button>
@@ -551,7 +551,7 @@
                   role="switch"
                   [attr.aria-checked]="writeTags()"
                   settingControl
-                  (click)="setLibrary({ writeTags: !writeTags() })"
+                  (click)="set('writeTags', !writeTags())"
                 >
                   <span></span>
                 </button>
@@ -563,7 +563,7 @@
                     role="switch"
                     [attr.aria-checked]="replaceTags()"
                     settingControl
-                    (click)="setLibrary({ replaceTags: !replaceTags() })"
+                    (click)="set('replaceTags', !replaceTags())"
                   >
                     <span></span>
                   </button>
@@ -575,7 +575,7 @@
                   role="switch"
                   [attr.aria-checked]="pauseWhilePlaying()"
                   settingControl
-                  (click)="setLibrary({ pauseWhilePlaying: !pauseWhilePlaying() })"
+                  (click)="set('pauseWhilePlaying', !pauseWhilePlaying())"
                 >
                   <span></span>
                 </button>
@@ -585,14 +585,14 @@
                   <button
                     role="radio"
                     [attr.aria-checked]="!stemsFast()"
-                    (click)="setLibrary({ stemsFast: false })"
+                    (click)="set('stemsFast', false)"
                   >
                     {{ 'Quality' | t }}
                   </button>
                   <button
                     role="radio"
                     [attr.aria-checked]="stemsFast()"
-                    (click)="setLibrary({ stemsFast: true })"
+                    (click)="set('stemsFast', true)"
                   >
                     {{ 'Fast' | t }}
                   </button>
@@ -644,7 +644,7 @@
                   [attr.aria-checked]="separatesOnGpu()"
                   settingControl
                   [disabled]="stems.gpu() === false"
-                  (click)="setLibrary({ stemsGpu: !preferences.library().stemsGpu })"
+                  (click)="set('stemsGpu', !preferences.library().stemsGpu)"
                 >
                   <span></span>
                 </button>
@@ -655,7 +655,7 @@
                   role="switch"
                   [attr.aria-checked]="separateOnLoad()"
                   settingControl
-                  (click)="setLibrary({ stemsOnLoad: !separateOnLoad() })"
+                  (click)="set('stemsOnLoad', !separateOnLoad())"
                 >
                   <span></span>
                 </button>
@@ -699,7 +699,7 @@
                     <button
                       role="radio"
                       [attr.aria-checked]="language() === l.id"
-                      (click)="setLanguage(l.id)"
+                      (click)="set('language', l.id)"
                     >
                       {{ l.name }}
                     </button>

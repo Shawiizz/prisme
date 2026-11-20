@@ -15,8 +15,6 @@ const FILES: Record<Exclude<Language, 'en'>, () => Promise<{ default: Texts }>> 
 
 type Texts = Record<string, string>;
 
-const STORAGE_KEY = 'prisme.language';
-
 const current = signal<{ language: Language; texts: Texts }>({ language: 'en', texts: {} });
 
 /** The language of the UI. Read in a template or a `computed`, the text follows it. */
@@ -25,36 +23,19 @@ export const language = computed(() => current().language);
 /** For dates and numbers. */
 export const locale = computed(() => (language() === 'fr' ? 'fr-FR' : 'en-GB'));
 
-function savedLanguage(): Language {
-  let saved: string | null = null;
-  try {
-    saved = localStorage.getItem(STORAGE_KEY);
-  } catch {
-    // storage unavailable: follow the system
-  }
-  if (saved === 'en' || saved === 'fr') return saved;
-  return navigator.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
-}
-
-async function load(language: Language) {
+/** Shows the UI in `chosen` (`null`, or one it does not have: the system's): every text
+ * follows at once. */
+export async function showLanguage(chosen: string | null) {
+  const language: Language =
+    chosen === 'en' || chosen === 'fr'
+      ? chosen
+      : navigator.language.toLowerCase().startsWith('fr')
+        ? 'fr'
+        : 'en';
+  if (language === current().language && document.documentElement.lang === language) return;
   const texts = language === 'en' ? {} : (await FILES[language]()).default;
   current.set({ language, texts });
   document.documentElement.lang = language;
-}
-
-/** The language saved, or the system's: loaded before the UI starts. */
-export function loadLanguage(): Promise<void> {
-  return load(savedLanguage());
-}
-
-/** Switches the language: every text of the UI follows at once. */
-export async function setLanguage(language: Language) {
-  try {
-    localStorage.setItem(STORAGE_KEY, language);
-  } catch {
-    // kept for this run only
-  }
-  await load(language);
 }
 
 export type Params = Record<string, string | number>;

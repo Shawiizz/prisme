@@ -1,8 +1,10 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { PHONE } from '../platform';
+import { PreferencesService, takeStored } from './preferences.service';
 
-const STORAGE_KEY = 'prisme.screenBelow';
+/** Where the interface kept the choice before the backend kept it: taken over once. */
+const STORED = 'prisme.screenBelow';
 
 /**
  * A screen under the main one, as on a laptop with two screens: Prisme can spread over
@@ -10,6 +12,7 @@ const STORAGE_KEY = 'prisme.screenBelow';
  */
 @Injectable({ providedIn: 'root' })
 export class ScreensService {
+  private readonly preferences = inject(PreferencesService);
   /** There is a screen under the one Prisme is on. */
   readonly below = signal(false);
   /** Spread over both: where the screen below starts in the window (CSS px), and the
@@ -20,25 +23,14 @@ export class ScreensService {
   async init(): Promise<void> {
     if (PHONE) return;
     this.below.set(await invoke<boolean>('screen_below'));
-    if (this.below() && this.chosen()) await this.spread(true);
+    const chosen = takeStored(STORED) === 'true' || this.preferences.ui().screenBelow;
+    if (this.below() && chosen) await this.spread(true);
   }
 
+  /** Spreads over the screen below or no longer: the backend keeps the choice. */
   async spread(on: boolean): Promise<void> {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(on));
-    } catch {
-      // kept for this run only
-    }
     this.span.set(
       await invoke<{ split: number; zoom: number } | null>('span_screens', { span: on }),
     );
-  }
-
-  private chosen(): boolean {
-    try {
-      return localStorage.getItem(STORAGE_KEY) === 'true';
-    } catch {
-      return false;
-    }
   }
 }

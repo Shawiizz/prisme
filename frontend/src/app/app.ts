@@ -67,6 +67,7 @@ export class App implements OnInit {
   private readonly autoDj = inject(AutoDjService);
   private readonly preview = inject(PreviewService);
   private readonly settings = inject(SettingsService);
+  /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
   protected readonly mixer = inject(MixerService);
@@ -99,7 +100,6 @@ export class App implements OnInit {
 
   async ngOnInit() {
     try {
-      await this.preferences.load();
       await Promise.all([
         this.engine.connect(),
         this.library.init(),

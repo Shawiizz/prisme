@@ -1,7 +1,7 @@
 import { Component, DestroyRef, computed, inject, input, output } from '@angular/core';
-import { PITCH_RANGES } from '../../../core/models/preferences';
 import { PHONE } from '../../../core/platform';
 import { EngineService } from '../../../core/services/engine.service';
+import { PreferencesService } from '../../../core/services/preferences.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -105,7 +105,7 @@ import { Press } from '../../../shared/press';
     <div class="row">
       <span>{{ 'Tempo fader range' | t }}</span>
       <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Tempo fader range' | t">
-        @for (r of ranges; track r) {
+        @for (r of ranges(); track r) {
           <button
             role="radio"
             [class.pr-reach]="PHONE"
@@ -186,8 +186,9 @@ export class DeckOptions {
   protected readonly engine = inject(EngineService);
   protected readonly performance = inject(PerformanceService);
   protected readonly mixer = inject(MixerService);
+  private readonly preferences = inject(PreferencesService);
   protected readonly PHONE = PHONE;
-  protected readonly ranges = PITCH_RANGES;
+  protected readonly ranges = computed(() => this.preferences.choices().tempoRanges);
   protected readonly range = computed(() => this.engine.decks()[this.deck()].tempoRange);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
   private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);

@@ -2,9 +2,10 @@
 //! both, the library above, the decks under the fingers on the touch screen below.
 
 use serde::Serialize;
-use tauri::{Monitor, PhysicalPosition, PhysicalSize, WebviewWindow};
+use tauri::{Monitor, PhysicalPosition, PhysicalSize, State, WebviewWindow};
 
 use crate::error::{AppError, AppResult};
+use crate::state::AppState;
 
 /// How far apart two screens may be laid out and still be one under the other (physical px).
 const GAP_PX: i32 = 8;
@@ -52,7 +53,12 @@ pub fn screen_below(window: WebviewWindow) -> bool {
 
 /// Spreads the window over its screen and the one under it, or brings it back to its screen.
 #[tauri::command]
-pub fn span_screens(window: WebviewWindow, span: bool) -> AppResult<Option<SpanDto>> {
+pub fn span_screens(
+    window: WebviewWindow,
+    state: State<'_, AppState>,
+    span: bool,
+) -> AppResult<Option<SpanDto>> {
+    state.update_settings(|p| p.ui.screen_below = span);
     let failed = |e: tauri::Error| AppError::Other(e.to_string());
     if let Some(fake) = fake_span() {
         return Ok(span.then_some(fake));

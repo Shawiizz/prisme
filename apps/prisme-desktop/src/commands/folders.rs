@@ -19,7 +19,7 @@ pub fn music_root(library: State<'_, Arc<LibraryService>>) -> String {
 pub async fn set_music_folder(app: AppHandle, path: Option<String>) -> AppResult<String> {
     blocking(move || {
         let chosen = path.filter(|path| Path::new(path) != folders::system_music_root());
-        app.state::<AppState>().update_preferences(|p| p.library.music_folder = chosen.clone());
+        app.state::<AppState>().update_settings(|p| p.library.music_folder = chosen.clone());
         let library = app.state::<Arc<LibraryService>>();
         library.move_to(folders::music_root(chosen.as_deref()));
         Ok(library.root().display().to_string())

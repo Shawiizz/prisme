@@ -135,7 +135,7 @@ export class StemsService {
    * separates the tracks offered. */
   async downloadFor(fast: boolean) {
     this.wait(this.offered() ?? []);
-    await this.preferences.updateLibrary({ stemsFast: fast });
+    await this.preferences.set('stemsFast', fast);
     for (const model of this.modelsFor(fast).filter((m) => !m.installed)) {
       await this.downloadModel(model.id);
     }

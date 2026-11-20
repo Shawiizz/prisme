@@ -343,6 +343,8 @@ pub enum Section {
     Library,
     /// The lists the library keeps: the crates, the sets, the prepare list.
     Lists,
+    /// The preferences the settings show (`PreferencesDto`).
+    Settings,
 }
 
 impl Section {
@@ -353,10 +355,11 @@ impl Section {
         Section::Preview,
         Section::Library,
         Section::Lists,
+        Section::Settings,
     ];
 }
 
-pub const SECTIONS: usize = 6;
+pub const SECTIONS: usize = 7;
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
@@ -590,6 +593,13 @@ impl AppState {
     pub fn update_preferences(&self, change: impl FnOnce(&mut Preferences)) {
         self.preferences.update(change);
         self.revisions.moved(Section::Mixer);
+    }
+
+    /// [`Self::update_preferences`] for what the settings show of them (the DJ's, the
+    /// library's, the interface's, the keys): the interface hears of them too.
+    pub fn update_settings(&self, change: impl FnOnce(&mut Preferences)) {
+        self.update_preferences(change);
+        self.revisions.moved(Section::Settings);
     }
 
     /// The engine's latest view of `deck`.

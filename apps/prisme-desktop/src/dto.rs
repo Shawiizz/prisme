@@ -4,6 +4,7 @@ use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
 use crate::choices::{BoothChoice, LiveNote, OutputNote};
 use crate::commands::mixer::mixer_state_of;
+use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::knobs::{MixerKnobs, StripKnobs};
 use prisme_actions::meter::Levels;
@@ -1230,6 +1231,8 @@ pub struct ControlStateDto {
     pub library: Option<LibraryViewDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lists: Option<LibraryListsDto>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferences: Option<PreferencesDto>,
 }
 
 /// What a deck's pads hold, as the interface shows them.
@@ -1284,6 +1287,7 @@ impl ControlStateDto {
                 Section::Preview => controls.preview = Some(lock(&state.preview).clone()),
                 Section::Library => controls.library = Some(lock(&state.library).view()),
                 Section::Lists => controls.lists = Some(lock(&state.library).lists()),
+                Section::Settings => controls.preferences = Some(PreferencesDto::of(state)),
             }
         }
         controls
