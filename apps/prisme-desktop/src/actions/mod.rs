@@ -633,9 +633,7 @@ pub(crate) mod bench {
     use crate::audio_host::AudioSession;
     use crate::dto::{AudioInfo, BackendDto};
     use crate::state::LoadedTrack;
-    use crate::track_waveform::TrackWaveform;
     use prisme_engine::{Command, Engine, EngineConfig};
-    use prisme_media::TrackAudio;
     use prisme_session::JsonFile;
 
     /// How long a track of the tests lasts (s).
@@ -781,22 +779,7 @@ pub(crate) mod bench {
         /// A silent track of `seconds` on `deck`, with a beat grid at `bpm` from its start if
         /// it has one, stopped at its start.
         pub fn load(&self, deck: usize, seconds: f64, bpm: Option<f64>) {
-            let audio = TrackAudio::from_interleaved(48_000, vec![0.0; (seconds * 48_000.0) as usize * 2]);
-            let tempo = bpm.map(|bpm| prisme_analysis::Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 });
-            let track = LoadedTrack {
-                load_id: LoadedTrack::next_load_id(),
-                path: format!("deck{deck}.flac").into(),
-                audio: Arc::new(audio),
-                waveform: TrackWaveform::growing(1),
-                detected: prisme_analysis::TrackAnalysis { tempo, key: None },
-                edits: Default::default(),
-                tags: Default::default(),
-                cues: Vec::new(),
-                key_shift: 0,
-                stems: Default::default(),
-                stem_mix: Default::default(),
-                loudness: None,
-            };
+            let track = LoadedTrack::silent(&format!("deck{deck}.flac"), seconds, bpm);
             let commands = track.load_commands(deck, false);
             self.state.put_track(&self.state.ask_load(deck), Some(track), commands).unwrap();
             self.run(0.01);

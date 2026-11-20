@@ -62,7 +62,7 @@ fn jog(
 
 /// The tempo of `deck`'s fader, as a ratio to its track's; kept as the audio stops.
 pub fn set_pitch(state: &AppState, deck: usize, ratio: f64) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     lock(&state.decks)[deck].pitch = ratio;
     state.send_if_running(Command::SetPitch { deck, ratio })
 }
@@ -124,7 +124,7 @@ pub fn set_stem_level(state: &AppState, deck: usize, part: StemPart, level: f32)
 /// The deck chosen to lead the others; `None`: the engine picks it.
 pub fn set_sync_leader(state: &AppState, deck: Option<usize>) -> AppResult<()> {
     if let Some(d) = deck {
-        state.has_deck(d)?;
+        state.deck_in_use(d)?;
     }
     *lock(&state.sync_leader) = deck;
     state.send(Command::SetSyncLeader { deck })
@@ -139,7 +139,7 @@ pub fn toggle_leader(state: &AppState, deck: usize) -> AppResult<()> {
 /// Whether a touch of the controller's jog wheel of `deck` holds the record (else the wheel
 /// only nudges it).
 pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     lock(&state.decks)[deck].jog_scratch = on;
     Ok(())
 }
@@ -149,7 +149,7 @@ pub fn set_jog_scratch(state: &AppState, deck: usize, on: bool) -> AppResult<()>
 /// `audio_host::deck_pair`), which plays on by itself; a deck a record lets go of plays on at
 /// the record's tempo.
 pub fn set_vinyl(state: &AppState, deck: usize, change: VinylChangeDto) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     if change == VinylChangeDto::Enabled(false) {
         state.let_go_of_record(deck);
     }
@@ -185,7 +185,7 @@ pub fn set_tempo_range(state: &AppState, deck: Option<usize>, range: f64) -> App
     }
     match deck {
         Some(deck) => {
-            AppState::check_deck(deck)?;
+            AppState::deck_exists(deck)?;
             lock(&state.decks)[deck].pitch_range = Some(range);
             state.update_preferences(|p| p.decks[deck].pitch_range = Some(range));
         }
@@ -203,7 +203,7 @@ pub fn set_tempo_range(state: &AppState, deck: Option<usize>, range: f64) -> App
 /// The deck's size in beats, what its jumps go by and its sized loop lasts; kept for the next
 /// start.
 fn set_deck_size(state: &AppState, deck: usize, beats: f64) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     if !DeckPreferences::SIZE_BEATS.contains(&beats) {
         return Err(AppError::Other("a deck's size is from 1/16 of a beat to 64 beats".into()));
     }
@@ -226,13 +226,13 @@ pub fn set_key_lock(state: &AppState, deck: usize, enabled: bool) -> AppResult<(
 
 /// Locked to the leader, or free.
 fn set_sync_locked(state: &AppState, deck: usize, locked: bool) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     state.send(Command::SetSyncLocked { deck, locked })
 }
 
 /// The leader's tempo and beats matched once.
 fn sync_once(state: &AppState, deck: usize) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     state.send(Command::SyncOnce { deck })
 }
 

@@ -41,7 +41,7 @@ pub fn preload(
     deck: usize,
     path: PathBuf,
 ) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     let (track, completion) = prepare(path, &library.db)?;
     lock(&state.tracks)[deck] = Some(track);
     let app = app.clone();
@@ -72,7 +72,7 @@ pub fn put_on_deck(
     deck: usize,
     path: PathBuf,
 ) -> AppResult<Option<Completion>> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     let turn = state.ask_load(deck);
     let (track, completion) = prepare(path, library)?;
     let commands = track.load_commands(deck, state.preferences.read(|p| p.dj.auto_gain));

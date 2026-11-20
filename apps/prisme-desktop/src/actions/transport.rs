@@ -19,7 +19,7 @@ pub const SEARCH_SPEED: f64 = 8.0;
 
 /// Sends `command` to the engine for `deck`, one of those in use.
 pub fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     state.send(command)
 }
 
@@ -45,14 +45,14 @@ pub fn set_loop(
 
 /// The track on `deck` played or paused; the Auto DJ lets the deck go.
 pub fn set_playing(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, playing: bool) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     take_over(auto_dj, Takeover::Transport(deck));
     state.send(Command::SetPlaying { deck, playing })
 }
 
 /// To `seconds` into the track; the Auto DJ lets the deck go.
 pub fn seek(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f64) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     take_over(auto_dj, Takeover::Transport(deck));
     state.send(Command::Seek { deck, seconds })
 }

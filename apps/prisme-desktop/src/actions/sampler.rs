@@ -7,7 +7,7 @@ use prisme_engine::{Command, SAMPLE_SLOTS};
 use std::path::PathBuf;
 
 pub fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     if slot < SAMPLE_SLOTS {
         Ok(())
     } else {
@@ -60,7 +60,7 @@ pub fn stop_sample(state: &AppState, deck: usize, slot: usize) -> AppResult<()> 
 
 /// The level of the deck's sampler (a gain of 0 or more); kept for the next start.
 pub fn set_sampler_gain(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     if !(gain.is_finite() && gain >= 0.0) {
         return Err(AppError::Other("a sampler level is a gain of 0 or more".into()));
     }

@@ -16,7 +16,7 @@ const FADER_CLOSED: f32 = 1e-3;
 /// The channel fader of `deck` (a linear gain). With fader start on the software mixer, a
 /// fader raised from closed plays its deck, and closed stops it on its cue point.
 pub fn set_volume(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     let (before, fader_start) = {
         let mut decks = lock(&state.decks);
         (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start)
@@ -122,7 +122,7 @@ pub fn set_crossfader_side(state: &AppState, deck: usize, side: CrossfaderSideDt
 
 /// Software mixer: the channel fader starts and stops the deck; kept for the next start.
 pub fn set_fader_start(state: &AppState, deck: usize, enabled: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     lock(&state.decks)[deck].fader_start = enabled;
     state.update_preferences(|p| p.decks[deck].fader_start = enabled);
     Ok(())

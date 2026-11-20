@@ -75,6 +75,28 @@ impl LoadedTrack {
         NEXT.fetch_add(1, Ordering::Relaxed)
     }
 
+    /// A silent track of `seconds` named `path`, with a beat grid at `bpm` from its start if it
+    /// has one.
+    #[cfg(test)]
+    pub fn silent(path: &str, seconds: f64, bpm: Option<f64>) -> Self {
+        let samples = vec![0.0; (seconds * 48_000.0) as usize * 2];
+        let tempo = bpm.map(|bpm| prisme_analysis::Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 });
+        LoadedTrack {
+            load_id: Self::next_load_id(),
+            path: path.into(),
+            audio: Arc::new(TrackAudio::from_interleaved(48_000, samples)),
+            waveform: crate::track_waveform::TrackWaveform::growing(1),
+            detected: prisme_analysis::TrackAnalysis { tempo, key: None },
+            edits: Default::default(),
+            tags: Default::default(),
+            cues: Vec::new(),
+            key_shift: 0,
+            stems: Default::default(),
+            stem_mix: Default::default(),
+            loudness: None,
+        }
+    }
+
     /// The same track as a load of its own, its audio and stems shared: an instant double.
     pub fn double(&self) -> Self {
         Self { load_id: Self::next_load_id(), ..self.clone() }
@@ -507,8 +529,8 @@ impl AppState {
     }
 
     /// Whether `deck` is one the engine can have, kept for when it is in use (its settings);
-    /// [`AppState::has_deck`] for one in use.
-    pub fn check_deck(deck: usize) -> AppResult<()> {
+    /// [`AppState::deck_in_use`] for one in use.
+    pub fn deck_exists(deck: usize) -> AppResult<()> {
         if deck < MAX_DECKS {
             Ok(())
         } else {
@@ -539,7 +561,7 @@ impl AppState {
     }
 
     pub fn deck_status(&self, deck: usize) -> AppResult<DeckStatus> {
-        Self::check_deck(deck)?;
+        Self::deck_exists(deck)?;
         let mut session = lock(&self.session);
         let session = session.as_mut().ok_or(AppError::AudioNotRunning)?;
         Ok(session.controller.status().decks[deck])
@@ -624,13 +646,13 @@ impl AppState {
 
     /// Reads the track loaded on `deck` with `f`.
     pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&LoadedTrack) -> R) -> AppResult<R> {
-        Self::check_deck(deck)?;
+        Self::deck_exists(deck)?;
         lock(&self.tracks)[deck].as_ref().map(f).ok_or(AppError::NoTrack(deck))
     }
 
     /// Changes the track loaded on `deck` with `f`: the interface hears of it.
     pub fn change_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
-        Self::check_deck(deck)?;
+        Self::deck_exists(deck)?;
         let mut tracks = lock(&self.tracks);
         tracks[deck].as_mut().map(f).ok_or(AppError::NoTrack(deck))
     }
@@ -693,7 +715,7 @@ impl AppState {
         change: impl FnOnce(&mut DeckSettings),
         command: Command,
     ) -> AppResult<()> {
-        Self::check_deck(deck)?;
+        Self::deck_exists(deck)?;
         change(&mut lock(&self.decks)[deck]);
         self.send_if_running(command)
     }
@@ -844,7 +866,7 @@ impl AppState {
     }
 
     /// Whether `deck` is one of the decks in use (two, or four).
-    pub fn has_deck(&self, deck: usize) -> AppResult<()> {
+    pub fn deck_in_use(&self, deck: usize) -> AppResult<()> {
         if deck < self.preferences.read(|p| p.dj.decks()) {
             Ok(())
         } else {

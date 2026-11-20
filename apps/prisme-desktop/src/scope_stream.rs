@@ -18,7 +18,7 @@ static GENERATIONS: [AtomicU64; MAX_DECKS] = [const { AtomicU64::new(0) }; MAX_D
 
 #[tauri::command]
 pub fn subscribe_scope(app: AppHandle, deck: usize, channel: Channel<Vec<[f32; 2]>>) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     let generation = GENERATIONS[deck].fetch_add(1, Ordering::SeqCst) + 1;
     std::thread::Builder::new().name("prisme-scope".into()).spawn(move || {
         let state = app.state::<AppState>();
@@ -40,7 +40,7 @@ pub fn subscribe_scope(app: AppHandle, deck: usize, channel: Channel<Vec<[f32; 2
 
 #[tauri::command]
 pub fn unsubscribe_scope(deck: usize) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     GENERATIONS[deck].fetch_add(1, Ordering::SeqCst);
     Ok(())
 }

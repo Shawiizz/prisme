@@ -38,8 +38,8 @@ impl fmt::Display for Kind {
     }
 }
 
-/// Where an action is performed: by the application's core, straight from the controller, or
-/// by the UI the controller tells.
+/// Where an action is performed: by the application's core, or by the interface the
+/// controller tells (`ui-action`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Owner {
     Rust,
@@ -131,14 +131,13 @@ impl Turn {
 #[derive(Debug, Clone, Copy)]
 pub struct Beats(pub f64);
 
-impl Beats {
-    /// A number as `[+-]?\d+(\.\d+)?`.
-    fn read(text: &str) -> Option<f64> {
-        let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
-        let (whole, fraction) = digits.split_once('.').unwrap_or((digits, "0"));
-        let numeric = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
-        (numeric(whole) && numeric(fraction)).then(|| text.parse().ok()).flatten()
-    }
+/// The amount a measured action's id ends with (`-8`, `0.5`, `+2`): a number as
+/// `[+-]?\d+(\.\d+)?`.
+fn signed_number(text: &str) -> Option<f64> {
+    let digits = text.strip_prefix(['+', '-']).unwrap_or(text);
+    let (whole, fraction) = digits.split_once('.').unwrap_or((digits, "0"));
+    let numeric = |part: &str| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit());
+    (numeric(whole) && numeric(fraction)).then(|| text.parse().ok()).flatten()
 }
 
 /// Never NaN: read from digits.
@@ -547,12 +546,12 @@ impl DeckAction {
     /// One of the families named by what they measure.
     fn measured(id: &str) -> Option<Self> {
         let (family, amount) = id.split_once('.')?;
-        let beats = Beats::read(amount)?;
+        let amount = signed_number(amount)?;
         match family {
-            "key" => (beats.fract() == 0.0).then_some(DeckAction::KeyTo(beats as i32)),
-            "jump" => (beats != 0.0).then_some(DeckAction::JumpBeats(Beats(beats))),
-            "loop" => (beats > 0.0).then_some(DeckAction::LoopBeats(Beats(beats))),
-            "roll" => (beats > 0.0).then_some(DeckAction::RollBeats(Beats(beats))),
+            "key" => (amount.fract() == 0.0).then_some(DeckAction::KeyTo(amount as i32)),
+            "jump" => (amount != 0.0).then_some(DeckAction::JumpBeats(Beats(amount))),
+            "loop" => (amount > 0.0).then_some(DeckAction::LoopBeats(Beats(amount))),
+            "roll" => (amount > 0.0).then_some(DeckAction::RollBeats(Beats(amount))),
             _ => None,
         }
     }

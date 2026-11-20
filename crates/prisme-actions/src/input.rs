@@ -55,7 +55,7 @@ impl Given {
 
 /// What is kept of a controller's control of an action between its moves.
 #[derive(Debug, Default)]
-struct Held {
+struct ControlMemory {
     pickup: Pickup,
     /// What is left of the steps short of a whole one.
     steps: f32,
@@ -64,7 +64,7 @@ struct Held {
 /// The controls of the controllers, by controller and action.
 #[derive(Debug, Default)]
 pub struct Inputs {
-    devices: HashMap<String, HashMap<Target, Held>>,
+    devices: HashMap<String, HashMap<Target, ControlMemory>>,
 }
 
 impl Inputs {
@@ -83,21 +83,23 @@ impl Inputs {
                 position.map(|at| Given::Value((at + steps * step.unwrap_or(ENCODER_STEP)).clamp(0.0, 1.0)))
             }
             Input::Steps { steps, .. } => {
-                let held = self.held(device, target);
-                let total = held.steps + steps;
+                let memory = self.memory(device, target);
+                let total = memory.steps + steps;
                 let whole = total.trunc();
-                held.steps = total - whole;
+                memory.steps = total - whole;
                 (whole != 0.0).then_some(Given::Steps(whole as i32))
             }
             Input::Value(value) => match position {
-                Some(at) => self.held(device, target).pickup.takes(value, at).then_some(Given::Value(value)),
+                Some(at) => {
+                    self.memory(device, target).pickup.takes(value, at).then_some(Given::Value(value))
+                }
                 None => Some(Given::Value(value)),
             },
         }
     }
 
     /// The name of `device` is copied once, on its first move, not on each.
-    fn held(&mut self, device: &str, target: &Target) -> &mut Held {
+    fn memory(&mut self, device: &str, target: &Target) -> &mut ControlMemory {
         if !self.devices.contains_key(device) {
             self.devices.insert(device.to_owned(), HashMap::new());
         }

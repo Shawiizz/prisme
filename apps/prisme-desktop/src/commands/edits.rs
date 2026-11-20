@@ -124,7 +124,7 @@ fn edit(
     deck: usize,
     change: impl FnOnce(Option<GridEdit>, &mut TrackEdits) -> AppResult<()>,
 ) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     let (path, edits, updated) = {
         let mut tracks = lock(&state.tracks);
         let track = tracks[deck].as_ref().ok_or(AppError::NoTrack(deck))?;

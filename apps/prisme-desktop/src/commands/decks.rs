@@ -20,7 +20,7 @@ pub fn hand(
     seconds: Option<f64>,
     at_ms: f64,
 ) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Hand { deck, position_s: seconds, at_s: at_ms / 1000.0 })
 }
@@ -35,7 +35,7 @@ pub fn jog(
     turns: f64,
     at_ms: f64,
 ) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     auto_dj.take_over(Takeover::Transport(deck));
     state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
@@ -50,7 +50,7 @@ pub fn set_vinyl(state: State<'_, AppState>, deck: usize, change: VinylChangeDto
 /// Swaps the turntable's left and right channels (crossed cables), kept for the next start.
 #[tauri::command]
 pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> AppResult<()> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     lock(&state.decks)[deck].swap_channels = swap;
     state.update_preferences(|p| p.decks[deck].swap_channels = swap);
     replace_decoder(&state, deck)
@@ -61,7 +61,7 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
 /// The simulated turntable plays deck A's: the audio starts again with the new one.
 #[tauri::command]
 pub async fn set_timecode(app: AppHandle, deck: usize, format: String) -> AppResult<Vec<usize>> {
-    AppState::check_deck(deck)?;
+    AppState::deck_exists(deck)?;
     let record = TimecodeFormat::by_id(&format).ok_or(AppError::UnknownFormat(format))?;
     blocking(move || {
         let state = app.state::<AppState>();

@@ -158,9 +158,9 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::Beat => status.playing && status.beat_phase.is_some_and(|p| p < BEAT_LIT),
         DeckAction::Clip => perform.clipping,
         DeckAction::Ending => return Some(Light::of(ending(status))),
-        DeckAction::TempoZero => tempo(deck, view) == Tempo::Zero,
-        DeckAction::TempoSlower => tempo(deck, view) == Tempo::Slower,
-        DeckAction::TempoFaster => tempo(deck, view) == Tempo::Faster,
+        DeckAction::TempoZero => tempo(deck, view) == TempoLight::Zero,
+        DeckAction::TempoSlower => tempo(deck, view) == TempoLight::Slower,
+        DeckAction::TempoFaster => tempo(deck, view) == TempoLight::Faster,
         DeckAction::Phase => phase_of(deck, view) == Phase::In,
         DeckAction::PhaseAhead => phase_of(deck, view) == Phase::Ahead,
         DeckAction::PhaseBehind => phase_of(deck, view) == Phase::Behind,
@@ -211,7 +211,7 @@ fn ending(status: &DeckStatus) -> State {
 
 /// A deck's tempo against the deck it mixes with.
 #[derive(Debug, PartialEq, Eq)]
-enum Tempo {
+enum TempoLight {
     /// At its track's own.
     Zero,
     Slower,
@@ -220,19 +220,19 @@ enum Tempo {
     Off,
 }
 
-fn tempo(deck: usize, view: &View) -> Tempo {
+fn tempo(deck: usize, view: &View) -> TempoLight {
     if (view.tempo_rate(deck) - 1.0).abs() < AT_TEMPO {
-        return Tempo::Zero;
+        return TempoLight::Zero;
     }
     match (view.deck_status(deck).bpm, view.deck_status(view.mixed_with(deck)).bpm) {
         (Some(own), Some(other)) if (own - other).abs() >= SAME_BPM => {
             if own < other {
-                Tempo::Slower
+                TempoLight::Slower
             } else {
-                Tempo::Faster
+                TempoLight::Faster
             }
         }
-        _ => Tempo::Off,
+        _ => TempoLight::Off,
     }
 }
 

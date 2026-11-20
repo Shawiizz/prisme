@@ -31,7 +31,7 @@ impl Place {
 
 /// The slicer of `deck` put on the bar the track is in (as the screen's slicer is chosen).
 pub fn anchor_slicer(state: &AppState, deck: usize) -> AppResult<()> {
-    state.has_deck(deck)?;
+    state.deck_in_use(deck)?;
     if let Some(place) = place(state, deck) {
         lock(&state.perform).decks[deck].slicer = Some(place.bar_start());
     }

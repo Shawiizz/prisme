@@ -24,7 +24,7 @@ impl Performing<'_> {
     /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light.
     pub(super) fn perform(&self, target: &Target, input: Input) -> AppResult<()> {
         if target.kind() == Kind::Light
-            || target.deck().is_some_and(|deck| self.state.has_deck(deck).is_err())
+            || target.deck().is_some_and(|deck| self.state.deck_in_use(deck).is_err())
         {
             return Ok(());
         }
@@ -591,7 +591,7 @@ mod faders {
     }
 
     #[test]
-    fn a_fader_picks_its_setting_up_on_each_controller_apart() {
+    fn a_controllers_fader_reaches_its_setting_through_its_own_pickup() {
         let bench = Bench::new();
         let volume = || lock(&bench.state.decks)[0].volume;
         set(&bench, "deck1.volume", 0.5);
@@ -629,7 +629,7 @@ mod faders {
     }
 
     #[test]
-    fn an_eq_band_and_a_live_input_come_back_from_their_silent_end() {
+    fn the_silent_end_memories_of_the_eq_and_the_mic_reach_their_settings() {
         let bench = Bench::new();
         set(&bench, "deck1.eq.low", 0.0);
         set(&bench, "mixer.mic", 0.0);
@@ -646,7 +646,7 @@ mod faders {
     }
 
     #[test]
-    fn the_crossfader_curve_switches_along_a_knob_both_ways() {
+    fn the_crossfader_curve_knob_reaches_the_mixer_both_ways() {
         let bench = Bench::new();
         let curve = || bench.state.preferences.read(|p| p.mixer.crossfader_curve);
         turn(&bench, "mixer.crossfaderCurve", &knob(1.0));
@@ -722,11 +722,8 @@ mod switches {
     use crate::actions::bench::Bench;
     use crate::dto::CrossfaderCurveDto;
     use crate::state::{lock, LoadedTrack};
-    use crate::track_waveform::TrackWaveform;
     use prisme_actions::input::Input;
     use prisme_engine::Command;
-    use prisme_media::TrackAudio;
-    use std::sync::Arc;
 
     /// `id` pressed then let go.
     fn press(bench: &Bench, id: &str) {
@@ -880,29 +877,12 @@ mod switches {
         assert_eq!(bench.state.tempo_range(1), 0.5, "every deck follows the general one again");
     }
 
-    fn track() -> LoadedTrack {
-        LoadedTrack {
-            load_id: LoadedTrack::next_load_id(),
-            path: "drop.flac".into(),
-            audio: Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 2])),
-            waveform: TrackWaveform::growing(1),
-            detected: Default::default(),
-            edits: Default::default(),
-            tags: Default::default(),
-            cues: Vec::new(),
-            key_shift: 0,
-            stems: Default::default(),
-            stem_mix: Default::default(),
-            loudness: None,
-        }
-    }
-
     #[test]
     fn the_key_moves_by_a_semitone_within_twelve_either_way() {
         let bench = Bench::new();
         press(&bench, "deck1.key.up");
         assert!(bench.sent().is_empty(), "no track");
-        lock(&bench.state.tracks)[0] = Some(track());
+        lock(&bench.state.tracks)[0] = Some(LoadedTrack::silent("drop.flac", 1.0, None));
         let key = |bench: &Bench| bench.state.with_track(0, |t| t.key_shift).unwrap();
         press(&bench, "deck1.key.up");
         press(&bench, "deck1.key.up");
