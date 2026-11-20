@@ -96,6 +96,10 @@ export class EngineService {
    * or until the next thing asked. */
   readonly refusal = signal<string | null>(null);
   private refusalTimer?: ReturnType<typeof setTimeout>;
+  /** This page's load, and how many actions it sent: the backend performs them in that order,
+   * whatever order their calls reach it in. */
+  private readonly run = Math.floor(Math.random() * Number.MAX_SAFE_INTEGER);
+  private sent = 0;
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
 
@@ -416,7 +420,8 @@ export class EngineService {
    * fader's position, or an encoder's steps (`steps`), as a controller's control would;
    * `confirmed`, the DJ said yes to what it replaces. Whether it was done. */
   perform(target: string, value: number, steps = false, confirmed = false) {
-    return this.call('perform_action', { target, value, steps, step: null, confirmed });
+    const order = { run: this.run, number: ++this.sent };
+    return this.call('perform_action', { target, value, steps, step: null, confirmed, order });
   }
 
   /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */

@@ -82,7 +82,7 @@ describe('EngineService', () => {
     engine.setVinylEnabled(0, true);
     // half the range up: three quarters of the fader
     engine.moveTempo(1, engine.tempoRange(1) / 2);
-    const performed = { steps: false, step: null, confirmed: false };
+    const performed = { steps: false, step: null, confirmed: false, order: expect.anything() };
     expect(calls).toEqual([
       ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
@@ -91,6 +91,16 @@ describe('EngineService', () => {
       ['perform_action', { target: 'deck1.vinyl.on', value: 1, ...performed }],
       ['perform_action', { target: 'deck2.pitch', value: 0.75, ...performed }],
     ]);
+  });
+
+  it('numbers the actions it sends, for the backend to perform them in that order', () => {
+    engine.press(0, 'censor');
+    engine.press(0, 'censor', false);
+    const orders = calls.map(
+      ([, args]) => (args as { order: { run: number; number: number } }).order,
+    );
+    expect(orders[1].run).toBe(orders[0].run);
+    expect(orders[1].number).toBe(orders[0].number + 1);
   });
 
   describe('a deck that plays', () => {
@@ -136,7 +146,14 @@ describe('EngineService', () => {
       expect(calls).toEqual([
         [
           'perform_action',
-          { target: 'deck2.eject', value: 1, steps: false, step: null, confirmed: true },
+          {
+            target: 'deck2.eject',
+            value: 1,
+            steps: false,
+            step: null,
+            confirmed: true,
+            order: expect.anything(),
+          },
         ],
       ]);
     });

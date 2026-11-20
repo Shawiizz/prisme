@@ -53,6 +53,8 @@ pub use view::view_of;
 pub const FAILED_EVENT: &str = "action-failed";
 /// How long a load waits for the interface to apply the browsing sent before it.
 const SELECTION_WAIT: Duration = Duration::from_millis(500);
+/// How long an action of the interface waits for the one sent before it, which may be lost.
+const ORDER_WAIT: Duration = Duration::from_millis(50);
 
 /// A move of a controller: which one, when on its clock, and how many steps a turn of its jog
 /// wheels sends.
@@ -290,6 +292,22 @@ impl InTurn {
     }
 }
 
+/// Where the actions the interface sends are: those of its page loaded as `run`, the next to
+/// perform numbered `next`.
+#[derive(Default)]
+struct Sent {
+    run: u64,
+    next: u64,
+}
+
+/// The place of an action among those the interface sends: its number among those of its page
+/// loaded as `run`.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct Order {
+    run: u64,
+    number: u64,
+}
+
 /// The track selected in the library, as the interface tells it, and the last of the actions it
 /// was told to perform (`ui-action`) it had applied then.
 #[derive(Default)]
@@ -310,6 +328,10 @@ pub struct Actions {
     caught_up: Condvar,
     /// How many actions the interface was told to perform.
     told: AtomicU64,
+    /// The actions the interface sent, performed in their order.
+    sent: Mutex<Sent>,
+    /// Told as one of them is performed.
+    sent_on: Condvar,
     lanes: Lanes,
     /// The queue of the worker keeping in the library what the actions changed.
     kept: Sender<Job>,
@@ -337,6 +359,8 @@ impl Actions {
             selection: Mutex::default(),
             caught_up: Condvar::new(),
             told: AtomicU64::new(0),
+            sent: Mutex::default(),
+            sent_on: Condvar::new(),
             lanes: Lanes::default(),
             kept,
             started: Instant::now(),
@@ -400,6 +424,26 @@ impl Actions {
         let decks = state.preferences.read(|p| p.dj.decks());
         let tracks = lock(&state.tracks);
         (0..decks).find(|&deck| tracks[deck].is_none() && !self.lanes.busy(Lane::Track(deck))).unwrap_or(0)
+    }
+
+    /// Sends `send`, an action of the interface, after those it numbered before it: their calls
+    /// may reach Prisme in another order. One that does not come is waited for [`ORDER_WAIT`] at
+    /// most.
+    fn in_order(&self, Order { run, number: order }: Order, send: impl FnOnce()) {
+        {
+            let mut sent = lock(&self.sent);
+            if sent.run != run {
+                *sent = Sent { run, next: order };
+            }
+            let turn = |s: &mut Sent| s.run == run && s.next < order;
+            drop(self.sent_on.wait_timeout_while(sent, ORDER_WAIT, turn));
+        }
+        send();
+        let mut sent = lock(&self.sent);
+        if sent.run == run {
+            sent.next = sent.next.max(order + 1);
+        }
+        self.sent_on.notify_all();
     }
 
     /// The number of an action the interface is told to perform (see [`Actions::select`]).
@@ -577,7 +621,9 @@ fn not_performed(target: &Target) -> AppError {
 }
 
 /// Performs the action `target` driven to `value` (an encoder's `steps`, each moving a fader
-/// by `step`), as the interface asks: `confirmed`, the DJ said yes to what it replaces.
+/// by `step`), as the interface asks: `confirmed`, the DJ said yes to what it replaces. The
+/// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
+/// key let go after it was pressed.
 #[tauri::command]
 pub async fn perform_action(
     app: AppHandle,
@@ -586,23 +632,21 @@ pub async fn perform_action(
     steps: bool,
     step: Option<f32>,
     confirmed: bool,
+    order: Order,
 ) -> AppResult<()> {
     let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
-    let (answer, outcome) = mpsc::sync_channel(1);
     let input = Input::of(value, steps, step);
     let source = if confirmed { Source::Confirmed } else { Source::Interface };
-    let in_turn = &mut InTurn::default();
-    app.state::<Actions>().perform(&app, &target, input, source, Answer::To(answer), in_turn);
-    match outcome.try_recv() {
-        Ok(outcome) => outcome,
-        // waiting its turn
-        Err(_) => {
-            crate::commands::blocking(move || {
-                outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-            })
-            .await
-        }
-    }
+    crate::commands::blocking(move || {
+        let actions = app.state::<Actions>();
+        let (answer, outcome) = mpsc::sync_channel(1);
+        actions.in_order(order, || {
+            let in_turn = &mut InTurn::default();
+            actions.perform(&app, &target, input, source, Answer::To(answer), in_turn);
+        });
+        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+    })
+    .await
 }
 
 #[cfg(test)]
@@ -1008,5 +1052,39 @@ mod selection {
         load(&bench, "library.load2");
         assert!(again.elapsed() < SELECTION_WAIT, "not waited for again");
         assert_eq!(loaded(&bench, 1), Some(first.0.clone()));
+    }
+}
+
+#[cfg(test)]
+mod interface_order {
+    use super::*;
+    use std::time::Duration;
+
+    /// Sends the interface's actions `orders` of `run`, each from a thread of its own a moment
+    /// after the one before: the order they are performed in.
+    fn sent(actions: &Arc<Actions>, run: u64, orders: &[u64]) -> Vec<u64> {
+        let performed = Arc::new(Mutex::new(Vec::new()));
+        let threads: Vec<_> = orders
+            .iter()
+            .map(|&order| {
+                let (actions, performed) = (actions.clone(), performed.clone());
+                std::thread::sleep(Duration::from_millis(5));
+                let numbered = Order { run, number: order };
+                std::thread::spawn(move || actions.in_order(numbered, || lock(&performed).push(order)))
+            })
+            .collect();
+        threads.into_iter().for_each(|t| t.join().unwrap());
+        Arc::try_unwrap(performed).unwrap().into_inner().unwrap()
+    }
+
+    #[test]
+    fn the_actions_of_the_interface_are_performed_in_the_order_it_sent_them() {
+        let actions = Arc::new(Actions::start());
+        assert_eq!(sent(&actions, 7, &[1]), [1]);
+        assert_eq!(sent(&actions, 7, &[3, 2]), [2, 3], "a release overtaking its press waits for it");
+        let lost = Instant::now();
+        assert_eq!(sent(&actions, 7, &[5]), [5], "the one before lost");
+        assert!(lost.elapsed() >= ORDER_WAIT);
+        assert_eq!(sent(&actions, 8, &[1, 2]), [1, 2], "the page loaded again");
     }
 }
