@@ -15,7 +15,7 @@ export class PerformanceService {
   private readonly held = computed<DeckPerform[]>(
     () =>
       this.engine.controls()?.perform ??
-      Array(MAX_DECKS).fill({ slicer: null, cut: null, roll: null }),
+      Array(MAX_DECKS).fill({ slicer: null, cut: null, roll: null, fxFocus: null }),
   );
   /** Where each deck's slicer starts (s): on the bar it played in when it was put there. */
   readonly slicers = computed(() => this.held().map((d) => d.slicer));

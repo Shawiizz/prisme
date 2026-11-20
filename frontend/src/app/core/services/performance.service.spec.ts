@@ -13,9 +13,9 @@ describe('PerformanceService', () => {
     vi.spyOn(engine, 'perform').mockImplementation(async (target, value) => {
       calls.push([target, value]);
     });
-    const none: DeckPerform = { slicer: null, cut: null, roll: null };
+    const none: DeckPerform = { slicer: null, cut: null, roll: null, fxFocus: null };
     expect(performance.cuts()).toEqual([null, null, null, null]);
-    const perform = [none, { slicer: 4, cut: 2, roll: 0.5 }, none, none];
+    const perform = [none, { ...none, slicer: 4, cut: 2, roll: 0.5 }, none, none];
     engine.controls.set({ perform } as ControlState);
     expect(performance.slicers()[1]).toBe(4);
     expect(performance.cuts()[1]).toBe(2);

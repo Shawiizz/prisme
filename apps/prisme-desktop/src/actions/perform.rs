@@ -112,6 +112,11 @@ impl Performing<'_> {
                 _ => Ok(()),
             },
             DeckAction::HotCue(slot) => self.hot_cue(deck, slot),
+            DeckAction::Fx(
+                slot,
+                action @ (FxAction::Next | FxAction::Previous | FxAction::Effect(_) | FxAction::Focus),
+            ) => self.fx_key(deck, slot, action),
+            DeckAction::FxPart => fx::next_fx_part(state, deck),
             DeckAction::Brake => send(Command::Brake { deck }),
             DeckAction::LoopIn => send(Command::LoopIn { deck }),
             DeckAction::LoopOut => send(Command::LoopOut { deck }),
@@ -247,6 +252,7 @@ impl Performing<'_> {
             DeckAction::Key => Ok(()),
             DeckAction::SamplerGain => sampler::set_sampler_gain(state, deck, at),
             DeckAction::StemLevel(part) => deck::set_stem_level(state, deck, part, at),
+            DeckAction::FxKnob(knob) => self.deck_fader(deck, self.fx_knob(deck, knob), at),
             DeckAction::FxSuper => {
                 (0..FX_SLOTS).try_for_each(|slot| fx::set_fx_amount(state, deck, slot, at))
             }

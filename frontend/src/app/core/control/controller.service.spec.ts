@@ -1,33 +1,29 @@
 import { WritableSignal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { FxService } from '../services/fx.service';
-import { PreferencesService } from '../services/preferences.service';
+import { NavigationService } from '../services/navigation.service';
 import { ControllerService } from './controller.service';
 
 describe('ControllerService', () => {
   afterEach(() => clearMocks());
 
-  it('tells the lights of what it keeps, out on a deck no longer shown', async () => {
+  it('tells the lights of what it keeps as they change', async () => {
     const sent: unknown[] = [];
     mockIPC((command, args) => {
       if (command === 'set_lights') sent.push(...(args as { lights: unknown[] }).lights);
     });
-    const preferences = TestBed.inject(PreferencesService);
-    const deckCount = (n: number) => preferences.dj.update((dj) => ({ ...dj, deckCount: n }));
-    deckCount(4);
-    TestBed.inject(FxService).toggleFocus(2, 0);
+    const navigation = TestBed.inject(NavigationService);
     const controllers = TestBed.inject(ControllerService) as unknown as {
       lightTargets: WritableSignal<string[]>;
     };
-    controllers.lightTargets.set(['deck3.fx.focus']);
+    controllers.lightTargets.set(['general.library']);
     TestBed.tick();
     await Promise.resolve();
-    expect(sent).toEqual([{ target: 'deck3.fx.focus', state: 'on' }]);
+    expect(sent).toEqual([{ target: 'general.library', state: 'off' }]);
 
-    deckCount(2);
+    navigation.libraryOnly.set(true);
     TestBed.tick();
     await Promise.resolve();
-    expect(sent.at(-1)).toEqual({ target: 'deck3.fx.focus', state: 'off' });
+    expect(sent.at(-1)).toEqual({ target: 'general.library', state: 'on' });
   });
 });

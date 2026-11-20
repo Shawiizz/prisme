@@ -147,6 +147,8 @@ export interface DeckPerform {
   cut: number | null;
   /** The roll playing, in beats. */
   roll: number | null;
+  /** The slot of its effect chain the effect knobs turn. */
+  fxFocus: number | null;
 }
 
 export interface TrackState {

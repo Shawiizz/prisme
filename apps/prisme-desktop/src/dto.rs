@@ -1052,6 +1052,8 @@ pub struct DeckPerformDto {
     pub cut: Option<usize>,
     /// The roll playing, in beats.
     pub roll: Option<f64>,
+    /// The slot of its effect chain the effect knobs turn.
+    pub fx_focus: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1081,7 +1083,12 @@ impl ControlStateDto {
         let perform = lock(&state.perform)
             .decks
             .iter()
-            .map(|d| DeckPerformDto { slicer: d.slicer, cut: d.cuts.acting(), roll: d.roll })
+            .map(|d| DeckPerformDto {
+                slicer: d.slicer,
+                cut: d.cuts.acting(),
+                roll: d.roll,
+                fx_focus: d.fx_focus,
+            })
             .collect();
         Self { mixer: mixer_state_of(state), tracks, quantize, pitch_range, perform }
     }

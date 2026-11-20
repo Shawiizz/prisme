@@ -1,6 +1,5 @@
 import { computed, Injectable, inject } from '@angular/core';
 import { EngineService } from '../services/engine.service';
-import { FxService } from '../services/fx.service';
 import { LibraryService } from '../services/library.service';
 import { MixerService } from '../services/mixer.service';
 import { PerformanceService } from '../services/performance.service';
@@ -22,7 +21,6 @@ export class ControlService {
   private readonly engine = inject(EngineService);
   private readonly performance = inject(PerformanceService);
   private readonly mixer = inject(MixerService);
-  private readonly fx = inject(FxService);
   private readonly sampler = inject(SamplerService);
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
@@ -40,14 +38,6 @@ export class ControlService {
     toggleStem: (deck, stem) => this.engine.toggleStem(deck, stem),
     sampleLoaded: (deck, slot) => !!this.engine.decks()[deck].samples[slot],
     samplePlaying: (deck, slot) => ((this.deck(deck)?.samplesPlaying ?? 0) & (1 << slot)) !== 0,
-    pressFx: (deck, slot, kind) => this.fx.press(deck, slot, kind),
-    cycleFx: (deck, slot, step) => this.fx.cycle(deck, slot, step),
-    nextFxPart: (deck) => this.fx.nextPart(deck),
-    fxAmountPosition: (deck, slot) => this.fx.settings(deck, slot).amount,
-    fxParam2Position: (deck, slot) => this.fx.settings(deck, slot).param2,
-    fxBeats: (deck, slot) => this.fx.settings(deck, slot).beats,
-    fxFocused: (deck) => this.fx.focused(deck),
-    toggleFxFocus: (deck, slot) => this.fx.toggleFocus(deck, slot),
     browse: (steps) =>
       this.library.focus() === 'lists'
         ? this.library.movePointedList(steps)

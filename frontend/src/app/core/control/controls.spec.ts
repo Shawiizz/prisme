@@ -121,11 +121,11 @@ describe('controls', () => {
     expect(calls).toEqual([
       'perform(deck1.fx,1,false)',
       'perform(deck2.fx3.on,1,false)',
-      'pressFx(0,1,reverb)',
+      'perform(deck1.fx2.reverb,1,false)',
       'perform(deck1.fx.beats,-1,true)',
       'perform(deck2.fx2.beats,2,true)',
       'perform(deck2.fx2.mix,0.5,false)',
-      'nextFxPart(0)',
+      'perform(deck1.fx.part,1,false)',
     ]);
     expect(find('deck1.fx2.part')).toBeUndefined();
   });
@@ -140,65 +140,17 @@ describe('controls', () => {
       'perform(deck1.fx2.param2,0.3,false)',
       'perform(deck2.fx3.held,1,false)',
       'perform(deck2.fx3.held,0,false)',
-      'toggleFxFocus(0,0)',
+      'perform(deck1.fx.focus,1,false)',
     ]);
     expect(find('deck1.fx.held').label).toBe('Effect 1 on while held');
   });
 
-  /** Effect controls over a deck's chain as `fx` holds it, the backend performing their
-   * amounts, second knobs and periods (along a knob of 7 steps, from 1/8 beat). */
-  function chainOf(fx: { kind: string; amount: number; param2: number; beats: number }[]) {
-    const focus = { slot: null as number | null };
-    const actions = {
-      perform: (id: string, v: number) => {
-        const [, n, name] = /^deck1\.fx(\d?)\.(\w+)$/.exec(id)!;
-        const f = fx[n ? Number(n) - 1 : 0];
-        if (name === 'amount') f.amount = v;
-        if (name === 'param2') f.param2 = v;
-        if (name === 'period') f.beats = 2 ** (Math.min(Math.floor(v * 7), 6) - 3);
-      },
-      fxFocused: () => focus.slot,
-      toggleFxFocus: (_: number, slot: number) => {
-        focus.slot = focus.slot === slot ? null : slot;
-      },
-      fxAmountPosition: (_: number, slot: number) => fx[slot].amount,
-      fxParam2Position: (_: number, slot: number) => fx[slot].param2,
-      fxBeats: (_: number, slot: number) => fx[slot].beats,
-    } as unknown as ControlActions;
-    const controls = buildControls(actions);
-    return { find: (id: string) => controls.find((c) => c.id === id)! };
-  }
-
-  const slots = () =>
-    [0.1, 0.2, 0.3].map((amount) => ({ kind: 'echo', amount, param2: 0.5, beats: 1 }));
-
-  it('turn the three effect knobs on the amounts, or on the focused effect', () => {
-    const fx = slots();
-    const { find } = chainOf(fx);
-    const knobs = [1, 2, 3].map((k) => find(`deck1.fx.knob${k}`));
-    expect(knobs.map((k) => k.position!())).toEqual([0.1, 0.2, 0.3]);
-    knobs[2].apply(0.9);
-    expect(fx[2].amount).toBe(0.9);
-
-    find('deck1.fx2.focus').apply(1);
-    expect(find('deck1.fx2.focus').lit!()).toBe(true);
-    expect(find('deck1.fx.focus').lit!()).toBe(false);
-    knobs[0].apply(0.6);
-    knobs[1].apply(0.8);
-    knobs[2].apply(0);
-    expect(fx[1]).toEqual({ kind: 'echo', amount: 0.6, param2: 0.8, beats: 1 / 8 });
-    expect(fx[0].amount).toBe(0.1);
-    expect(knobs[2].position!()).toBe(0);
-
-    find('deck1.fx2.focus').apply(1);
-    expect(knobs[1].position!()).toBe(0.6);
-
-    find('deck1.fx3.focus').apply(1);
-    knobs[2].apply(0.2);
-    expect(fx[2].beats).toBe(1 / 4);
-    expect(knobs[2].position!()).toBe(0.2);
-    fx[2].beats = 2;
-    expect(knobs[2].position!()).toBeCloseTo(4.5 / 7);
+  it('turn the three effect knobs, the backend reading them on the focused effect', () => {
+    const { calls, find } = recorder();
+    find('deck1.fx.knob3').apply(0.2);
+    find('deck2.fx.next').apply(1);
+    expect(find('deck1.fx.knob1').kind).toBe('fader');
+    expect(calls).toEqual(['perform(deck1.fx.knob3,0.2,false)', 'perform(deck2.fx.next,1,false)']);
   });
 
   it('preview the selected track, move through it, stop it, or load and play', () => {

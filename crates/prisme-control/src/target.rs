@@ -396,6 +396,8 @@ impl Target {
                 | DeckAction::RollBeats(_)
                 | DeckAction::Slice(_)
                 | DeckAction::Cut(_)
+                | DeckAction::FxKnob(_)
+                | DeckAction::FxPart
                 | DeckAction::Jog
                 | DeckAction::JogTouch
                 | DeckAction::JogSearch
@@ -448,6 +450,10 @@ impl Target {
                     | FxAction::Period
                     | FxAction::Kind
                     | FxAction::Beats
+                    | FxAction::Next
+                    | FxAction::Previous
+                    | FxAction::Focus
+                    | FxAction::Effect(_)
                     | FxAction::Enabled(_),
                 )
                 | DeckAction::Switch(..)

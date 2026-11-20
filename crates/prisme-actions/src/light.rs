@@ -73,13 +73,10 @@ impl Light {
     }
 }
 
-/// Whether the interface tells the light of `target`: what it shows is kept there yet (the
-/// effect focus the interface performs, the library over the whole window).
+/// Whether the interface tells the light of `target`: the library over the whole window, which
+/// it alone knows of.
 pub fn told_by_interface(target: &Target) -> bool {
-    matches!(
-        target,
-        Target::Deck(_, DeckAction::Fx(_, FxAction::Focus)) | Target::General(GeneralAction::Library)
-    )
+    matches!(target, Target::General(GeneralAction::Library))
 }
 
 /// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use.
@@ -583,7 +580,7 @@ mod tests {
                 .into_iter()
                 .filter(|id| told_by_interface(&target(id)))
                 .collect();
-        assert_eq!(told, ["deck3.fx2.focus", "general.library"]);
+        assert_eq!(told, ["general.library"]);
     }
 
     #[test]

@@ -3,8 +3,6 @@ import {
   Band,
   CrossfaderSide,
   EFFECT_KINDS,
-  EffectKind,
-  FX_BEATS,
   FX_SLOTS,
   MAX_DECKS,
   HOT_CUES,
@@ -49,21 +47,6 @@ export interface ControlActions {
   toggleStem(deck: number, part: StemPart): void;
   sampleLoaded(deck: number, slot: number): boolean;
   samplePlaying(deck: number, slot: number): boolean;
-  /** Puts `kind` in the slot and switches it on; pressed again, switches it off. */
-  pressFx(deck: number, slot: number, kind: EffectKind): void;
-  /** The effect `step` places after the slot's (before it, negative). */
-  cycleFx(deck: number, slot: number, step: number): void;
-  /** The chain on the next part of the track it can be on (the whole deck after the last). */
-  nextFxPart(deck: number): void;
-  /** The slot's main knob (feedback, room size, depth: see each effect). */
-  fxAmountPosition(deck: number, slot: number): number;
-  /** The slot's second knob (tone, resonance...: see each effect). */
-  fxParam2Position(deck: number, slot: number): number;
-  fxBeats(deck: number, slot: number): number;
-  /** The slot the effect knobs are on (Mixxx's focused effect), or none. */
-  fxFocused(deck: number): number | null;
-  /** Focuses the slot, or lets it go if it is focused. */
-  toggleFxFocus(deck: number, slot: number): void;
   browse(steps: number): void;
   loadSelected(deck: number | null): void;
   /** Loads the selected track on `deck` and plays it. */
@@ -167,16 +150,6 @@ function hold(id: string, group: string, label: string, run: (held: boolean) => 
   return { id, group, label, kind: 'button', apply: (v) => run(down(v)) };
 }
 
-function fader(
-  id: string,
-  group: string,
-  label: string,
-  run: (v: number) => void,
-  position?: () => number,
-): Control {
-  return { id, group, label, kind: 'fader', apply: run, position };
-}
-
 /** A control the controller reads itself (its shift): listed to be mapped, never applied here. */
 function direct(id: string, group: string, label: string): Control {
   return { id, group, label, kind: 'button', apply: () => undefined };
@@ -194,8 +167,6 @@ function performed(
   return { id, group, label, kind, apply: (v) => a.perform(id, v, kind === 'encoder') };
 }
 
-/** A control with a light the app tells the controllers, on when `on` says. */
-const lit = (control: Control, on: () => boolean): Control => ({ ...control, lit: on });
 /** A light that only shows a state (the backend's): nothing drives it. */
 function light(id: string, group: string, label: string): Control {
   return { id, group, label, kind: 'light', apply: () => undefined };
@@ -212,12 +183,6 @@ function switched(a: ControlActions, id: string, group: string, label: string): 
   ];
 }
 
-/** The periods an effect's period fader goes through, in beats. */
-const FX_PERIODS = Array.from(
-  { length: Math.log2(FX_BEATS.max / FX_BEATS.min) + 1 },
-  (_, i) => FX_BEATS.min * 2 ** i,
-);
-
 /** The id of a control of a slot of a deck's effect chain: `deck1.fx…` for the first,
  * `deck1.fx2…` and `deck1.fx3…` for the next. */
 export const fxId = (deck: number, slot: number, name = '') =>
@@ -231,16 +196,14 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
     performed(a, id(''), group, t('Effect {n} on / off', { n })),
     performed(a, id('.on'), group, t('Effect {n} on', { n })),
     performed(a, id('.off'), group, t('Effect {n} off', { n })),
-    button(id('.next'), group, t('Effect {n}: next effect', { n }), () => a.cycleFx(deck, slot, 1)),
-    button(id('.previous'), group, t('Effect {n}: previous effect', { n }), () =>
-      a.cycleFx(deck, slot, -1),
-    ),
+    performed(a, id('.next'), group, t('Effect {n}: next effect', { n })),
+    performed(a, id('.previous'), group, t('Effect {n}: previous effect', { n })),
     ...EFFECT_KINDS.map((kind) =>
-      button(
+      performed(
+        a,
         id(`.${kind}`),
         group,
         t('Effect {n}: {effect} on / off', { n, effect: EFFECT_NAMES[kind]() }),
-        () => a.pressFx(deck, slot, kind),
       ),
     ),
     performed(a, id('.mix'), group, t('Effect {n} level', { n }), 'fader'),
@@ -261,12 +224,7 @@ function fxControls(a: ControlActions, deck: number, slot: number, group: string
     ),
     performed(a, id('.period'), group, t('Effect {n} period, along the knob', { n }), 'fader'),
     performed(a, id('.kind'), group, t('Effect {n}: the effect, along the knob', { n }), 'fader'),
-    lit(
-      button(id('.focus'), group, t('Effect {n} focused on the effect knobs / let go', { n }), () =>
-        a.toggleFxFocus(deck, slot),
-      ),
-      () => a.fxFocused(deck) === slot,
-    ),
+    performed(a, id('.focus'), group, t('Effect {n} focused on the effect knobs / let go', { n })),
     performed(a, id('.held'), group, t('Effect {n} on while held', { n })),
   ];
 }
@@ -282,38 +240,8 @@ const FX_KNOB_LABEL: Text[] = [
  * knob K is effect K's amount; with one focused, they are its amount, second knob and period. */
 function fxChainControls(a: ControlActions, deck: number, group: string): Control[] {
   const slots = Array.from({ length: FX_SLOTS }, (_, slot) => fxControls(a, deck, slot, group));
-  const knob = (k: number) => {
-    /** Where the knob last left a focused period: moving within its step, it keeps it, as
-     * the backend's period faders do. */
-    let given: number | null = null;
-    const target = () => {
-      const focused = a.fxFocused(deck);
-      return focused === null
-        ? { slot: k, name: '.amount' }
-        : { slot: focused, name: ['.amount', '.param2', '.period'][k] };
-    };
-    const period = (slot: number) => {
-      const steps = FX_PERIODS.length;
-      const step = FX_PERIODS.indexOf(a.fxBeats(deck, slot));
-      const at = (v: number) => Math.min(Math.max(Math.floor(v * steps), 0), steps - 1);
-      return given !== null && at(given) === step ? given : (step + 0.5) / steps;
-    };
-    return fader(
-      `deck${deck + 1}.fx.knob${k + 1}`,
-      group,
-      FX_KNOB_LABEL[k](),
-      (v) => {
-        const { slot, name } = target();
-        if (name === '.period') given = v;
-        a.perform(fxId(deck, slot, name), v, false);
-      },
-      () => {
-        const { slot, name } = target();
-        if (name === '.amount') return a.fxAmountPosition(deck, slot);
-        return name === '.param2' ? a.fxParam2Position(deck, slot) : period(slot);
-      },
-    );
-  };
+  const knob = (k: number) =>
+    performed(a, `deck${deck + 1}.fx.knob${k + 1}`, group, FX_KNOB_LABEL[k](), 'fader');
   return [
     ...slots.flat(),
     ...switched(a, `deck${deck + 1}.fx.chain`, group, t('Effects (the whole chain)')),
@@ -397,7 +325,7 @@ function deckControls(a: ControlActions, deck: number): Control[] {
       performed(a, id(`sample${slot + 1}`), group, t('Sample {n}', { n: slot + 1 })),
     ),
     ...fxChainControls(a, deck, group),
-    button(id('fx.part'), group, t('Effects on the next part'), () => a.nextFxPart(deck)),
+    performed(a, id('fx.part'), group, t('Effects on the next part')),
     ...ROLL_BEATS.map((beats, i) =>
       performed(
         a,

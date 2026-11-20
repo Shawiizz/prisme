@@ -1,5 +1,5 @@
-import { Injectable, effect, inject, signal, untracked } from '@angular/core';
-import { EFFECT_KINDS, EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import { EffectKind, FxChain, FxSettings, MAX_DECKS } from '../models/engine';
 import { fxId } from '../control/controls';
 import { StemPart, hasPart } from '../stem-parts';
 import { EngineService } from './engine.service';
@@ -15,9 +15,22 @@ import { EngineService } from './engine.service';
 export class FxService {
   private readonly engine = inject(EngineService);
   private readonly chosenSlots = signal<number[]>(Array(MAX_DECKS).fill(0));
-  private readonly focusedSlots = signal<(number | null)[]>(Array(MAX_DECKS).fill(null));
+  /** The slot each deck's effect knobs are focused on, as the backend keeps it. */
+  private readonly focusedSlots = computed<(number | null)[]>(
+    () => this.engine.controls()?.perform.map((d) => d.fxFocus) ?? Array(MAX_DECKS).fill(null),
+    { equal: (a, b) => a.every((slot, deck) => slot === b[deck]) },
+  );
 
   constructor() {
+    // a slot focused is chosen on the screen too
+    effect(() => {
+      const focused = this.focusedSlots();
+      untracked(() =>
+        focused.forEach((slot, deck) => {
+          if (slot !== null) this.choose(deck, slot);
+        }),
+      );
+    });
     effect(() => {
       const tracks = this.engine.tracks();
       untracked(() => {
@@ -51,38 +64,9 @@ export class FxService {
     return this.focusedSlots()[deck];
   }
 
-  /** Focuses the slot, chosen on the screen too; pressed again, lets it go. */
-  toggleFocus(deck: number, slot: number) {
-    const focused = this.focused(deck) === slot ? null : slot;
-    this.focusedSlots.update((slots) => slots.map((s, d) => (d === deck ? focused : s)));
-    if (focused !== null) this.choose(deck, focused);
-  }
-
   /** Puts `kind` in the slot and switches it on; pressed again, switches it off. */
   press(deck: number, slot: number, kind: EffectKind) {
-    const fx = this.settings(deck, slot);
-    if (fx.kind === kind && fx.enabled) return this.setEnabled(deck, slot, false);
-    if (fx.kind !== kind) this.setKind(deck, slot, kind);
-    return this.setEnabled(deck, slot, true);
-  }
-
-  /** The effect `step` places after the slot's (before it, negative), on or off as it was. */
-  cycle(deck: number, slot: number, step: number) {
-    const at = EFFECT_KINDS.indexOf(this.settings(deck, slot).kind);
-    const kind = EFFECT_KINDS[(at + step + EFFECT_KINDS.length * 2) % EFFECT_KINDS.length];
-    return this.setKind(deck, slot, kind);
-  }
-
-  /** Another effect in the slot, on or off as it was. */
-  setKind(deck: number, slot: number, kind: EffectKind) {
-    if (this.settings(deck, slot).kind === kind) return Promise.resolve();
-    this.patch(deck, slot, { kind });
-    return this.engine.call('set_fx', { deck, slot, kind });
-  }
-
-  setEnabled(deck: number, slot: number, enabled: boolean) {
-    this.patch(deck, slot, { enabled });
-    return this.engine.call('set_fx_enabled', { deck, slot, enabled });
+    return this.engine.perform(fxId(deck, slot, `.${kind}`), 1);
   }
 
   setMix(deck: number, slot: number, mix: number) {
@@ -131,9 +115,7 @@ export class FxService {
 
   /** The chain on the next part it can be on, after the last on the whole deck again. */
   nextPart(deck: number) {
-    const parts = this.parts(deck);
-    const at = parts.indexOf(this.chain(deck).part);
-    return this.setPart(deck, parts[(at + 1) % parts.length]);
+    return this.engine.press(deck, 'fx.part');
   }
 
   private patch(deck: number, slot: number, changes: Partial<FxSettings>) {

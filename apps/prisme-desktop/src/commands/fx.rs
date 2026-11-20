@@ -4,8 +4,7 @@
 use crate::actions::fx;
 use crate::dto::{EffectKindDto, FxPartDto};
 use crate::error::AppResult;
-use crate::state::{lock, AppState};
-use prisme_engine::Command;
+use crate::state::AppState;
 use tauri::State;
 
 #[tauri::command]
@@ -45,7 +44,5 @@ pub fn set_fx_chain_enabled(state: State<'_, AppState>, deck: usize, enabled: bo
 /// The part of the track the chain is on, where separated (`None`: the whole deck).
 #[tauri::command]
 pub fn set_fx_part(state: State<'_, AppState>, deck: usize, part: Option<FxPartDto>) -> AppResult<()> {
-    AppState::check_deck(deck)?;
-    lock(&state.decks)[deck].fx.part = part;
-    state.send_if_running(Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
+    fx::set_fx_part(&state, deck, part)
 }

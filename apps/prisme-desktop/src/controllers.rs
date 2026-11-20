@@ -1973,14 +1973,14 @@ mod tests {
     #[test]
     fn the_interface_tells_the_lights_of_what_it_keeps_and_is_asked_for_those_alone() {
         let c = with_mappings([
-            with(mapping(PAD, "deck1.fx.focus"), lit(ON, 10)),
+            with(mapping(PAD, "general.library"), lit(ON, 10)),
             mapping(Control::note(0, 37), "deck1.play"),
-            mapping(Control::note(0, 38), "general.library"),
+            mapping(Control::note(0, 38), "deck1.fx.focus"),
         ]);
-        assert_eq!(c.told_targets(), ["deck1.fx.focus", "general.library"]);
+        assert_eq!(c.told_targets(), ["general.library"]);
         let pad = |c: &Controllers| c.lights("DDJ", &view()).into_iter().find(|(control, _)| *control == PAD);
         assert_eq!(pad(&c), None, "not told yet");
-        c.set_lights(vec![light("deck1.fx.focus", ON)]);
+        c.set_lights(vec![light("general.library", ON)]);
         assert_eq!(pad(&c), Some((PAD, LightValue::Steady(10))));
     }
 
