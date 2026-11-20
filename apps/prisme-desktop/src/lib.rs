@@ -242,6 +242,8 @@ pub fn run() {
             #[cfg(mobile)]
             prisme_stems::track::store_under(models.with_file_name("stems"));
             app.manage(stems_service::StemsService::new(app.handle().clone(), models));
+            app.state::<stems_service::StemsService>().show();
+            stems_service::look_for_gpu(app.handle().clone());
 
             app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
             let restored = app.state::<CrashRecovery>().decks_to_restore();
@@ -288,12 +290,10 @@ pub fn run() {
             commands::audio::audio_info,
             commands::audio::apply_audio_settings,
             commands::audio::measure_latency,
-            commands::stems::stems_status,
-            commands::stems::stems_gpu,
             commands::screens::screen_below,
             commands::screens::span_screens,
             commands::stems::download_stems_model,
-            commands::stems::separate_tracks,
+            commands::stems::download_stems_models,
             commands::stems::separate_library,
             commands::stems::cancel_separation,
             commands::tracks::loaded_tracks,
@@ -340,7 +340,7 @@ pub fn run() {
             commands::library::library_compare_with,
             commands::library::library_viewport,
             commands::library::library_menu,
-            commands::library::library_separable,
+            commands::library::separate_tracks,
             commands::library::library_remove,
             commands::crates::update_smart_crate,
             commands::marks::rate_track,

@@ -1,5 +1,4 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { StemsService } from './core/services/stems.service';
 import { PreviewService } from './core/services/preview.service';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckLane } from './features/deck/deck-lane/deck-lane';
@@ -63,7 +62,6 @@ const WHOLE_LANES_PX = 420;
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
   private readonly library = inject(LibraryService);
-  private readonly stems = inject(StemsService);
   private readonly autoDj = inject(AutoDjService);
   private readonly preview = inject(PreviewService);
   private readonly settings = inject(SettingsService);
@@ -104,7 +102,6 @@ export class App implements OnInit {
         this.engine.connect(),
         this.library.init(),
         this.autoDj.init(),
-        this.stems.init(),
         this.preview.init(),
         this.settings.init(),
         this.keyboard.start(),

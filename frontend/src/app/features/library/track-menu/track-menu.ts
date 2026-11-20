@@ -118,9 +118,9 @@ export class TrackMenu {
 
   /** The stems separated of those tracks the models can add to; without a model, the models
    * offered for them. */
-  async separate() {
+  separate() {
     this.closed.emit();
-    this.stems.separate(await this.library.separable(this.paths()));
+    return this.stems.separate(this.paths());
   }
 
   remove() {

@@ -68,19 +68,20 @@
         <span class="error" [title]="e">{{ e }}</span>
       }
       <div class="analysis">
-        @if (stems.progress().running) {
-          <span class="status" [title]="stems.progress().device ?? ''">{{
-            'Separating {done} / {total}'
-              | t: { done: stems.progress().done, total: separationTotal() }
-          }}</span>
-          <div class="bar"><div [style.width.%]="stems.overall() * 100"></div></div>
-          <button
-            class="pr-btn pr-btn--sm pr-btn--ghost"
-            (click)="stems.cancel()"
-            [title]="'Stop separating the stems' | t"
-          >
-            {{ 'Stop' | t }}
-          </button>
+        @if (stems.state(); as s) {
+          @if (s.progress.running) {
+            <span class="status" [title]="s.progress.device ?? ''">{{
+              'Separating {done} / {total}' | t: { done: s.progress.done, total: s.total }
+            }}</span>
+            <div class="bar"><div [style.width.%]="s.overall * 100"></div></div>
+            <button
+              class="pr-btn pr-btn--sm pr-btn--ghost"
+              (click)="stems.cancel()"
+              [title]="'Stop separating the stems' | t"
+            >
+              {{ 'Stop' | t }}
+            </button>
+          }
         }
         @if (progress().running) {
           @if (progress().paused) {

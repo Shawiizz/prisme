@@ -50,10 +50,6 @@ export class Library {
   protected readonly engine = inject(EngineService);
   protected readonly stems = inject(StemsService);
   protected readonly preview = inject(PreviewService);
-  protected readonly separationTotal = computed(() => {
-    const p = this.stems.progress();
-    return p.done + p.failed + p.queued;
-  });
   protected readonly deckIndexes = this.engine.deckIndexes;
   protected readonly letter = deckLetter;
   private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');

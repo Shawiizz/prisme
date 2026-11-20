@@ -7,13 +7,13 @@
 use super::Performing;
 use crate::dto::{
     stored_separation, CrateDto, DeckMarkDto, FolderDto, FolderViewDto, HistorySessionDto, LibraryListsDto,
-    LibraryRowDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, SeparationDto, ShelfDto, SortDto,
-    SourceDto,
+    LibraryRowDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, RowStemsDto, SeparationDto, ShelfDto,
+    SortDto, SourceDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
 use crate::state::{lock, AppState};
-use crate::stems_service::{self, StemsService};
+use crate::stems_service::{self, Queued, StemsService};
 use prisme_actions::input::Given;
 use prisme_actions::view::View;
 use prisme_control::LibraryAction;
@@ -97,6 +97,14 @@ impl Library {
                 .entry(row.entry.track)
                 .or_insert_with(|| stored_separation(Path::new(&track.path)));
             let seen = around.sees(track);
+            let stems = match seen.separating {
+                Some(percent) => RowStemsDto::Separating { fraction: f64::from(percent) / 100.0 },
+                None if seen.queued => RowStemsDto::Queued,
+                None if record.is_some() && !track.failed() && around.stems.reach > separation => {
+                    RowStemsDto::Addable { separation }
+                }
+                None => RowStemsDto::Separated { separation },
+            };
             let decks = (0..around.decks_in_use)
                 .filter(|&d| seen.decks & 1 << d != 0)
                 .map(|deck| DeckMarkDto { deck, playing: seen.playing & 1 << deck != 0 })
@@ -117,7 +125,7 @@ impl Library {
                 plays: record.map_or(0, |r| r.play_count),
                 analysed: record.is_some(),
                 failed: track.failed(),
-                separation,
+                stems,
                 selected: row.selected,
                 played: row.played,
                 elsewhere: row.elsewhere,
@@ -164,6 +172,16 @@ pub struct Around {
     pub decks_in_use: usize,
     /// The track previewed, or the one whose file opens to be.
     pub previewed: [Option<String>; 2],
+    pub stems: RowsStems,
+}
+
+/// What the rows show of the separation: the track separated and how far (in hundredths), the
+/// tracks queued, and how far the models installed separate a track.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct RowsStems {
+    pub current: Option<(PathBuf, u8)>,
+    pub queued: Queued,
+    pub reach: SeparationDto,
 }
 
 impl Around {
@@ -190,6 +208,10 @@ struct Seen {
     previewing: bool,
     fits: bool,
     pitch: Option<Pitch>,
+    /// Being separated, so far (in hundredths), or queued; and how far the models reach.
+    separating: Option<u8>,
+    queued: bool,
+    reach: SeparationDto,
 }
 
 impl Around {
@@ -204,6 +226,9 @@ impl Around {
             previewing: self.previewed.iter().flatten().any(|p| *p == track.path),
             fits: self.compare.fits(track.key),
             pitch: self.compare.pitch(track.bpm),
+            separating: self.stems.current.as_ref().filter(|(current, _)| current == path).map(|(_, p)| *p),
+            queued: self.stems.queued.0.contains(path),
+            reach: self.stems.reach,
         }
     }
 }
@@ -762,6 +787,8 @@ mod tests {
     use prisme_actions::input::Input;
     use prisme_library::{FileStamp, TrackRecord};
     use prisme_media::TrackTags;
+    use std::collections::HashSet;
+    use std::sync::Arc;
 
     /// A bench whose library holds tracks `a` to `d` of `C:/Music`, the folder shown, sorted by
     /// title, `d` from elsewhere.
@@ -933,5 +960,37 @@ mod tests {
         assert!(!library.look_around(&around), "the rows have no tempo");
         around.previewed[0] = Some("C:/Music/b.mp3".into());
         assert!(library.look_around(&around));
+    }
+
+    #[test]
+    fn the_rows_say_how_far_their_track_is_separated_and_whether_the_models_would_add_to_it() {
+        let bench = library();
+        let mut library = lock(&bench.state.library);
+        library.browser.set_window(0, 10);
+        let queued = HashSet::from([PathBuf::from("C:/Music/b.mp3")]);
+        let mut around = Around {
+            stems: RowsStems {
+                current: Some((PathBuf::from("C:/Music/a.mp3"), 40)),
+                queued: Queued(Arc::new(queued)),
+                reach: SeparationDto::Full,
+            },
+            ..Around::default()
+        };
+        assert!(library.look_around(&around));
+        let stems =
+            |library: &mut Library| library.window().rows.into_iter().map(|r| r.stems).collect::<Vec<_>>();
+        assert_eq!(
+            stems(&mut library),
+            [
+                RowStemsDto::Separating { fraction: 0.4 },
+                RowStemsDto::Queued,
+                RowStemsDto::Addable { separation: SeparationDto::None }
+            ]
+        );
+        around.stems = RowsStems::default();
+        assert!(library.look_around(&around), "no model: nothing to add");
+        assert!(stems(&mut library)
+            .iter()
+            .all(|s| *s == RowStemsDto::Separated { separation: SeparationDto::None }));
     }
 }

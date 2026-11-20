@@ -5,10 +5,11 @@ use prisme_control::StemPart;
 use prisme_engine::Stem;
 use serde::{Deserialize, Serialize};
 
-/// How far a track is separated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+/// How far a track is separated, the further the greater.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Separation {
+    #[default]
     None,
     /// Its vocals, the rest being the instrumental.
     Vocals,

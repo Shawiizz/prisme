@@ -1,7 +1,5 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
-import { PreferencesService } from '../../core/services/preferences.service';
+import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { StemsService } from '../../core/services/stems.service';
-import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { percent } from '../../shared/readout';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -19,29 +17,19 @@ import { Dismiss, overlay } from '../../shared/overlay';
 })
 export class ModelsDialog {
   protected readonly stems = inject(StemsService);
-  private readonly preferences = inject(PreferencesService);
   protected readonly percent = percent;
 
-  /** The small models are the better choice on a phone or without a graphics chip worth it. */
-  protected readonly fastSuits = computed(() => PHONE || this.stems.gpu() === false);
   protected readonly fast = signal(false);
-  /** Megabytes each choice has left to download; `null` once it is installed. */
-  protected readonly sizes = computed(() => ({
-    quality: this.megabytes(false),
-    fast: this.megabytes(true),
-  }));
-  protected readonly chosenInstalled = computed(() =>
-    this.stems.modelsFor(this.fast()).every((m) => m.installed),
-  );
-  /** Why the download of the choice failed, if it did. */
-  protected readonly failed = computed(
-    () => this.stems.modelsFor(this.fast()).find((m) => m.error)?.error ?? null,
-  );
+  /** The choice shown: what it has left to download, and why its download failed. */
+  protected readonly chosen = computed(() => {
+    const state = this.stems.state();
+    return state && (this.fast() ? state.fast : state.quality);
+  });
 
   constructor() {
     effect(() => {
       if (this.stems.offered()) {
-        this.fast.set(this.preferences.library().stemsFast || this.fastSuits());
+        this.fast.set(untracked(() => this.stems.state()?.suggestFast ?? false));
       }
     });
     // the models in, the track separating: nothing left to show
@@ -49,22 +37,21 @@ export class ModelsDialog {
       if (this.stems.offered() && this.stems.reach() !== 'none') this.close();
     });
     overlay(
-      () => this.stems.offered() !== null,
+      () => this.stems.offered(),
       () => this.close(),
     );
   }
 
   protected close() {
-    this.stems.offered.set(null);
+    this.stems.offered.set(false);
   }
 
   protected download() {
     void this.stems.downloadFor(this.fast());
   }
 
-  private megabytes(fast: boolean): number | null {
-    const missing = this.stems.modelsFor(fast).filter((m) => !m.installed);
-    if (!missing.length) return null;
-    return Math.round(missing.reduce((sum, m) => sum + m.bytes, 0) / 1e6);
+  /** `456 MB` left for a choice, `null` once it is installed. */
+  protected megabytes(bytes: number | null): number | null {
+    return bytes === null ? null : Math.round(bytes / 1e6);
   }
 }

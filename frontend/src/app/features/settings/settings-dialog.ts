@@ -23,6 +23,7 @@ import { NavigationService, SettingsCategory } from '../../core/services/navigat
 import { AudioBackend, AudioDevice, AudioSettings, BACKEND_NAMES } from '../../core/models/audio';
 import { InputChannels, LiveSource, MixMode, OutputNote } from '../../core/models/engine';
 import { Settings } from '../../core/models/preferences';
+import { ModelId } from '../../core/models/stems';
 import { LANGUAGES, language, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
@@ -137,9 +138,13 @@ export class SettingsDialog implements OnInit {
   protected readonly pauseWhilePlaying = computed(
     () => this.preferences.library().pauseWhilePlaying,
   );
-  protected readonly separateOnLoad = computed(
-    () => this.preferences.library().stemsOnLoad ?? this.separatesOnGpu(),
-  );
+  protected readonly separateOnLoad = computed(() => this.stems.state()?.onLoad ?? false);
+  /** The setting each separation model is listed under. */
+  protected readonly MODEL_SETTINGS: Record<ModelId, string> = {
+    vocals: 'library.stemsModel',
+    'drums-bass': 'library.stemsDrumsBass',
+    'four-fast': 'library.stemsFour',
+  };
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly diagnosticsSaved = signal(false);
@@ -343,11 +348,6 @@ export class SettingsDialog implements OnInit {
         : { kind: 'pair', first: Number(value) },
     );
   }
-
-  /** A graphics chip worth it is there, and the DJ lets it separate. */
-  protected readonly separatesOnGpu = computed(
-    () => (this.stems.gpu() ?? false) && this.preferences.library().stemsGpu,
-  );
 
   protected readonly stemsFast = computed(() => this.preferences.library().stemsFast);
 

@@ -5,7 +5,7 @@ import { Knob } from '../../shared/readout';
 import { MeterLevel } from '../../shared/meter';
 import { StemPart } from '../stem-parts';
 import { LibraryLists, LibraryView } from './library';
-import { Separation, StemMix } from './stems';
+import { Separation, StemMix, StemsState } from './stems';
 
 export type SignalState = 'none' | 'bounce' | 'ok';
 export type VinylMode = 'absolute' | 'relative';
@@ -123,6 +123,9 @@ export interface DeckStatus {
   samplesPlaying: number;
   /** The parts of its separated track, a knob each. */
   stems: StemKnob[];
+  /** How far its track's separation is (0 to 1): as it is separated, or as the downloads of the
+   * models it waits for are. */
+  separating: number | null;
 }
 
 export interface DeckLights {
@@ -225,6 +228,7 @@ export interface ControlState {
   /** The lists the library keeps: the crates, the sets, the prepare list. */
   lists: LibraryLists;
   preferences: Preferences;
+  stems: StemsState;
 }
 
 /** What the headphones preview: the track the engine was given, and the file opening for the

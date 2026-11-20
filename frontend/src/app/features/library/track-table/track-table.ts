@@ -279,8 +279,8 @@ export class TrackTable {
     this.trackMenu.set({ ...popoverAbove(event.currentTarget as HTMLElement), panel });
   }
 
-  async separateSelection() {
-    this.stems.separate(await this.library.separable(null));
+  separateSelection() {
+    return this.stems.separate(null);
   }
 
   /** Dragging a track drags the selection, the track in it: the one dragged onto a deck. */

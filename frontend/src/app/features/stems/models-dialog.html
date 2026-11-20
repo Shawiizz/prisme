@@ -1,4 +1,4 @@
-@if (stems.offered()) {
+@if (stems.offered() && stems.state(); as state) {
   <div class="pr-backdrop" animate.enter="pr-fade-in" (dismiss)="close()">
     <div
       class="pr-dialog"
@@ -29,15 +29,15 @@
               class="choice"
               role="radio"
               [attr.aria-checked]="fast() === c"
-              [disabled]="stems.downloading() !== null"
+              [disabled]="state.downloading !== null"
               (click)="fast.set(c)"
             >
               <span class="head">
                 <span class="name">{{ c ? ('Fast' | t) : ('Quality' | t) }}</span>
-                @if (c === fastSuits()) {
+                @if (c === state.fastSuits) {
                   <span class="pr-label">{{ 'Suits this device' | t }}</span>
                 }
-                @let size = c ? sizes().fast : sizes().quality;
+                @let size = megabytes((c ? state.fast : state.quality).bytesLeft);
                 @if (size === null) {
                   <span class="size">{{ 'Installed' | t }}</span>
                 } @else {
@@ -54,14 +54,14 @@
             </button>
           }
         </div>
-        @let done = stems.downloading();
+        @let done = state.downloading;
         @if (done !== null) {
           <div class="progress">
             <span>{{ 'Downloading…' | t }}</span>
             <span class="pr-num">{{ percent(done) }}</span>
             <i [style.--done]="done"></i>
           </div>
-        } @else if (failed(); as error) {
+        } @else if (chosen()?.error; as error) {
           <p class="error">{{ error }}</p>
         }
         <p class="note">
@@ -69,15 +69,15 @@
         </p>
       </div>
       <footer class="pr-dialog__foot">
-        @if (stems.downloading() !== null) {
+        @if (state.downloading !== null) {
           <button class="pr-btn" (click)="close()">{{ 'Go on in the background' | t }}</button>
         } @else {
           <button class="pr-btn" (click)="close()">{{ 'Not now' | t }}</button>
           <button class="pr-btn pr-btn--light" (click)="download()">
-            @if (chosenInstalled()) {
+            @if (chosen()?.bytesLeft === null) {
               {{ 'Separate' | t }}
             } @else {
-              {{ failed() ? ('Try again' | t) : ('Download' | t) }}
+              {{ chosen()?.error ? ('Try again' | t) : ('Download' | t) }}
             }
           </button>
         }

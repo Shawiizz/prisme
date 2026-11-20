@@ -201,11 +201,6 @@ export class LibraryService {
     return this.engine.ordered<LibraryMenu>('library_menu', { paths });
   }
 
-  /** Those of the tracks at `paths` (`null`: those selected) the stems may be separated of. */
-  separable(paths: string[] | null): Promise<string[]> {
-    return this.engine.ordered<string[]>('library_separable', { paths });
-  }
-
   /** Puts the tracks at `paths` (`null`: those selected) at the end of the prepare list. */
   addToPrepare(paths: string[] | null) {
     return this.attempt(() => this.engine.ordered('add_to_prepare', { paths }));

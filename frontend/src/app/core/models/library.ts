@@ -1,5 +1,5 @@
 import { MusicalKey } from './engine';
-import { Separation } from './stems';
+import { RowStems } from './stems';
 
 /** The list browsed (see `SourceDto`). */
 export type TrackSource =
@@ -69,7 +69,7 @@ export interface LibraryRow {
   analysed: boolean;
   /** The file could not be decoded. */
   failed: boolean;
-  separation: Separation;
+  stems: RowStems;
   selected: boolean;
   /** Played in the set going on. */
   played: boolean;

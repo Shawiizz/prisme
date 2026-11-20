@@ -13,12 +13,17 @@
 //!
 //! The separations are stored next to the tracks (`prisme_stems::track`): a track loaded
 //! on a deck gets its stems as soon as they exist.
+//!
+//! Tracks asked for while no model is installed are offered the models; once the DJ downloads
+//! them, they wait for the downloads and go into the queue as they end. What the interface shows
+//! of all this, [`Shown`], is mirrored in `AppState::stems` as it changes.
 
 use crate::dto::{
-    stored_separation, DeckStemsDto, DeckTrackUpdateDto, ModelStatusDto, SeparatedDto, SeparationDto,
-    StemMixDto, StemsProgressDto, StemsStatusDto,
+    stored_separation, ChoiceDto, DeckStemsDto, DeckTrackUpdateDto, ModelRowDto, ModelStatusDto, SeparateDto,
+    SeparationDto, StemMixDto, StemsProgressDto, StemsStateDto,
 };
 use crate::error::{AppError, AppResult};
+use crate::preferences::Preferences;
 use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
 use prisme_engine::{Command, Stem, StemTracks};
@@ -36,11 +41,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager};
 use tracing::{error, info, warn};
 
-pub const STEMS_PROGRESS_EVENT: &str = "stems-progress";
-/// Payload: [`SeparatedDto`].
-pub const STEMS_SEPARATED_EVENT: &str = "stems-separated";
-/// Payload: the [`ModelStatusDto`] of one model.
-pub const STEMS_MODEL_EVENT: &str = "stems-model";
 /// Longest track separated as soon as it is loaded: an hour-long mix would hold gigabytes
 /// while separated (the library's queue still takes it).
 const LONGEST_PLAYED_S: f64 = 20.0 * 60.0;
@@ -126,6 +126,10 @@ struct Queue {
     played: VecDeque<PathBuf>,
     /// The library's tracks.
     waiting: VecDeque<PathBuf>,
+    /// The tracks asked for last while no model was installed: the models were offered for them.
+    offered: Vec<PathBuf>,
+    /// Tracks to separate once the models on their way are in.
+    awaiting: Vec<PathBuf>,
     progress: StemsProgressDto,
     /// The track being separated and its stems as the decks play them while they come.
     live: Option<(PathBuf, StemTracks)>,
@@ -203,11 +207,33 @@ fn gpu_allowed(state: &AppState) -> bool {
     USES_GPU && state.preferences.read(|p| p.library.stems_gpu)
 }
 
+static HAS_GPU: OnceLock<bool> = OnceLock::new();
+
 /// Whether there is a graphics card worth separating on (looked for once, which takes a
 /// moment: not from the window's thread), whether or not the DJ lets it.
 pub fn gpu_found() -> bool {
-    static HAS_GPU: OnceLock<bool> = OnceLock::new();
     USES_GPU && *HAS_GPU.get_or_init(Gpu::available)
+}
+
+/// [`gpu_found`] if it was looked for already.
+fn gpu_known() -> Option<bool> {
+    if USES_GPU {
+        HAS_GPU.get().copied()
+    } else {
+        Some(false)
+    }
+}
+
+/// Looks for a graphics card off the window's thread as Prisme starts: the settings show
+/// whether it separates there.
+pub fn look_for_gpu(app: AppHandle) {
+    let looking = std::thread::Builder::new().name("prisme-gpu".into()).spawn(move || {
+        gpu_found();
+        app.state::<StemsService>().show();
+    });
+    if let Err(e) = looking {
+        warn!("the graphics card is looked for when first needed: {e}");
+    }
 }
 
 /// Whether the separation runs on a graphics card: one is there, the DJ lets it, and it did
@@ -227,6 +253,128 @@ pub fn separates_on_load(state: &AppState) -> bool {
     state.preferences.read(|p| p.library.separate_on_load).unwrap_or_else(|| has_gpu(state))
 }
 
+/// What the interface shows of the separation (see [`StemsService::show`]): the models, the
+/// queue, and the tracks that wait for the models.
+#[derive(Debug, Clone, Default)]
+pub struct Shown {
+    /// In the order of [`MODELS`].
+    models: Vec<ModelStatusDto>,
+    progress: StemsProgressDto,
+    /// The tracks queued or being separated, which the rows of the library mark.
+    pub queued: Queued,
+    awaiting: Vec<PathBuf>,
+}
+
+/// A set of tracks shared as it was made: told apart from another by where it is, not by what
+/// it holds (a library queued whole holds thousands).
+#[derive(Debug, Clone, Default)]
+pub struct Queued(pub Arc<HashSet<PathBuf>>);
+
+impl PartialEq for Queued {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Shown {
+    /// What the separation shows with the DJ's `preferences`.
+    pub fn dto(&self, preferences: &Preferences) -> StemsStateDto {
+        let library = &preferences.library;
+        let installed = |m: usize| self.models.get(m).is_some_and(|s| s.installed);
+        let gpu = gpu_known();
+        let fast_suits = cfg!(mobile) || gpu == Some(false);
+        let choice = |fast: bool| {
+            let of = || (0..MODELS.len()).filter(move |&m| MODELS[m].fast == fast);
+            let left: u64 = of().filter(|&m| !installed(m)).map(|m| MODELS[m].bytes).sum();
+            ChoiceDto {
+                bytes_left: (left > 0).then_some(left),
+                error: of().find_map(|m| self.models.get(m)?.error.clone()),
+            }
+        };
+        let vocals = MODELS.iter().position(|m| !m.fast && m.stems.contains(&Stem::Vocals));
+        let models = (0..MODELS.len()).filter(|&m| MODELS[m].fast == library.stems_fast);
+        let p = &self.progress;
+        StemsStateDto {
+            total: p.done + p.failed + p.queued,
+            overall: self.overall(),
+            progress: self.progress.clone(),
+            reach: self.reach(library.stems_fast),
+            gpu,
+            on_gpu: gpu == Some(true) && library.stems_gpu,
+            on_load: library
+                .separate_on_load
+                .unwrap_or(gpu == Some(true) && library.stems_gpu && !GPU_GAVE_UP.load(Ordering::Relaxed)),
+            downloading: self.downloading(),
+            models: models
+                .filter_map(|m| {
+                    let ready = MODELS[m].stems.contains(&Stem::Vocals) || vocals.is_none_or(installed);
+                    Some(ModelRowDto { status: self.models.get(m)?.clone(), ready })
+                })
+                .collect(),
+            quality: choice(false),
+            fast: choice(true),
+            fast_suits,
+            suggest_fast: library.stems_fast || fast_suits,
+        }
+    }
+
+    /// How far the models installed separate a track, the small ones (`fast`) or the large.
+    pub fn reach(&self, fast: bool) -> SeparationDto {
+        let installed: Vec<usize> =
+            (0..MODELS.len()).filter(|&m| self.models.get(m).is_some_and(|s| s.installed)).collect();
+        reach(&in_use(&installed, fast))
+    }
+
+    /// The queue's share done, the track being separated as far as it is, from 0 to 1.
+    fn overall(&self) -> f64 {
+        let p = &self.progress;
+        let total = p.done + p.failed + p.queued;
+        let current = if p.current.is_some() { p.fraction } else { 0.0 };
+        if total > 0 {
+            ((p.done + p.failed) as f64 + current) / total as f64
+        } else {
+            0.0
+        }
+    }
+
+    /// How far the downloads under way are, by their bytes, from 0 to 1; `None` without any.
+    fn downloading(&self) -> Option<f64> {
+        let under_way = || self.models.iter().filter_map(|s| Some((s.bytes as f64, s.downloading?)));
+        let bytes: f64 = under_way().map(|(bytes, _)| bytes).sum();
+        (bytes > 0.0).then(|| under_way().map(|(bytes, done)| bytes * done).sum::<f64>() / bytes)
+    }
+
+    /// How far the separation of `path` is, from 0 to 1: as it is separated, or as the downloads
+    /// of the models it waits for are.
+    pub fn separating(&self, path: &Path) -> Option<f64> {
+        if self.progress.current.as_deref().is_some_and(|current| Path::new(current) == path) {
+            Some(self.progress.fraction)
+        } else if self.awaiting.iter().any(|p| p == path) {
+            self.downloading()
+        } else {
+            None
+        }
+    }
+
+    /// The track being separated, and how far, to a hundredth.
+    pub fn current(&self) -> Option<(PathBuf, u8)> {
+        let p = &self.progress;
+        p.current.as_ref().map(|current| (PathBuf::from(current), (p.fraction * 100.0).floor() as u8))
+    }
+}
+
+/// How far `models` separate a track: the vocals, then the drums and the bass with them.
+fn reach(models: &[usize]) -> SeparationDto {
+    let has = |stem: Stem| models.iter().any(|&m| MODELS[m].stems.contains(&stem));
+    if !has(Stem::Vocals) {
+        SeparationDto::None
+    } else if has(Stem::Drums) && has(Stem::Bass) {
+        SeparationDto::Full
+    } else {
+        SeparationDto::Vocals
+    }
+}
+
 impl StemsService {
     /// The service with its models in `folder`.
     pub fn new(app: AppHandle, folder: PathBuf) -> Self {
@@ -240,11 +388,16 @@ impl StemsService {
         }
     }
 
-    pub fn status(&self) -> StemsStatusDto {
-        StemsStatusDto {
-            models: (0..MODELS.len()).map(|m| self.model_status(m)).collect(),
-            progress: lock(&self.queue).progress.clone(),
-        }
+    /// Mirrors what the interface shows of the separation in `AppState::stems`. Never with the
+    /// queue's lock held, which it takes.
+    pub fn show(&self) {
+        let (progress, queued, awaiting) = {
+            let queue = lock(&self.queue);
+            (queue.progress.clone(), queue.held(), queue.awaiting.clone())
+        };
+        let models = (0..MODELS.len()).map(|m| self.model_status(m)).collect();
+        let queued = Queued(Arc::new(queued));
+        *lock(&self.app.state::<AppState>().stems) = Shown { models, progress, queued, awaiting };
     }
 
     fn model_path(&self, model: usize) -> PathBuf {
@@ -286,9 +439,69 @@ impl StemsService {
         }
         let added = queue.waiting.len() - before;
         if added > 0 {
-            self.work(&mut queue)?;
+            let worked = self.work(&mut queue);
+            drop(queue);
+            self.show();
+            worked?;
         }
         Ok(added)
+    }
+
+    /// Queues `paths`, or, without a model installed, offers the models for them: they follow
+    /// the downloads under way, or those the DJ starts for them ([`Self::download_for`]).
+    pub fn separate(&self, paths: Vec<PathBuf>) -> AppResult<SeparateDto> {
+        if !self.installed().is_empty() {
+            self.enqueue(paths)?;
+            return Ok(SeparateDto::Queued);
+        }
+        let downloading = lock(&self.downloads).iter().any(|d| d.running);
+        {
+            let mut queue = lock(&self.queue);
+            if downloading {
+                wait_for_models(&mut queue, &paths);
+            }
+            queue.offered = paths;
+        }
+        self.show();
+        Ok(SeparateDto::NeedsModels)
+    }
+
+    /// Separates with the small models (`fast`) or the large ones from now on, downloads those
+    /// missing, the tracks offered last following once they are in.
+    pub fn download_for(&self, fast: bool) -> AppResult<()> {
+        let state = self.app.state::<AppState>();
+        let mut changed = false;
+        state.update_settings(|p| {
+            changed = p.library.stems_fast != fast;
+            p.library.stems_fast = fast;
+        });
+        if changed {
+            self.rechosen();
+        }
+        {
+            let mut queue = lock(&self.queue);
+            let offered = std::mem::take(&mut queue.offered);
+            wait_for_models(&mut queue, &offered);
+        }
+        for model in MODELS.iter().filter(|m| m.fast == fast) {
+            self.download_model(model.id)?;
+        }
+        self.release();
+        Ok(())
+    }
+
+    /// The tracks waiting for the models queued, once no download is under way and a model is
+    /// installed.
+    fn release(&self) {
+        let downloading = lock(&self.downloads).iter().any(|d| d.running);
+        if downloading || self.installed().is_empty() {
+            return self.show();
+        }
+        let awaiting = std::mem::take(&mut lock(&self.queue).awaiting);
+        match self.enqueue(awaiting) {
+            Ok(_) => self.show(),
+            Err(e) => error!("the tracks waiting for the models are not separated: {e}"),
+        }
     }
 
     /// Those of `paths` an installed model has stems to add to, not queued already; all of them
@@ -316,10 +529,13 @@ impl StemsService {
             return Ok(());
         }
         queue.played.push_back(path.to_owned());
-        self.work(&mut queue)
+        let worked = self.work(&mut queue);
+        drop(queue);
+        self.show();
+        worked
     }
 
-    /// Wakes the worker, or starts it, and tells the UI how the queue stands.
+    /// Wakes the worker, or starts it: the caller then shows how the queue stands.
     fn work(&self, queue: &mut Queue) -> AppResult<()> {
         let running = queue.progress.running;
         queue.progress.queued = queue.len() + usize::from(running);
@@ -346,7 +562,6 @@ impl StemsService {
             queue.worker = Some(id);
         }
         self.wake.notify_one();
-        let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
         Ok(())
     }
 
@@ -354,6 +569,7 @@ impl StemsService {
     pub fn cancel(&self) {
         lock(&self.queue).cancel();
         self.interrupt.store(true, Ordering::Relaxed);
+        self.show();
     }
 
     /// The stems of `path` as they come, if it is being separated.
@@ -367,8 +583,7 @@ impl StemsService {
         self.interrupt.store(true, Ordering::Relaxed);
     }
 
-    /// Downloads the model `id` in the background (`stems-model` events); nothing if it is
-    /// there or on its way.
+    /// Downloads the model `id` in the background; nothing if it is there or on its way.
     pub fn download_model(&self, id: &str) -> AppResult<()> {
         let model = MODELS
             .iter()
@@ -397,9 +612,19 @@ impl StemsService {
                 }
             }
             drop(state);
-            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
+            app.state::<StemsService>().release();
         });
+        self.show();
         Ok(())
+    }
+}
+
+/// `paths` among the tracks waiting for the models, once each.
+fn wait_for_models(queue: &mut Queue, paths: &[PathBuf]) {
+    for path in paths {
+        if !queue.awaiting.contains(path) {
+            queue.awaiting.push(path.clone());
+        }
     }
 }
 
@@ -487,7 +712,7 @@ async fn fetch_rest(
         if fraction - reported >= 0.005 {
             reported = fraction;
             lock(downloads)[model].fraction = fraction;
-            let _ = app.emit(STEMS_MODEL_EVENT, app.state::<StemsService>().model_status(model));
+            app.state::<StemsService>().show();
         }
     }
     file.sync_all().map_err(|e| e.to_string())
@@ -596,9 +821,7 @@ impl Worker {
                 Ok(Ended::Through) => {
                     self.update(|p| p.done += 1);
                     let separation = stored_separation(&job.path);
-                    let separated = SeparatedDto { path: job.path.display().to_string(), separation };
-                    self.app.state::<AppState>().separated(&separated.path, separation);
-                    let _ = self.app.emit(STEMS_SEPARATED_EVENT, separated);
+                    self.app.state::<AppState>().separated(&job.path.display().to_string(), separation);
                     attach_stems(&self.app, &job.path);
                 }
                 Ok(Ended::GaveWay) => {
@@ -642,7 +865,10 @@ impl Worker {
             }
             if queue.progress.running {
                 idle(&mut queue.progress);
-                let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
+                drop(queue);
+                self.app.state::<StemsService>().show();
+                queue = lock(&self.queue);
+                continue;
             }
             let (woken, wait) = self.wake.wait_timeout(queue, IDLE).unwrap_or_else(|e| e.into_inner());
             queue = woken;
@@ -823,12 +1049,8 @@ impl Worker {
     }
 
     fn update(&self, f: impl FnOnce(&mut StemsProgressDto)) {
-        let progress = {
-            let mut queue = lock(&self.queue);
-            f(&mut queue.progress);
-            queue.progress.clone()
-        };
-        let _ = self.app.emit(STEMS_PROGRESS_EVENT, progress);
+        f(&mut lock(&self.queue).progress);
+        self.app.state::<StemsService>().show();
     }
 }
 
@@ -925,14 +1147,16 @@ struct Stopped {
 
 impl Drop for Stopped {
     fn drop(&mut self) {
-        let mut queue = lock(&self.queue);
-        if queue.worker != Some(self.id) {
-            return;
+        {
+            let mut queue = lock(&self.queue);
+            if queue.worker != Some(self.id) {
+                return;
+            }
+            queue.worker = None;
+            queue.live = None;
+            idle(&mut queue.progress);
         }
-        queue.worker = None;
-        queue.live = None;
-        idle(&mut queue.progress);
-        let _ = self.app.emit(STEMS_PROGRESS_EVENT, queue.progress.clone());
+        self.app.state::<StemsService>().show();
     }
 }
 
@@ -1073,6 +1297,93 @@ mod tests {
     const VOCALS: usize = 0;
     const DRUMS_BASS: usize = 1;
     const FOUR_FAST: usize = 2;
+
+    /// The models as they stand: installed, or downloading so far.
+    fn shown(models: [(bool, Option<f64>); 3]) -> Shown {
+        let models = (0..MODELS.len())
+            .map(|m| ModelStatusDto {
+                id: MODELS[m].id,
+                installed: models[m].0,
+                downloading: models[m].1,
+                error: None,
+                bytes: MODELS[m].bytes,
+            })
+            .collect();
+        Shown { models, ..Default::default() }
+    }
+
+    fn preferences(fast: bool) -> Preferences {
+        let mut preferences = Preferences::default();
+        preferences.library.stems_fast = fast;
+        preferences
+    }
+
+    #[test]
+    fn the_models_chosen_reach_the_vocals_then_every_stem() {
+        let none = (false, None);
+        let installed = (true, None);
+        assert_eq!(shown([none, installed, installed]).reach(false), SeparationDto::None, "no vocals");
+        assert_eq!(shown([installed, none, none]).reach(false), SeparationDto::Vocals);
+        assert_eq!(shown([installed, installed, none]).reach(false), SeparationDto::Full);
+        assert_eq!(shown([installed, installed, none]).reach(true), SeparationDto::None, "never the others");
+        assert_eq!(shown([none, none, installed]).reach(true), SeparationDto::Full);
+    }
+
+    #[test]
+    fn the_settings_list_the_models_chosen_the_drums_and_bass_after_the_vocals() {
+        let rows = |shown: &Shown, fast| {
+            let dto = shown.dto(&preferences(fast));
+            dto.models.iter().map(|r| (r.status.id, r.ready)).collect::<Vec<_>>()
+        };
+        let nothing = shown([(false, None); 3]);
+        assert_eq!(rows(&nothing, false), [("vocals", true), ("drums-bass", false)]);
+        assert_eq!(rows(&nothing, true), [("four-fast", true)]);
+        let vocals = shown([(true, None), (false, None), (false, None)]);
+        assert_eq!(rows(&vocals, false), [("vocals", true), ("drums-bass", true)]);
+    }
+
+    #[test]
+    fn each_choice_tells_what_it_has_left_to_download() {
+        let vocals = shown([(true, None), (false, None), (false, None)]).dto(&preferences(false));
+        assert_eq!(vocals.quality.bytes_left, Some(MODELS[DRUMS_BASS].bytes));
+        assert_eq!(vocals.fast.bytes_left, Some(MODELS[FOUR_FAST].bytes));
+        let all = shown([(true, None); 3]).dto(&preferences(false));
+        assert_eq!((all.quality.bytes_left, all.fast.bytes_left), (None, None));
+    }
+
+    #[test]
+    fn the_downloads_and_the_queue_go_by_their_share() {
+        let mut downloading = shown([(false, Some(0.5)), (false, Some(0.0)), (false, None)]);
+        let (vocals, drums_bass) = (MODELS[VOCALS].bytes as f64, MODELS[DRUMS_BASS].bytes as f64);
+        let expected = vocals * 0.5 / (vocals + drums_bass);
+        assert!((downloading.downloading().unwrap() - expected).abs() < 1e-9);
+        assert_eq!(shown([(true, None); 3]).downloading(), None);
+
+        let track = PathBuf::from("a.mp3");
+        downloading.awaiting = vec![track.clone()];
+        assert!((downloading.separating(&track).unwrap() - expected).abs() < 1e-9, "waits for the models");
+        downloading.progress = StemsProgressDto {
+            running: true,
+            queued: 3,
+            done: 1,
+            current: Some("b.mp3".into()),
+            fraction: 0.5,
+            ..Default::default()
+        };
+        assert_eq!(downloading.separating(Path::new("b.mp3")), Some(0.5));
+        assert_eq!(downloading.separating(Path::new("c.mp3")), None);
+        assert!((downloading.overall() - 1.5 / 4.0).abs() < 1e-9);
+        assert_eq!(downloading.current(), Some((PathBuf::from("b.mp3"), 50)));
+    }
+
+    #[test]
+    fn tracks_offered_wait_once_each() {
+        let mut queue = Queue::default();
+        let (a, b) = (PathBuf::from("a.mp3"), PathBuf::from("b.mp3"));
+        wait_for_models(&mut queue, &[a.clone(), b.clone()]);
+        wait_for_models(&mut queue, std::slice::from_ref(&b));
+        assert_eq!(queue.awaiting, [a, b]);
+    }
 
     #[test]
     fn the_stems_come_from_the_models_chosen() {

@@ -319,6 +319,8 @@ pub struct AppState {
     pub perform: Mirrored<PerformState>,
     /// What the headphones preview, as the interface shows it (see `preview::Previews`).
     pub preview: Mirrored<PreviewStateDto>,
+    /// The separation into stems, as the interface shows it (see `StemsService::show`).
+    pub stems: Mirrored<crate::stems_service::Shown>,
     /// The library as it is browsed, changed through [`AppState::browse`]: taken last, nothing
     /// else locked while it is held.
     pub library: Mutex<Library>,
@@ -345,6 +347,8 @@ pub enum Section {
     Lists,
     /// The preferences the settings show (`PreferencesDto`).
     Settings,
+    /// The separation into stems: its models and its queue.
+    Stems,
 }
 
 impl Section {
@@ -356,10 +360,11 @@ impl Section {
         Section::Library,
         Section::Lists,
         Section::Settings,
+        Section::Stems,
     ];
 }
 
-pub const SECTIONS: usize = 7;
+pub const SECTIONS: usize = 8;
 
 /// Where the changes of each [`Section`] are at: each moves at every change of its own.
 #[derive(Default)]
@@ -534,6 +539,7 @@ impl AppState {
             samplers: Mirrored::new(Samplers::default(), &revisions, Section::Mixer),
             perform: Mirrored::new(PerformState::default(), &revisions, Section::Perform),
             preview: Mirrored::new(PreviewStateDto::default(), &revisions, Section::Preview),
+            stems: Mirrored::new(Default::default(), &revisions, Section::Stems),
             library: Mutex::default(),
             hidden: AtomicBool::new(false),
             revisions,

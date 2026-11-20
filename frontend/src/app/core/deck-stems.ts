@@ -36,13 +36,7 @@ export function deckStems(deck: Signal<number>) {
   );
   /** How far the track's separation is, while it is being separated, or the download of
    * the models it waits for. */
-  const separating = computed(() => {
-    const progress = stems.progress();
-    const path = track()?.path;
-    if (!path) return null;
-    if (progress.current === path) return progress.fraction;
-    return stems.awaiting().includes(path) ? stems.downloading() : null;
-  });
+  const separating = computed(() => engine.status()?.decks[deck()]?.separating ?? null);
   /** Without a model, the separation offers to download them. */
   const canSeparate = computed(() => !!track() && separating() === null);
   /** A separation stopped short: its stems play where they are there, and it can be done

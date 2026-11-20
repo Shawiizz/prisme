@@ -168,35 +168,42 @@
           }
           @case ('stems') {
             <span class="stems">
-              @let separation = t.separation;
-              @if (stems.progress().current === t.path) {
-                <span class="number" [title]="'Separating the stems' | t">{{
-                  percent(stems.progress().fraction)
-                }}</span>
-              } @else if (stems.pending().has(t.path)) {
-                <span class="dim" [title]="'Waiting to be separated' | t">…</span>
-              } @else if (t.analysed && !t.failed && stems.canAdd(separation)) {
-                @let title =
-                  separation === 'vocals'
-                    ? ('Vocals separated: add the drums and bass' | t)
-                    : ('Separate the stems' | t);
-                <button
-                  class="separate"
-                  [class.partly]="separation === 'vocals'"
-                  (click)="stems.separate([t.path]); $event.stopPropagation()"
-                  [title]="title"
-                  [attr.aria-label]="title"
-                >
-                  +
-                </button>
-              } @else if (separation === 'full') {
-                <span
-                  class="separated"
-                  [title]="'Separated into vocals, drums, bass and melody' | t"
-                  >4</span
-                >
-              } @else if (separation === 'vocals') {
-                <span class="separated" [title]="'Vocals separated' | t">✓</span>
+              @let s = t.stems;
+              @switch (s.state) {
+                @case ('separating') {
+                  <span class="number" [title]="'Separating the stems' | t">{{
+                    percent(s.fraction)
+                  }}</span>
+                }
+                @case ('queued') {
+                  <span class="dim" [title]="'Waiting to be separated' | t">…</span>
+                }
+                @case ('addable') {
+                  @let title =
+                    s.separation === 'vocals'
+                      ? ('Vocals separated: add the drums and bass' | t)
+                      : ('Separate the stems' | t);
+                  <button
+                    class="separate"
+                    [class.partly]="s.separation === 'vocals'"
+                    (click)="stems.separate([t.path]); $event.stopPropagation()"
+                    [title]="title"
+                    [attr.aria-label]="title"
+                  >
+                    +
+                  </button>
+                }
+                @case ('separated') {
+                  @if (s.separation === 'full') {
+                    <span
+                      class="separated"
+                      [title]="'Separated into vocals, drums, bass and melody' | t"
+                      >4</span
+                    >
+                  } @else if (s.separation === 'vocals') {
+                    <span class="separated" [title]="'Vocals separated' | t">✓</span>
+                  }
+                }
               }
             </span>
           }

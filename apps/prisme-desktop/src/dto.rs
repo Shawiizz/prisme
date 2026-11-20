@@ -683,19 +683,80 @@ pub struct ModelStatusDto {
     pub bytes: u64,
 }
 
+/// The separation as the interface shows it (`stems_service::Shown`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct StemsStatusDto {
-    pub models: Vec<ModelStatusDto>,
+pub struct StemsStateDto {
     pub progress: StemsProgressDto,
+    /// The tracks the queue held: those done, failed, and left.
+    pub total: usize,
+    /// The queue's share done, the track being separated as far as it is, from 0 to 1.
+    pub overall: f64,
+    /// How far the models chosen and installed separate a track.
+    pub reach: SeparationDto,
+    /// A graphics chip worth separating on is there; `None` until it was looked for.
+    pub gpu: Option<bool>,
+    /// The separation runs on it: it is there and the DJ lets it.
+    pub on_gpu: bool,
+    /// Tracks are separated as they are loaded or prepared.
+    pub on_load: bool,
+    /// How far the downloads under way are, by their bytes, from 0 to 1.
+    pub downloading: Option<f64>,
+    /// The models the DJ chose, as the settings list them.
+    pub models: Vec<ModelRowDto>,
+    /// What the large models, and the small one, have left to download.
+    pub quality: ChoiceDto,
+    pub fast: ChoiceDto,
+    /// The small models suit this device: a phone, or no graphics chip worth it.
+    pub fast_suits: bool,
+    /// The choice the models are offered with.
+    pub suggest_fast: bool,
 }
 
-/// A track whose stems were just stored.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SeparatedDto {
-    pub path: String,
-    pub separation: SeparationDto,
+pub struct ModelRowDto {
+    #[serde(flatten)]
+    pub status: ModelStatusDto,
+    /// It can be downloaded now: the drums and bass come with the vocals only.
+    pub ready: bool,
+}
+
+/// A choice of models: what it has left to download, and why its download failed.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChoiceDto {
+    /// `None` once it is installed.
+    pub bytes_left: Option<u64>,
+    pub error: Option<String>,
+}
+
+/// What became of tracks to separate.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum SeparateDto {
+    Queued,
+    /// No model is installed: they are offered for them.
+    NeedsModels,
+}
+
+/// How far a row's track is separated, as its column shows it.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(tag = "state", rename_all = "camelCase")]
+pub enum RowStemsDto {
+    /// Being separated, so far (0 to 1).
+    Separating {
+        fraction: f64,
+    },
+    /// Waiting in the queue.
+    Queued,
+    /// The models installed would add stems to it.
+    Addable {
+        separation: SeparationDto,
+    },
+    Separated {
+        separation: SeparationDto,
+    },
 }
 
 /// What became known of a loaded track after it was put on its deck.
@@ -1114,6 +1175,9 @@ pub struct DeckStatusDto {
     pub samples_playing: u16,
     /// The parts of its separated track, a knob each.
     pub stems: Vec<StemKnobDto>,
+    /// How far its track's separation is, from 0 to 1: as it is separated, or as the downloads
+    /// of the models it waits for are.
+    pub separating: Option<f64>,
 }
 
 /// What a deck's keys and pads light by the controllers' rules.
@@ -1204,6 +1268,7 @@ impl DeckStatusDto {
             slip_position_s: d.slip_position_s,
             samples_playing: d.samples_playing,
             stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
+            separating: None,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
                 mode: d.vinyl.mode.into(),
@@ -1270,6 +1335,9 @@ pub struct ControlStateDto {
     pub lists: Option<LibraryListsDto>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preferences: Option<PreferencesDto>,
+    /// The separation into stems, with the DJ's preferences of it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stems: Option<StemsStateDto>,
 }
 
 /// What a deck's pads hold, as the interface shows them.
@@ -1325,6 +1393,11 @@ impl ControlStateDto {
                 Section::Library => controls.library = Some(lock(&state.library).view()),
                 Section::Lists => controls.lists = Some(lock(&state.library).lists()),
                 Section::Settings => controls.preferences = Some(PreferencesDto::of(state)),
+                Section::Stems => {}
+            }
+            if matches!(section, Section::Stems | Section::Settings) {
+                let stems = lock(&state.stems).clone();
+                controls.stems = Some(state.preferences.read(|p| stems.dto(p)));
             }
         }
         controls
@@ -1623,7 +1696,7 @@ pub struct LibraryRowDto {
     pub analysed: bool,
     /// Its file could not be decoded.
     pub failed: bool,
-    pub separation: SeparationDto,
+    pub stems: RowStemsDto,
     pub selected: bool,
     /// Played in the set going on.
     pub played: bool,

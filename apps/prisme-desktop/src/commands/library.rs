@@ -7,7 +7,7 @@ use crate::actions::{Actions, Order};
 use crate::commands::blocking;
 use crate::dto::{
     ColumnDto, LibraryMenuDto, LibraryViewDto, LibraryWindowDto, NamedTrackDto, PickDto, ProgressDto,
-    ScopeDto, SourceDto,
+    ScopeDto, SeparateDto, SourceDto,
 };
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
@@ -193,14 +193,15 @@ fn menu(state: &AppState, stems: &StemsService, paths: Option<Vec<String>>) -> L
     }
 }
 
-/// Those of the tracks at `paths` (else of those selected) the installed models have stems to
-/// add to, analysed and not queued already; all of those analysed while no model is installed.
+/// Separates those of the tracks at `paths` (else of those selected) the installed models have
+/// stems to add to, analysed and not queued already; without a model, offers the models for
+/// those analysed.
 #[tauri::command]
-pub async fn library_separable(
+pub async fn separate_tracks(
     app: AppHandle,
     paths: Option<Vec<String>>,
     order: Order,
-) -> AppResult<Vec<String>> {
+) -> AppResult<SeparateDto> {
     let stems = app.clone();
     in_turn(app, order, move |state, _| {
         let paths = browse::tracks(state, paths);
@@ -211,8 +212,8 @@ pub async fn library_separable(
                 |path: &&String| catalogue.find(path).is_some_and(|id| catalogue.get(id).analysed());
             paths.iter().filter(analysed).map(PathBuf::from).collect()
         };
-        let separable = stems.state::<StemsService>().separable(readable);
-        Ok(separable.into_iter().map(|p| p.display().to_string()).collect())
+        let stems = stems.state::<StemsService>();
+        stems.separate(stems.separable(readable))
     })
     .await
 }

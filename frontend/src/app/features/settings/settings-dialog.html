@@ -598,34 +598,22 @@
                   </button>
                 </div>
               </app-setting-row>
-              @for (
-                m of stemsFast()
-                  ? [{ id: 'library.stemsFour', model: stems.fourFastModel(), ready: true }]
-                  : [
-                      { id: 'library.stemsModel', model: stems.vocalsModel(), ready: true },
-                      {
-                        id: 'library.stemsDrumsBass',
-                        model: stems.drumsBassModel(),
-                        ready: stems.vocalsModel().installed,
-                      },
-                    ];
-                track m.id
-              ) {
-                <app-setting-row [id]="m.id">
-                  @if (m.model.error; as error) {
+              @for (m of stems.state()?.models ?? []; track m.id) {
+                <app-setting-row [id]="MODEL_SETTINGS[m.id]">
+                  @if (m.error; as error) {
                     <span class="pr-row__help error">{{ error }}</span>
                   }
-                  @if (m.model.installed) {
+                  @if (m.installed) {
                     <span class="pr-label">{{ 'Installed' | t }}</span>
-                  } @else if (m.model.downloading !== null) {
-                    <span class="pr-num">{{ percent(m.model.downloading) }}</span>
+                  } @else if (m.downloading !== null) {
+                    <span class="pr-num">{{ percent(m.downloading) }}</span>
                   } @else {
                     <button
                       class="pr-btn pr-btn--sm"
                       [disabled]="!m.ready"
-                      (click)="stems.downloadModel(m.model.id)"
+                      (click)="stems.downloadModel(m.id)"
                     >
-                      {{ 'Download ({size} MB)' | t: { size: megabytes(m.model.bytes) } }}
+                      {{ 'Download ({size} MB)' | t: { size: megabytes(m.bytes) } }}
                     </button>
                   }
                 </app-setting-row>
@@ -633,7 +621,7 @@
               <app-setting-row
                 id="library.stemsGpu"
                 [help]="
-                  stems.gpu() === false
+                  stems.state()?.gpu === false
                     ? ('No graphics chip worth it here: the processor separates.' | t)
                     : null
                 "
@@ -641,9 +629,9 @@
                 <button
                   class="pr-switch"
                   role="switch"
-                  [attr.aria-checked]="separatesOnGpu()"
+                  [attr.aria-checked]="stems.state()?.onGpu ?? false"
                   settingControl
-                  [disabled]="stems.gpu() === false"
+                  [disabled]="stems.state()?.gpu === false"
                   (click)="set('stemsGpu', !preferences.library().stemsGpu)"
                 >
                   <span></span>
@@ -664,9 +652,9 @@
                 <button
                   class="pr-btn pr-btn--sm"
                   (click)="stems.separateLibrary()"
-                  [disabled]="stems.reach() === 'none' || stems.progress().running"
+                  [disabled]="stems.reach() === 'none' || stems.progress()?.running"
                 >
-                  {{ stems.progress().running ? ('Separating…' | t) : ('Separate' | t) }}
+                  {{ stems.progress()?.running ? ('Separating…' | t) : ('Separate' | t) }}
                 </button>
               </app-setting-row>
             </div>

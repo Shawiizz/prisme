@@ -3,11 +3,12 @@
 //! at the same pace. The library's rows are sent again as what they show of the decks changes
 //! (see `browse::Around`), and ranked again as the deck they follow does.
 
-use crate::actions::browse::{self, Around};
+use crate::actions::browse::{self, Around, RowsStems};
 use crate::actions::Actions;
 use crate::dto::{ControlStateDto, StatusDto};
 use crate::preview::Previews;
 use crate::state::{lock, AppState, Section};
+use crate::stems_service::Shown;
 use prisme_actions::meter::Meters;
 use prisme_analysis::Key;
 use prisme_library::browse::Column;
@@ -38,6 +39,7 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
             let mut compared = (0, false);
             let mut ranked_against: Option<Ranked> = None;
             let mut meters = Meters::default();
+            let mut stems = Shown::default();
             while GENERATION.load(Ordering::SeqCst) == generation {
                 // read before what it is of: a change after moves it again
                 let revision = state.revision();
@@ -77,6 +79,15 @@ pub fn subscribe_status(app: AppHandle, channel: Channel<StatusDto>) {
                 if moved(Section::Library) {
                     let library = lock(&state.library);
                     compared = (library.browser.reference(), library.browser.sort().column == Column::Mix);
+                }
+                if moved(Section::Stems) || moved(Section::Settings) {
+                    stems = lock(&state.stems).clone();
+                    let reach = stems.reach(state.preferences.read(|p| p.library.stems_fast));
+                    around.stems =
+                        RowsStems { current: stems.current(), queued: stems.queued.clone(), reach };
+                }
+                for (deck, shown) in status.decks.iter_mut().enumerate() {
+                    shown.separating = around.decks[deck].as_deref().and_then(|path| stems.separating(path));
                 }
                 let before = around.clone();
                 around.read(&view, compared.0);
