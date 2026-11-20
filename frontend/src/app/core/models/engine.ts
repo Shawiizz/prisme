@@ -344,6 +344,7 @@ export type GridChange =
   | { kind: 'scale'; factor: number }
   | { kind: 'shift'; seconds: number }
   | { kind: 'beatHere' }
+  | { kind: 'align' }
   | { kind: 'reset' };
 
 /** Deck settings owned by the UI and pushed to the engine. */

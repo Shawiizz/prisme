@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, output, viewChild } from '@angular/core';
-import { GridChange } from '../../../core/models/engine';
+import { DeckStatus, GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -7,7 +7,6 @@ import { camelotHue, camelotMajor, keyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';
-import { phaseOffset } from '../../../core/sync';
 
 /** Grid moves of the arrow buttons: fine and coarse (seconds). */
 const FINE_SHIFT_S = 0.002;
@@ -56,16 +55,13 @@ export class GridEditor {
   protected readonly keysKnown = computed(
     () => !!this.track()?.key && this.engine.heardKey(this.engine.mixedWith(this.deck())) !== null,
   );
-  /** How far to move the grid (seconds of the track) so that its beats fall on the other
-   * deck's, both playing: matched by ear, the deck keeps what is heard and is in phase. */
-  protected readonly toOther = computed(() => {
+  /** Both decks playing on a grid: the grid can move onto the other deck's beats. */
+  protected readonly alignable = computed(() => {
     const decks = this.engine.status()?.decks ?? [];
     const own = decks[this.deck()];
     const other = decks[this.engine.mixedWith(this.deck())];
-    const bpm = this.track()?.tempo?.bpm;
-    if (!own?.playing || !other?.playing || !bpm) return null;
-    const beats = phaseOffset(own, other);
-    return beats === null ? null : (beats * 60) / bpm;
+    const onBeats = (d: DeckStatus | undefined) => !!d?.playing && d.beatPhase !== null;
+    return !!this.track()?.tempo && onBeats(own) && onBeats(other);
   });
 
   constructor() {
@@ -83,8 +79,7 @@ export class GridEditor {
   }
 
   alignToOther() {
-    const seconds = this.toOther();
-    if (seconds !== null) this.grid({ kind: 'shift', seconds });
+    this.grid({ kind: 'align' });
   }
 
   setBpm(text: string) {

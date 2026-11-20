@@ -91,7 +91,7 @@
   <div class="row">
     <button
       class="pr-btn pr-btn--sm wide"
-      [disabled]="toOther() === null"
+      [disabled]="!alignable()"
       [title]="
         'Both decks playing, matched by ear: the grid moves onto the beats of the other deck' | t
       "

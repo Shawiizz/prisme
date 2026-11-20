@@ -8,6 +8,8 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use crate::track_loading::DECK_TRACK_UPDATE_EVENT;
+use prisme_actions::sync::grid_shift_to;
+use prisme_actions::view::mixed_with;
 use prisme_analysis::{Key, KeyEstimate};
 use prisme_engine::Command;
 use prisme_library::{GridEdit, TrackEdits};
@@ -27,6 +29,8 @@ pub enum GridChange {
     Shift { seconds: f64 },
     /// Puts a beat where the deck is.
     BeatHere,
+    /// Moves the grid for its beats to fall on those of the deck it is mixed with, both playing.
+    Align,
     /// Back to the analysis.
     Reset,
 }
@@ -54,6 +58,13 @@ pub fn change_grid(
         GridChange::BeatHere => state.deck_status(deck)?.position_s,
         _ => 0.0,
     };
+    let change = match change {
+        GridChange::Align => match shift_to_other(state, deck)? {
+            Some(seconds) => GridChange::Shift { seconds },
+            None => return Ok(()),
+        },
+        change => change,
+    };
     edit(app, state, library, deck, |track_grid, edits| {
         let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
         let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
@@ -65,9 +76,19 @@ pub fn change_grid(
             GridChange::Shift { seconds } => Some(grid()?.shifted(seconds)),
             GridChange::BeatHere => Some(grid()?.with_beat_at(position_s)),
             GridChange::Reset => None,
+            GridChange::Align => track_grid,
         };
         Ok(())
     })
+}
+
+/// How far to move the grid of the track on `deck` onto the beats of the deck it is mixed with,
+/// both playing on a grid.
+fn shift_to_other(state: &AppState, deck: usize) -> AppResult<Option<f64>> {
+    let status = state.engine_status()?;
+    let Some(bpm) = state.with_track(deck, |t| t.grid().map(|g| g.bpm))? else { return Ok(None) };
+    let other = mixed_with(&status, deck);
+    Ok(grid_shift_to(&status.decks[deck], &status.decks[other], bpm))
 }
 
 /// Sets the key from its Camelot code; `None` goes back to the detected key.

@@ -28,6 +28,14 @@ pub fn phase_offset(deck: Beat, other: Beat) -> f64 {
     gap - gap.round()
 }
 
+/// How far to move the beat grid of a deck at `deck` (seconds of its track, a grid of
+/// `grid_bpm`) for its beats to fall on `other`'s, both playing: matched by ear, the deck keeps
+/// what is heard and is in phase.
+pub fn grid_shift_to(deck: &DeckStatus, other: &DeckStatus, grid_bpm: f64) -> Option<f64> {
+    let offset = phase_offset(Beat::playing(deck)?, Beat::playing(other)?);
+    Some(offset * 60.0 / grid_bpm)
+}
+
 /// Where a deck's beats are against another's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase {
@@ -95,5 +103,19 @@ mod tests {
     #[test]
     fn off_unless_both_play_on_a_grid() {
         assert_eq!(phase(None, Some(beat(128.0, 0.5)), 0.03), Phase::Off);
+    }
+
+    #[test]
+    fn a_grid_ahead_moves_later_by_its_offset_in_seconds_of_its_track() {
+        let playing = |phase: f64| DeckStatus {
+            playing: true,
+            bpm: Some(120.0),
+            beat_phase: Some(phase),
+            ..DeckStatus::default()
+        };
+        let shift = grid_shift_to(&playing(0.3), &playing(0.1), 120.0).unwrap();
+        assert!(close(shift, 0.1), "a fifth of a beat at 120 BPM: {shift}");
+        let stopped = DeckStatus { playing: false, ..playing(0.1) };
+        assert_eq!(grid_shift_to(&playing(0.3), &stopped, 120.0), None);
     }
 }
