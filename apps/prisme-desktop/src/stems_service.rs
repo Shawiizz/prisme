@@ -276,6 +276,18 @@ impl PartialEq for Queued {
     }
 }
 
+impl Queued {
+    /// The tracks queued `now`: these very ones if they are the same, so that what shows them
+    /// sees no change.
+    fn again(&self, now: HashSet<PathBuf>) -> Self {
+        if *self.0 == now {
+            self.clone()
+        } else {
+            Self(Arc::new(now))
+        }
+    }
+}
+
 impl Shown {
     /// What the separation shows with the DJ's `preferences`.
     pub fn dto(&self, preferences: &Preferences) -> StemsStateDto {
@@ -396,8 +408,10 @@ impl StemsService {
             (queue.progress.clone(), queue.held(), queue.awaiting.clone())
         };
         let models = (0..MODELS.len()).map(|m| self.model_status(m)).collect();
-        let queued = Queued(Arc::new(queued));
-        *lock(&self.app.state::<AppState>().stems) = Shown { models, progress, queued, awaiting };
+        let state = self.app.state::<AppState>();
+        let mut shown = lock(&state.stems);
+        let queued = shown.queued.again(queued);
+        *shown = Shown { models, progress, queued, awaiting };
     }
 
     fn model_path(&self, model: usize) -> PathBuf {
@@ -1310,6 +1324,13 @@ mod tests {
             })
             .collect();
         Shown { models, ..Default::default() }
+    }
+
+    #[test]
+    fn the_tracks_queued_stay_the_same_set_while_the_queue_holds_the_same() {
+        let queued = Queued::default().again(HashSet::from([PathBuf::from("a.mp3")]));
+        assert_eq!(queued.again(HashSet::from([PathBuf::from("a.mp3")])), queued);
+        assert_ne!(queued.again(HashSet::new()), queued);
     }
 
     fn preferences(fast: bool) -> Preferences {
