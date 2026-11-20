@@ -85,6 +85,7 @@ pub fn create(config: EngineConfig) -> (Engine, EngineController) {
         deck_out: vec![0.0; config.max_block_frames * 2],
         peak: 0.0,
         master_peaks: [0.0; 2],
+        held: HeldPeaks::default(),
         quantize: true,
         chosen_leader: None,
         leader: None,
@@ -115,6 +116,7 @@ pub struct Engine {
     deck_out: Vec<f32>,
     peak: f32,
     master_peaks: [f32; 2],
+    held: HeldPeaks,
     quantize: bool,
     /// Leader picked by the user, if any.
     chosen_leader: Option<DeckId>,
@@ -471,12 +473,14 @@ impl Engine {
         self.frames_since_status = 0;
         let recording =
             self.recording.as_ref().map(|r| RecordingStatus { frames: r.frames, dropped: r.dropped });
+        let held = &mut self.held;
+        let master = std::mem::take(&mut self.master_peaks);
         let mut status = EngineStatus {
             deck_count: self.decks.len(),
-            main_peak: self.peak,
-            master_peaks: std::mem::take(&mut self.master_peaks),
-            mic_peak: std::mem::take(&mut self.mixer.mic.peak),
-            aux_peak: std::mem::take(&mut self.mixer.aux.peak),
+            main_peak: held.main.hold(self.peak),
+            master_peaks: [held.master[0].hold(master[0]), held.master[1].hold(master[1])],
+            mic_peak: held.mic.hold(std::mem::take(&mut self.mixer.mic.peak)),
+            aux_peak: held.aux.hold(std::mem::take(&mut self.mixer.aux.peak)),
             recording,
             preview: self.preview.status(),
             commands: self.applied,
@@ -484,11 +488,39 @@ impl Engine {
         };
         for (d, (slot, deck)) in status.decks.iter_mut().zip(&mut self.decks).enumerate() {
             *slot = deck.status(self.leader == Some(d));
+            slot.peak = self.held.decks[d].hold(slot.peak);
             deck.peak = 0.0;
         }
         self.peak = 0.0;
         self.status.write(status);
     }
+}
+
+/// How many status periods a peak stays published: a reader sampling the status less often
+/// than it is published (the interface about every 17 ms, the controllers every 20 ms, the
+/// engine every 10 ms) misses none.
+const PEAK_HELD: usize = 3;
+
+/// A meter's peaks of the last [`PEAK_HELD`] status periods.
+#[derive(Debug, Default, Clone, Copy)]
+struct HeldPeak([f32; PEAK_HELD]);
+
+impl HeldPeak {
+    /// The highest of the periods held, `peak` this one's.
+    fn hold(&mut self, peak: f32) -> f32 {
+        self.0.rotate_right(1);
+        self.0[0] = peak;
+        self.0.iter().copied().fold(0.0, f32::max)
+    }
+}
+
+#[derive(Debug, Default)]
+struct HeldPeaks {
+    decks: [HeldPeak; MAX_DECKS],
+    main: HeldPeak,
+    master: [HeldPeak; 2],
+    mic: HeldPeak,
+    aux: HeldPeak,
 }
 
 /// Copies one deck's stereo pair out of the interleaved input (silence if absent).
@@ -566,5 +598,17 @@ impl EngineController {
     /// stems take a while to free, better done out of any lock other threads wait on.
     pub fn take_garbage(&mut self) -> Vec<Garbage> {
         std::iter::from_fn(|| self.garbage.pop().ok()).collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_peak_stays_published_for_the_periods_held_then_goes() {
+        let mut held = HeldPeak::default();
+        let published: Vec<f32> = [0.8, 0.0, 0.2, 0.0, 0.0, 0.0].map(|p| held.hold(p)).into();
+        assert_eq!(published, [0.8, 0.8, 0.8, 0.2, 0.2, 0.0]);
     }
 }
