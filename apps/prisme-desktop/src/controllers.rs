@@ -386,24 +386,36 @@ impl Connection {
     }
 }
 
-/// What the keys of the controllers do beyond driving their action, by controller and key.
+/// What the keys of the controllers do beyond driving their action, by controller.
 #[derive(Default)]
-struct Keys {
+struct Keys(HashMap<String, DeviceKeys>);
+
+/// What the keys of a controller do beyond driving their action, by key.
+#[derive(Default)]
+struct DeviceKeys {
     /// Keys latched down.
-    latched: HashSet<(String, Control)>,
+    latched: HashSet<Control>,
     /// Keys putting a fader at two positions in turn, at their second.
-    second: HashSet<(String, Control)>,
-    /// When each key was last pressed.
-    pressed_at: HashMap<(String, Control), Instant>,
+    second: HashSet<Control>,
+    /// When each key that drives another action pressed twice was last pressed.
+    pressed_at: HashMap<Control, Instant>,
     /// Keys whose press drove another action than their own (pressed twice, or with another
     /// key held): their release lets that one go.
-    instead: HashMap<(String, Control), TargetId>,
+    instead: HashMap<Control, TargetId>,
 }
 
 impl Keys {
+    /// The keys of `device`: its name is copied once, not at each message.
+    fn of(&mut self, device: &str) -> &mut DeviceKeys {
+        if !self.0.contains_key(device) {
+            self.0.insert(device.to_owned(), DeviceKeys::default());
+        }
+        self.0.get_mut(device).expect("inserted above")
+    }
+
     /// Whether the key `control` of `device` put its fader at the second of its two positions.
     fn at_second(&self, device: &str, control: Control) -> bool {
-        self.second.iter().any(|(d, c)| d == device && *c == control)
+        self.0.get(device).is_some_and(|keys| keys.second.contains(&control))
     }
 }
 
@@ -913,7 +925,7 @@ impl Controllers {
         let profile = connection.profile.clone();
         let mappings = lock(&self.mappings);
         let hid = profile.as_ref().and_then(|p| p.hid.as_ref());
-        for mapping in mappings.all().iter().filter(|m| m.device == device) {
+        for mapping in mappings.of(device) {
             if let Some(light) = light_of(hid, mapping.control) {
                 connection.light(light, Shade::Given(mapping.light.value(OFF)));
             }
@@ -1181,9 +1193,7 @@ impl Controllers {
             self.receive(host, device, jog_steps_per_turn, Event { control, raw: 0 }, 0.0);
         }
         let touched: Vec<usize> = lock(&self.mappings)
-            .all()
-            .iter()
-            .filter(|m| m.device == device)
+            .of(device)
             .filter_map(|m| match m.target.target() {
                 Some(&Target::Deck(deck, DeckAction::JogTouch)) => Some(deck),
                 _ => None,
@@ -1227,6 +1237,9 @@ impl Controllers {
     /// Learns the control of `event` of `device` for the action waiting for one, if one is: but
     /// for a key let go, the end of a press made before, and shift.
     fn learn_from(&self, device: &str, event: Event) -> Option<Mapping> {
+        if lock(&self.learning).is_none() {
+            return None;
+        }
         let reader = lock(&self.reader);
         let shift = lock(&self.mappings)
             .find(device, Event { raw: 127, ..event }, &Shifts::default(), &Modes::new())
@@ -1261,9 +1274,10 @@ impl Controllers {
         mapping: &Mapping,
         reader: &Reader,
     ) -> Option<Option<Routed>> {
-        let key = (device.to_owned(), mapping.control);
+        let key = mapping.control;
         let pressed = event.raw > 0;
         let mut keys = lock(&self.keys);
+        let keys = keys.of(device);
         let press = |target: &TargetId, value| Some(driven(vec![Action::press(target, value)]));
         if !pressed {
             if let Some(target) = keys.instead.remove(&key) {
@@ -1275,12 +1289,12 @@ impl Controllers {
                 keys.instead.insert(key, chord.target.clone());
                 return press(&chord.target, 1.0);
             }
-            let before = keys.pressed_at.insert(key.clone(), Instant::now());
-            let again =
-                |ms: u32| before.is_some_and(|at| at.elapsed() < Duration::from_millis(u64::from(ms)));
-            if let Some(double) = mapping.double.as_ref().filter(|d| again(d.ms)) {
-                keys.instead.insert(key, double.target.clone());
-                return press(&double.target, 1.0);
+            if let Some(double) = &mapping.double {
+                let before = keys.pressed_at.insert(key, Instant::now());
+                if before.is_some_and(|at| at.elapsed() < Duration::from_millis(u64::from(double.ms))) {
+                    keys.instead.insert(key, double.target.clone());
+                    return press(&double.target, 1.0);
+                }
             }
         }
         if let Some(set) = mapping.set {
@@ -1301,7 +1315,7 @@ impl Controllers {
             if !pressed {
                 return Some(None);
             }
-            let down = keys.latched.insert(key.clone()) || !keys.latched.remove(&key);
+            let down = keys.latched.insert(key) || !keys.latched.remove(&key);
             return press(&mapping.target, if down { 1.0 } else { 0.0 });
         }
         None

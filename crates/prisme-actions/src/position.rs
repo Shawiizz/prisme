@@ -73,9 +73,9 @@ fn deck_position(deck: usize, action: DeckAction, seen: &impl Sees) -> Option<f3
                 0.0
             }
         }
-        DeckAction::Key => (f32::from(settings.track.map_or(0, |t| t.key_shift)) + 12.0) / 24.0,
+        DeckAction::Key => (f32::from(seen.track(deck).map_or(0, |t| t.key_shift)) + 12.0) / 24.0,
         DeckAction::SamplerGain => settings.sampler_gain,
-        DeckAction::StemLevel(part) => settings.track.map_or(1.0, |t| t.stem_mix.level(part)),
+        DeckAction::StemLevel(part) => seen.track(deck).map_or(1.0, |t| t.stem_mix.level(part)),
         DeckAction::FxSuper => slots.iter().map(|s| s.amount).sum::<f32>() / FX_SLOTS as f32,
         DeckAction::FxKnob(knob) => match seen.fx_focus(deck) {
             None => slots[knob].amount,

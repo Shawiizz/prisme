@@ -13,8 +13,10 @@ use prisme_engine::{DeckStatus, EngineStatus};
 /// or the application itself, read only as far as a move asks.
 pub trait Sees {
     fn decks_in_use(&self) -> usize;
-    /// The settings of `deck`, and its track.
+    /// The settings of `deck` (its track: [`Sees::track`]).
     fn deck(&self, deck: usize) -> DeckView;
+    /// What the actions read of the track on `deck`.
+    fn track(&self, deck: usize) -> Option<TrackView>;
     /// What the engine shows of `deck`.
     fn status(&self, deck: usize) -> DeckStatus;
     fn mixer(&self) -> MixerView;
@@ -31,6 +33,10 @@ impl Sees for View {
 
     fn deck(&self, deck: usize) -> DeckView {
         self.decks[deck]
+    }
+
+    fn track(&self, deck: usize) -> Option<TrackView> {
+        self.decks[deck].track
     }
 
     fn status(&self, deck: usize) -> DeckStatus {

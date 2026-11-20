@@ -378,23 +378,72 @@ pub struct ShownRoom {
 
 /// The mappings of all the controllers: on each controller and layer, a control drives
 /// one action, and an action has one control, but for those the application says take
-/// several (a jog wheel sends its top and its edge apart).
+/// several (a jog wheel sends its top and its edge apart). Found by controller and control.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct Mappings(Vec<Mapping>);
+#[serde(from = "Vec<Mapping>", into = "Vec<Mapping>")]
+pub struct Mappings {
+    all: Vec<Mapping>,
+    /// Of each controller, where its mappings are among them all.
+    places: HashMap<String, Places>,
+}
+
+/// Where a controller's mappings are: all, and those of each control sending them.
+#[derive(Debug, Clone, Default, PartialEq)]
+struct Places {
+    all: Vec<usize>,
+    by_control: HashMap<Control, Vec<usize>>,
+}
+
+impl From<Vec<Mapping>> for Mappings {
+    fn from(all: Vec<Mapping>) -> Self {
+        let mut mappings = Mappings { all, places: HashMap::new() };
+        mappings.place();
+        mappings
+    }
+}
+
+impl From<Mappings> for Vec<Mapping> {
+    fn from(mappings: Mappings) -> Self {
+        mappings.all
+    }
+}
 
 impl Mappings {
     pub fn all(&self) -> &[Mapping] {
-        &self.0
+        &self.all
+    }
+
+    /// The mappings of `device`, in their order.
+    pub fn of<'m>(&'m self, device: &str) -> impl Iterator<Item = &'m Mapping> + 'm {
+        let places = self.places.get(device).map_or(&[][..], |p| &p.all[..]);
+        places.iter().map(|&at| &self.all[at])
+    }
+
+    /// Finds again where each controller's mappings are, after a change.
+    fn place(&mut self) {
+        self.places.clear();
+        for (at, m) in self.all.iter().enumerate() {
+            if !self.places.contains_key(&m.device) {
+                self.places.insert(m.device.clone(), Places::default());
+            }
+            let places = self.places.get_mut(&m.device).expect("inserted above");
+            places.all.push(at);
+            for control in std::iter::once(m.control).chain(m.fine_control()) {
+                places.by_control.entry(control).or_default().push(at);
+            }
+        }
     }
 
     /// The mapping `event` of `device` belongs to in `modes`, `shifts` held: in a named shift's
     /// layer, else in the shift layer while a shift is held, else in the first layer (a
-    /// control without a second use keeps its first).
+    /// control without a second use keeps its first). Only the mappings of its control are
+    /// looked at.
     pub fn find(&self, device: &str, event: Event, shifts: &Shifts, modes: &Modes) -> Option<&Mapping> {
-        self.0
+        let places = self.places.get(device)?.by_control.get(&event.control)?;
+        places
             .iter()
-            .filter(|m| m.device == device && m.applies(modes) && m.takes(event))
+            .map(|&at| &self.all[at])
+            .filter(|m| m.applies(modes) && m.takes(event))
             .filter_map(|m| Some((shifts.rank(&m.shift)?, m)))
             .min_by_key(|&(rank, _)| rank)
             .map(|(_, m)| m)
@@ -411,7 +460,8 @@ impl Mappings {
         room: &'r mut ShownRoom,
     ) -> impl Iterator<Item = &'m Mapping> + 'r {
         room.chosen.clear();
-        for (at, m) in self.0.iter().enumerate().filter(|(_, m)| m.device == device && m.applies(modes)) {
+        let places = self.places.get(device).map_or(&[][..], |p| &p.all[..]);
+        for (at, m) in places.iter().map(|&at| (at, &self.all[at])).filter(|(_, m)| m.applies(modes)) {
             let Some(rank) = shifts.rank(&m.shift) else { continue };
             let best = room.chosen.entry(m.control).or_insert((rank, at));
             if rank < best.0 {
@@ -421,7 +471,7 @@ impl Mappings {
         room.places.clear();
         room.places.extend(room.chosen.values().map(|&(_, at)| at));
         room.places.sort_unstable();
-        room.places.iter().map(|&at| &self.0[at])
+        room.places.iter().map(|&at| &self.all[at])
     }
 
     /// Adds `mapping`, replacing what its control did in its layer and the control its
@@ -439,27 +489,30 @@ impl Mappings {
     }
 
     fn add(&mut self, mapping: Mapping, several: bool) {
-        self.0.retain(|m| !m.replaced_by(&mapping, several));
-        self.0.push(mapping);
+        self.all.retain(|m| !m.replaced_by(&mapping, several));
+        self.all.push(mapping);
+        self.place();
     }
 
     /// Makes `mapping`'s control a 14-bit one, its low half on `fine`.
     pub fn make_fine(&mut self, mapping: &Mapping, fine: u8) {
-        if let Some(m) = self.0.iter_mut().find(|m| *m == mapping) {
+        if let Some(m) = self.all.iter_mut().find(|m| *m == mapping) {
             m.fine = Some(fine);
+            self.place();
         }
     }
 
     /// Changes how the control of `target` on `device` is read.
     pub fn set_encoding(&mut self, device: &str, target: &str, encoding: Encoding) {
-        for m in self.0.iter_mut().filter(|m| m.device == device && m.target == target) {
+        for m in self.all.iter_mut().filter(|m| m.device == device && m.target == target) {
             m.encoding = encoding;
         }
     }
 
     /// Removes the controls of `target` on `device`.
     pub fn forget(&mut self, device: &str, target: &str) {
-        self.0.retain(|m| m.device != device || m.target != target);
+        self.all.retain(|m| m.device != device || m.target != target);
+        self.place();
     }
 
     /// The mappings of the controllers' models (their profiles) with those learnt over
@@ -473,7 +526,7 @@ impl Mappings {
         let replaced = |m: &Mapping| learnt.all().iter().any(|l| m.replaced_by(l, takes_several(l)));
         let mut layered: Vec<Mapping> = model.into_iter().filter(|m| !unmapped(m) && !replaced(m)).collect();
         layered.extend(learnt.all().iter().cloned());
-        Mappings(layered)
+        Mappings::from(layered)
     }
 }
 
@@ -1010,6 +1063,23 @@ mod tests {
         let mut reader = Reader::default();
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 127]), Some(("deck1.pitch".into(), 0.0)));
         assert_eq!(read(&mut reader, &mappings, &[0xb0, 20, 0]), Some(("deck1.pitch".into(), 1.0)));
+    }
+
+    #[test]
+    fn a_mapping_read_back_or_forgotten_is_found_by_its_control_as_it_is() {
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", PAD, "deck1.play"));
+        mappings.learn(mapping("Xone", PAD, "deck2.play"));
+        let found = |m: &Mappings, device| {
+            let pressed = Event { control: PAD, raw: 127 };
+            m.find(device, pressed, &Shifts::default(), &Modes::new()).map(|m| m.target.to_string())
+        };
+        let read_back: Mappings = serde_json::from_str(&serde_json::to_string(&mappings).unwrap()).unwrap();
+        assert_eq!(found(&read_back, "Xone").as_deref(), Some("deck2.play"));
+        mappings.forget("DDJ", "deck1.play");
+        assert_eq!(found(&mappings, "DDJ"), None);
+        assert_eq!(found(&mappings, "Xone").as_deref(), Some("deck2.play"));
+        assert_eq!(mappings.of("Xone").count(), 1);
     }
 
     #[test]

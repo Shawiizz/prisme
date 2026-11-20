@@ -37,7 +37,8 @@ pub fn view_of(state: &AppState, auto_dj: bool, clips: &Mutex<Clips>, now_s: f64
 }
 
 /// What a move reads, as it reads it: the settings of a deck as asked (a turntable taken by the
-/// deck layered with it is not looked at), the engine's state of a deck only.
+/// deck layered with it is not looked at), without its track and its sampler, its track only
+/// when asked, the engine's state of a deck only.
 impl Sees for Performing<'_> {
     fn decks_in_use(&self) -> usize {
         self.state.preferences.read(|p| p.dj.decks())
@@ -46,9 +47,11 @@ impl Sees for Performing<'_> {
     fn deck(&self, deck: usize) -> DeckView {
         let range = self.state.tempo_range(deck);
         let settings = lock(&self.state.decks)[deck];
-        let track = lock(&self.state.tracks)[deck].as_ref().map(track_view);
-        let samples = loaded(&lock(&self.state.samplers)[deck]);
-        deck_view(deck, &settings, range, samples, track)
+        deck_view(deck, &settings, range, 0, None)
+    }
+
+    fn track(&self, deck: usize) -> Option<TrackView> {
+        lock(&self.state.tracks)[deck].as_ref().map(track_view)
     }
 
     fn status(&self, deck: usize) -> DeckStatus {
