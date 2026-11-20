@@ -42,6 +42,8 @@ export class DeckControls {
   protected readonly separate = this.stemsOf.separate;
   protected readonly percent = readouts.percent;
 
+  /** CUE lit at the cue point, blinking stopped elsewhere, as a CDJ's. */
+  protected readonly cue = computed(() => this.status()?.lights.cue ?? 'off');
   private readonly syncKey = computed(() => this.status()?.sync.key ?? 'noGrid');
   protected readonly canSync = computed(
     () => this.syncKey() === 'lock' || this.syncKey() === 'once',

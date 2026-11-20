@@ -1,6 +1,6 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { Cue, DeckPerform, MAX_DECKS, SLICES } from '../models/engine';
+import { Cue, DeckPerform, MAX_DECKS } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
 import { sameItems } from '../same';
@@ -16,10 +16,8 @@ export class PerformanceService {
   private readonly held = computed<DeckPerform[]>(
     () =>
       this.engine.controls()?.perform ??
-      Array(MAX_DECKS).fill({ slicer: null, cut: null, roll: null, fxFocus: null }),
+      Array(MAX_DECKS).fill({ cut: null, roll: null, fxFocus: null }),
   );
-  /** Where each deck's slicer starts (s): on the bar it played in when it was put there. */
-  readonly slicers = computed(() => this.held().map((d) => d.slicer), { equal: sameItems });
   /** The fader cut each deck plays (an index of `CUT_BEATS`). */
   readonly cuts = computed(() => this.held().map((d) => d.cut), { equal: sameItems });
   /** The roll each deck plays, in beats. */
@@ -111,16 +109,6 @@ export class PerformanceService {
     }
   }
 
-  /** The slice of its slicer `deck` plays in, if it plays in it. */
-  slicePlaying(deck: number): number | null {
-    const start = this.slicers()[deck];
-    const grid = this.beatGrid(deck);
-    const d = this.engine.status()?.decks[deck];
-    if (start === null || !grid || !d?.loaded) return null;
-    const slice = Math.floor((d.positionS - start) / grid.beatS);
-    return slice >= 0 && slice < SLICES ? slice : null;
-  }
-
   /** Plays slice `index` of the slicer round and round while `held`, the track going on
    * underneath; of the slices held, the last pressed. */
   slice(deck: number, index: number, held: boolean) {
@@ -131,11 +119,5 @@ export class PerformanceService {
    * cuts held, the last pressed. */
   cut(deck: number, index: number, held: boolean) {
     return this.engine.press(deck, `cut${index + 1}`, held);
-  }
-
-  /** The first beat of the track on `deck` and how long a beat lasts (s). */
-  private beatGrid(deck: number): { firstBeatS: number; beatS: number } | null {
-    const tempo = this.engine.tracks()[deck]?.tempo;
-    return tempo ? { firstBeatS: tempo.firstBeatS, beatS: 60 / tempo.bpm } : null;
   }
 }

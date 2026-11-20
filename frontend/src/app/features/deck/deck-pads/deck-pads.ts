@@ -236,7 +236,7 @@ export class DeckPads {
           ),
         );
       case 'slice': {
-        const playing = this.performance.slicePlaying(this.deck());
+        const playing = this.status()?.lights.slice ?? null;
         return Array.from({ length: SLICES }, (_, slice) => ({
           label: `${slice + 1}`,
           set: true,

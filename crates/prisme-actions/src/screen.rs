@@ -1,9 +1,9 @@
 //! What the screen shows of each deck at a frame, read from a [`View`] by the rules the
 //! controllers' lights and values follow: the rate it plays at and the key heard, where its
-//! tempo fader stands, the time left, who drives it, and what its keys may do.
+//! tempo fader stands, the time left, who drives it, and what its keys may do and light.
 
 use crate::key::heard;
-use crate::light::{ending, State};
+use crate::light::{cue_state, ending, slice_playing, State};
 use crate::scales::Tempo;
 use crate::sync::{grid_shift_to, matching_tempo};
 use crate::view::{plays, View};
@@ -36,6 +36,10 @@ pub struct Deck {
     pub can_align_grid: bool,
     /// Its key may be moved to mix with the one heard on the deck it is mixed with: both known.
     pub can_sync_key: bool,
+    /// Its CUE key: on at the cue point, paused stopped elsewhere.
+    pub cue: State,
+    /// The slice of its slicer it plays in.
+    pub slice: Option<usize>,
 }
 
 /// Who drives a deck.
@@ -132,6 +136,8 @@ pub fn deck(view: &View, deck: usize) -> Deck {
         can_move: status.loaded && drive != Drive::Absolute,
         can_align_grid: bpm.and_then(|bpm| grid_shift_to(status, other, bpm)).is_some(),
         can_sync_key: settings.track.and_then(|t| t.key).is_some() && heard_key(view, mixed_with).is_some(),
+        cue: cue_state(status, settings.track.as_ref()),
+        slice: slice_playing(status, settings.track.as_ref(), view.perform.decks[deck].slicer),
     }
 }
 
@@ -306,6 +312,28 @@ mod tests {
         assert_eq!(deck(&v, 0).sync, Sync::Matched);
         v.status.decks[0].sync.locked = true;
         assert_eq!(deck(&v, 0).sync, Sync::Locked);
+    }
+
+    #[test]
+    fn the_cue_key_is_lit_at_the_cue_point_and_paused_away_from_it() {
+        let mut v = loaded(view(), 0, 0.0, false);
+        assert_eq!(deck(&v, 0).cue, State::On, "no cue: the start");
+        v.status.decks[0].position_s = 30.0;
+        assert_eq!(deck(&v, 0).cue, State::Paused);
+        v.status.decks[0].playing = true;
+        assert_eq!(deck(&v, 0).cue, State::Off);
+        assert_eq!(deck(&v, 1).cue, State::Off, "no track");
+    }
+
+    #[test]
+    fn the_slice_played_is_the_one_the_playhead_is_in() {
+        // 120 BPM: a slice of half a second from 4 s
+        let mut v = loaded(view(), 0, 5.2, true);
+        assert_eq!(deck(&v, 0).slice, None, "no slicer");
+        v.perform.decks[0].slicer = Some(4.0);
+        assert_eq!(deck(&v, 0).slice, Some(2));
+        v.status.decks[0].position_s = 9.0;
+        assert_eq!(deck(&v, 0).slice, None, "past its eight beats");
     }
 
     #[test]

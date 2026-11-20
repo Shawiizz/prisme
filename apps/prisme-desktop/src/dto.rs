@@ -1036,6 +1036,7 @@ pub struct DeckStatusDto {
     pub can_align_grid: bool,
     /// Its key may be moved to mix with the one heard on the deck it is mixed with.
     pub can_sync_key: bool,
+    pub lights: DeckLightsDto,
     pub looping: LoopDto,
     pub peak: f32,
     pub cue: bool,
@@ -1050,6 +1051,16 @@ pub struct DeckStatusDto {
     pub stems_waiting: u8,
     /// The parts separated where the deck plays, the same bits.
     pub stems_here: u8,
+}
+
+/// What a deck's keys and pads light by the controllers' rules.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeckLightsDto {
+    /// Its CUE: on at the cue point, paused stopped elsewhere.
+    pub cue: light::State,
+    /// The slice of its slicer it plays in.
+    pub slice: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1102,6 +1113,7 @@ impl DeckStatusDto {
             can_move: shown.can_move,
             can_align_grid: shown.can_align_grid,
             can_sync_key: shown.can_sync_key,
+            lights: DeckLightsDto { cue: shown.cue, slice: shown.slice },
             looping: d.looping.into(),
             peak: d.peak,
             cue: d.cue,
@@ -1177,8 +1189,6 @@ pub struct ControlStateDto {
 pub struct DeckPadsDto {
     /// The roll playing, in beats.
     pub roll: Option<f64>,
-    /// Where the bar its slicer divides starts (s).
-    pub slicer: Option<f64>,
     /// The fader cut playing, of those held.
     pub cut: Option<usize>,
     /// The slot of its effect chain the effect knobs turn.
@@ -1187,7 +1197,7 @@ pub struct DeckPadsDto {
 
 impl From<&DeckPerform> for DeckPadsDto {
     fn from(deck: &DeckPerform) -> Self {
-        Self { roll: deck.roll, slicer: deck.slicer, cut: deck.cuts.acting(), fx_focus: deck.fx_focus }
+        Self { roll: deck.roll, cut: deck.cuts.acting(), fx_focus: deck.fx_focus }
     }
 }
 

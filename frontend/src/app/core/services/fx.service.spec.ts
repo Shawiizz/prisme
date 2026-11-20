@@ -7,7 +7,7 @@ describe('FxService', () => {
   it('chooses on the screen the slot a controller focuses its knobs on', () => {
     const engine = TestBed.inject(EngineService);
     const fx = TestBed.inject(FxService);
-    const none: DeckPerform = { slicer: null, cut: null, roll: null, fxFocus: null };
+    const none: DeckPerform = { cut: null, roll: null, fxFocus: null };
     const focused = (slot: number | null) =>
       engine.controls.set({ perform: [{ ...none, fxFocus: slot }, none] } as ControlState);
     fx.choose(0, 1);

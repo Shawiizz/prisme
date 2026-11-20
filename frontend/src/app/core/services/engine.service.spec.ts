@@ -184,7 +184,7 @@ describe('EngineService', () => {
     it('keeps the sections the backend did not send again', () => {
       engine['applyControls'](controls({}));
       const { tracks, preview } = engine.controls()!;
-      const perform = [{ slicer: 4, cut: null, roll: null, fxFocus: null }];
+      const perform = [{ cut: 2, roll: null, fxFocus: null }];
       engine['applyControls']({ perform });
       expect(engine.controls()!.perform).toBe(perform);
       expect(engine.controls()!.tracks).toBe(tracks);

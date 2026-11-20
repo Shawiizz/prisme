@@ -16,6 +16,10 @@
   display: flex;
   gap: 3px;
 }
+// stopped away from its cue point, CUE blinks: pressed, it puts the cue there
+.key.paused {
+  animation: pr-blink 1s steps(1) infinite;
+}
 // matched once, not locked: outlined in the light
 .sync.matched {
   border-color: var(--pr-light);

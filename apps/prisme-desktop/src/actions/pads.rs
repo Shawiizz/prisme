@@ -168,7 +168,7 @@ mod tests {
         assert_eq!(bench.state.moved_since(before), [crate::state::Section::Perform]);
         let pads = crate::dto::ControlStateDto::of(&bench.state, [crate::state::Section::Perform]).perform;
         let held = &pads.unwrap()[1];
-        assert_eq!((held.cut, held.roll, held.slicer), (Some(1), Some(1.0), None));
+        assert_eq!((held.cut, held.roll), (Some(1), Some(1.0)));
     }
 
     #[test]

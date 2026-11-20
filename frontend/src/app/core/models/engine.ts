@@ -113,12 +113,21 @@ export interface DeckStatus {
   /** Where the track would be without the loop, roll, censor or reverse in progress. */
   slipPositionS: number | null;
   vinyl: VinylStatus;
+  /** What its keys and pads light, by the controllers' rules. */
+  lights: DeckLights;
   /** Sampler slots playing, one bit per slot (16). */
   samplesPlaying: number;
-  /** The stems whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
+  /** The parts whose change waits for the next bar, a bit each: vocals, drums, bass, other. */
   stemsWaiting: number;
   /** The parts separated where the deck plays, the same bits. */
   stemsHere: number;
+}
+
+export interface DeckLights {
+  /** CUE: on at the cue point, paused stopped elsewhere. */
+  cue: LightState;
+  /** The slice of its slicer it plays in. */
+  slice: number | null;
 }
 
 export interface Cue {
@@ -198,8 +207,6 @@ export interface PreviewState {
 }
 
 export interface DeckPerform {
-  /** Where the bar its slicer divides starts (s). */
-  slicer: number | null;
   /** The fader cut playing (an index of `CUT_BEATS`). */
   cut: number | null;
   /** The roll playing, in beats. */

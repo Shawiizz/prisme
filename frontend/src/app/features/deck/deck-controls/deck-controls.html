@@ -2,7 +2,8 @@
   <div class="transport">
     <button
       class="pr-btn pr-btn--lg key"
-      [class.is-on]="status()?.playing === false && status()?.loaded"
+      [class.is-on]="cue() !== 'off'"
+      [class.paused]="cue() === 'paused'"
       (press)="cueDown()"
       (release)="cueUp()"
     >

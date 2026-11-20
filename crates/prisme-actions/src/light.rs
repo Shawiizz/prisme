@@ -171,7 +171,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
 }
 
 /// A CDJ's cue: on at the cue point, paused stopped elsewhere, off playing or empty.
-fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
+pub(crate) fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
     let cue_s = track.and_then(|t| t.main_cue_s).unwrap_or(0.0);
     if !status.loaded {
         State::Off
@@ -194,7 +194,11 @@ fn deck_state(status: &DeckStatus) -> State {
 }
 
 /// The slice of the slicer starting at `slicer` a deck at `status` plays in, if it does.
-fn slice_playing(status: &DeckStatus, track: Option<&TrackView>, slicer: Option<f64>) -> Option<usize> {
+pub(crate) fn slice_playing(
+    status: &DeckStatus,
+    track: Option<&TrackView>,
+    slicer: Option<f64>,
+) -> Option<usize> {
     let beat_s = 60.0 / track?.bpm?;
     slice_at(slicer?, status.position_s, beat_s).filter(|_| status.loaded)
 }
