@@ -8,7 +8,6 @@ pub mod audio;
 pub mod auto_dj;
 pub mod controllers;
 pub mod crates;
-pub mod cues;
 pub mod decks;
 pub mod diagnostics;
 pub mod edits;

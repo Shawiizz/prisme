@@ -41,6 +41,13 @@ pub fn set_loop(
     send(state, deck, Command::SetLoop { deck, region, active: active && region.is_some() })
 }
 
+/// The track on `deck` played or paused; the Auto DJ lets the deck go.
+pub fn set_playing(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, playing: bool) -> AppResult<()> {
+    state.has_deck(deck)?;
+    take_over(auto_dj, Takeover::Transport(deck));
+    state.send(Command::SetPlaying { deck, playing })
+}
+
 /// To `seconds` into the track; the Auto DJ lets the deck go.
 pub fn seek(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f64) -> AppResult<()> {
     state.has_deck(deck)?;

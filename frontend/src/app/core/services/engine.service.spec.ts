@@ -77,29 +77,16 @@ describe('EngineService', () => {
     engine.status.set(status([deck({ playing: on }), deck()]));
   }
 
-  describe('CUE', () => {
-    beforeEach(() => playing(false));
-
-    it('previews from the cue point while held, then goes back to it', async () => {
-      await engine.cueDown(0);
-      expect(calls).toEqual([['set_playing', { deck: 0, playing: true }]]);
-      playing(true);
-      engine.cueUp(0);
-      expect(calls.slice(1)).toEqual([
-        ['set_playing', { deck: 0, playing: false }],
-        ['seek', { deck: 0, seconds: 0 }],
-      ]);
-    });
-
-    it('plays on once let go when PLAY was pressed while it was held', async () => {
-      await engine.cueDown(0);
-      playing(true);
-      engine.togglePlay(0);
-      engine.cueUp(0);
-      expect(calls).toEqual([['set_playing', { deck: 0, playing: true }]]);
-      engine.togglePlay(0);
-      expect(calls.slice(1)).toEqual([['set_playing', { deck: 0, playing: false }]]);
-    });
+  it('has the backend perform the keys of a deck, pressed and let go', () => {
+    engine.press(1, 'cue');
+    engine.press(1, 'cue', false);
+    engine.togglePlay(0);
+    const performed = { steps: false, step: null };
+    expect(calls).toEqual([
+      ['perform_action', { target: 'deck2.cue', value: 1, ...performed }],
+      ['perform_action', { target: 'deck2.cue', value: 0, ...performed }],
+      ['perform_action', { target: 'deck1.play', value: 1, ...performed }],
+    ]);
   });
 
   describe('loading', () => {
@@ -169,29 +156,33 @@ describe('EngineService', () => {
     });
   });
 
-  describe('a track on two decks', () => {
-    const drop: Cue = { hot: 0, positionS: 30, loopLengthS: null, color: 0, label: '' };
+  describe('a track separated once on its deck', () => {
+    const stems = { separation: 'vocals', partial: false } as const;
     const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({
       deck: 1,
       loadId: 7,
       analysis: null,
       stems: null,
-      cues: null,
       ...changes,
     });
 
     beforeEach(() =>
-      engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
+      engine.tracks.set([
+        null,
+        { loadId: 7, separation: 'none' } as unknown as TrackInfo,
+        null,
+        null,
+      ]),
     );
 
-    it('takes the cues set on the other deck', () => {
-      engine['completeTrack'](update({ cues: [drop] }));
-      expect(engine.tracks()[1]?.cues).toEqual([drop]);
+    it('takes its stems as they come', () => {
+      engine['completeTrack'](update({ stems }));
+      expect(engine.tracks()[1]?.separation).toBe('vocals');
     });
 
     it('leaves a later load of the deck as it is', () => {
-      engine['completeTrack'](update({ loadId: 6, cues: [drop] }));
-      expect(engine.tracks()[1]?.cues).toEqual([]);
+      engine['completeTrack'](update({ loadId: 6, stems }));
+      expect(engine.tracks()[1]?.separation).toBe('none');
     });
   });
 

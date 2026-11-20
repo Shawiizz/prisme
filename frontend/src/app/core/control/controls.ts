@@ -45,9 +45,6 @@ export interface ControlActions {
   /** Has the backend perform action `id` given `value`: a key's 1 pressed and 0 let go, a
    * fader's position, or an encoder's steps (`steps`). */
   perform(id: string, value: number, steps: boolean): void;
-  togglePlay(deck: number): void;
-  cue(deck: number, pressed: boolean): void;
-  hotCue(deck: number, slot: number): void;
   /** Plays a slice of the slicer while held, the track going on underneath. */
   slice(deck: number, index: number, held: boolean): void;
   /** The slice of its slicer the deck plays in, if it does. */
@@ -96,15 +93,6 @@ export interface ControlActions {
   toggleHelp(): void;
   togglePalette(): void;
   openSettings(): void;
-  /** To the main cue, then playing (`play`), stopped (`stop`) or as it was (`goto`). */
-  toCue(deck: number, then: 'play' | 'stop' | 'goto'): void;
-  /** The main cue where the deck plays. */
-  setCueHere(deck: number): void;
-  /** To the start of the track, then playing (`play`), stopped (`stop`) or as it was
-   * (`goto`). */
-  toStart(deck: number, then: 'play' | 'stop' | 'goto'): void;
-  /** The very end of the track. */
-  toEnd(deck: number): void;
   eject(deck: number): void;
   /** Runs through the track while held, forwards or back. */
   search(deck: number, direction: -1 | 1, held: boolean): void;
@@ -364,13 +352,11 @@ function deckControls(a: ControlActions, deck: number): Control[] {
     ['melody', 'other', t('Melody (the other instruments)'), t('Melody level')],
   ];
   return [
-    button(id('play'), group, t('Play / pause'), () => a.togglePlay(deck)),
-    hold(id('cue'), group, t('Cue (hold to preview)'), (held) => a.cue(deck, held)),
+    performed(a, id('play'), group, t('Play / pause')),
+    performed(a, id('cue'), group, t('Cue (hold to preview)')),
     ...switched(a, id('sync'), group, t('Sync')),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>
-      button(id(`hotcue${slot + 1}`), group, t('Hot cue {n}', { n: slot + 1 }), () =>
-        a.hotCue(deck, slot),
-      ),
+      performed(a, id(`hotcue${slot + 1}`), group, t('Hot cue {n}', { n: slot + 1 })),
     ),
     ...Array.from({ length: HOT_CUES }, (_, slot) =>
       performed(a, id(`hotcue${slot + 1}.delete`), group, t('Delete hot cue {n}', { n: slot + 1 })),
@@ -480,14 +466,14 @@ function moreDeckControls(
     apply,
   });
   return [
-    button(id('cue.play'), group, t('To the cue and play'), () => a.toCue(deck, 'play')),
-    button(id('cue.stop'), group, t('To the cue, stopped'), () => a.toCue(deck, 'stop')),
-    button(id('cue.goto'), group, t('To the cue'), () => a.toCue(deck, 'goto')),
-    button(id('cue.set'), group, t('The cue here'), () => a.setCueHere(deck)),
-    button(id('start'), group, t('To the start, stopped'), () => a.toStart(deck, 'stop')),
-    button(id('start.play'), group, t('To the start and play'), () => a.toStart(deck, 'play')),
-    button(id('start.keep'), group, t('To the start'), () => a.toStart(deck, 'goto')),
-    button(id('end'), group, t('To the end'), () => a.toEnd(deck)),
+    performed(a, id('cue.play'), group, t('To the cue and play')),
+    performed(a, id('cue.stop'), group, t('To the cue, stopped')),
+    performed(a, id('cue.goto'), group, t('To the cue')),
+    performed(a, id('cue.set'), group, t('The cue here')),
+    performed(a, id('start'), group, t('To the start, stopped')),
+    performed(a, id('start.play'), group, t('To the start and play')),
+    performed(a, id('start.keep'), group, t('To the start')),
+    performed(a, id('end'), group, t('To the end')),
     button(id('eject'), group, t('Eject the track'), () => a.eject(deck)),
     performed(a, id('sync.once'), group, t('Match the tempo and beats once')),
     performed(a, id('sync.leader'), group, t('Lead the other decks')),

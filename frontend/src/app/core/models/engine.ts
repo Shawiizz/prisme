@@ -305,8 +305,6 @@ export interface DeckTrackUpdate {
   analysis: TrackAnalysis | null;
   /** Its separated stems reached the deck, or its separation stopped short. */
   stems: Pick<TrackInfo, 'separation' | 'partial'> | null;
-  /** Its cues, changed on another deck playing the same file. */
-  cues: Cue[] | null;
 }
 
 /** Tempo and key of a loaded track, after a correction or its analysis. */

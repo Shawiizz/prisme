@@ -48,7 +48,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!placeable()"
           [title]="'To the start of the track, playing or not as it was' | t"
-          (click)="engine.seek(deck(), 0)"
+          (click)="engine.press(deck(), 'start.keep')"
         >
           {{ 'START' | t }}
         </button>
@@ -57,7 +57,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!placeable()"
           [title]="'To the very end of the track' | t"
-          (click)="performance.toEnd(deck())"
+          (click)="engine.press(deck(), 'end')"
         >
           {{ 'END' | t }}
         </button>

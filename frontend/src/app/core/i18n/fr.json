@@ -642,7 +642,6 @@
   "The separation model is not installed": "Le modèle de séparation n'est pas installé",
   "There is no deck {deck}": "Il n'y a pas de deck {deck}",
   "No track on deck {deck}": "Aucun morceau sur le deck {deck}",
-  "There is no hot cue {n}": "Il n'y a pas de hot cue {n}",
   "A crate needs a name": "Une crate a besoin d'un nom",
   "A smart crate picks its own tracks": "Une crate intelligente choisit elle-même ses morceaux",
   "Deck {deck} has no beat grid": "Le deck {deck} n'a pas de grille rythmique",

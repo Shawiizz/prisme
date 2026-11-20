@@ -1,8 +1,7 @@
-//! What the actions change of a deck's track in the library: a hot cue taken off, the beat grid
-//! corrected. Done in turn on the actions' worker (see `prisme_actions::lane`).
+//! What the actions change of a deck's track in the library: the beat grid corrected. Done in
+//! turn on the actions' worker (see `prisme_actions::lane`).
 
 use super::Performing;
-use crate::commands::cues::delete_cue;
 use crate::commands::edits::{change_grid, GridChange};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
@@ -17,25 +16,18 @@ const GRID_STEP_BPM: f64 = 0.01;
 
 impl Performing<'_> {
     /// The library, reached through the application.
-    fn library(&self) -> AppResult<(&tauri::AppHandle, tauri::State<'_, Arc<LibraryService>>)> {
+    fn library_service(&self) -> AppResult<(&tauri::AppHandle, tauri::State<'_, Arc<LibraryService>>)> {
         let app = self.app.ok_or_else(|| AppError::Other("no library here".into()))?;
         let library =
             app.try_state::<Arc<LibraryService>>().ok_or_else(|| AppError::Other("no library yet".into()))?;
         Ok((app, library))
     }
 
-    /// Takes hot cue `slot` off the track on `deck`.
-    pub(super) fn delete_hot_cue(&self, deck: usize, slot: usize) -> AppResult<()> {
-        let (app, library) = self.library()?;
-        // one of the 16
-        delete_cue(app, self.state, &library, deck, slot as u8).map(drop)
-    }
-
     /// Corrects the beat grid of the track on `deck` as `action` given `given` does.
     pub(super) fn edit_grid(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
         let bpm = || self.state.with_track(deck, |t| t.grid().map(|g| g.bpm)).ok().flatten();
         let Some(change) = grid_change(action, given, bpm) else { return Ok(()) };
-        let (app, library) = self.library()?;
+        let (app, library) = self.library_service()?;
         change_grid(app, self.state, &library, deck, change).map(drop)
     }
 }

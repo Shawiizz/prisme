@@ -18,8 +18,6 @@ pub enum AppError {
     InvalidDeck(usize),
     #[error("no track on deck {}", .0 + 1)]
     NoTrack(usize),
-    #[error("invalid hot cue {0}")]
-    InvalidCue(u8),
     #[error("a crate needs a name")]
     EmptyCrateName,
     #[error("a smart crate picks its own tracks")]
@@ -101,7 +99,6 @@ impl AppError {
             AppError::NoStemsModel => ("noStemsModel", none()),
             AppError::InvalidDeck(deck) => ("invalidDeck", json!({ "deck": deck })),
             AppError::NoTrack(deck) => ("noTrack", json!({ "deck": deck })),
-            AppError::InvalidCue(cue) => ("invalidCue", json!({ "cue": cue })),
             AppError::EmptyCrateName => ("emptyCrateName", none()),
             AppError::SmartCrate => ("smartCrate", none()),
             AppError::NoBeatGrid(deck) => ("noBeatGrid", json!({ "deck": deck })),

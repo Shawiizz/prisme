@@ -9,6 +9,7 @@
 //! ([`Actions::view`]). The actions the interface performs yet, a controller tells it
 //! (`ui-action`).
 
+mod cues;
 pub mod deck;
 mod edits;
 pub mod fx;
@@ -21,6 +22,7 @@ mod view;
 
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::error::{AppError, AppResult};
+use crate::library_service::LibraryService;
 use crate::state::{lock, AppState};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{lane, Lane};
@@ -28,8 +30,9 @@ use prisme_actions::perform::PerformState;
 use prisme_actions::position::position;
 use prisme_actions::view::View;
 use prisme_control::{Owner, Target, Unknown};
+use prisme_library::LibraryDb;
 use std::sync::mpsc::{self, Sender, SyncSender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -146,7 +149,9 @@ impl Actions {
             return Err(not_performed(target));
         }
         let state = app.state::<AppState>();
-        Performing { state: &state, actions: self, app: Some(app), source }.perform(target, input)
+        let library = app.try_state::<Arc<LibraryService>>();
+        let library = library.as_ref().map(|l| &*l.db);
+        Performing { state: &state, actions: self, app: Some(app), library, source }.perform(target, input)
     }
 
     /// Seconds since Prisme started.
@@ -165,8 +170,10 @@ impl Actions {
 struct Performing<'a> {
     state: &'a AppState,
     actions: &'a Actions,
-    /// What the Auto DJ and the library are reached by: none in a test.
+    /// What the Auto DJ and the library's edits are reached by: none in a test.
     app: Option<&'a AppHandle>,
+    /// Where the cues are kept, once open.
+    library: Option<&'a LibraryDb>,
     source: Source<'a>,
 }
 
@@ -174,6 +181,26 @@ impl Performing<'_> {
     /// The Auto DJ, if it runs.
     fn auto_dj(&self) -> Option<tauri::State<'_, AutoDj>> {
         self.app.and_then(|app| app.try_state::<AutoDj>())
+    }
+
+    /// What the actions keep between presses.
+    fn perform_state(&self) -> MutexGuard<'_, PerformState> {
+        lock(&self.actions.perform)
+    }
+
+    /// The Auto DJ lets go of `deck`'s transport, the DJ taking it.
+    fn take_over_transport(&self, deck: usize) {
+        take_over(self.auto_dj().as_deref(), Takeover::Transport(deck));
+    }
+
+    /// The track on `deck` played or paused; the Auto DJ lets the deck go.
+    fn set_playing(&self, deck: usize, playing: bool) -> AppResult<()> {
+        transport::set_playing(self.state, self.auto_dj().as_deref(), deck, playing)
+    }
+
+    /// To `seconds` into the track on `deck`; the Auto DJ lets the deck go.
+    fn seek(&self, deck: usize, seconds: f64) -> AppResult<()> {
+        transport::seek(self.state, self.auto_dj().as_deref(), deck, seconds)
     }
 
     /// Seconds on the clock of the one asking: a controller's own, else Prisme's.
@@ -247,12 +274,16 @@ pub(crate) mod bench {
     use super::*;
     use crate::audio_host::AudioSession;
     use crate::dto::{AudioInfo, BackendDto};
+    use crate::state::LoadedTrack;
+    use crate::track_waveform::TrackWaveform;
     use prisme_engine::{Command, Engine, EngineConfig};
+    use prisme_media::TrackAudio;
     use prisme_session::JsonFile;
 
     pub struct Bench {
         pub state: AppState,
         pub actions: Actions,
+        pub library: LibraryDb,
         engine: Engine,
     }
 
@@ -273,7 +304,8 @@ pub(crate) mod bench {
             };
             let state = AppState::new(JsonFile::in_memory(Default::default()));
             *lock(&state.session) = Some(AudioSession::idle(controller, config, info));
-            Self { state, actions: Actions::start(), engine }
+            let library = LibraryDb::open_in_memory().unwrap();
+            Self { state, actions: Actions::start(), library, engine }
         }
 
         /// `id` driven to `value` by the controller `device`.
@@ -290,8 +322,18 @@ pub(crate) mod bench {
         pub fn perform(&self, id: &str, input: Input, source: Source) -> AppResult<()> {
             let target: Target = id.parse().unwrap();
             assert_eq!(target.owner(), Owner::Rust, "{id}");
-            Performing { state: &self.state, actions: &self.actions, app: None, source }
-                .perform(&target, input)
+            self.performing(source).perform(&target, input)
+        }
+
+        /// An action asked for by `source`.
+        pub(in crate::actions) fn performing<'a>(&'a self, source: Source<'a>) -> Performing<'a> {
+            Performing {
+                state: &self.state,
+                actions: &self.actions,
+                app: None,
+                library: Some(&self.library),
+                source,
+            }
         }
 
         /// Where the fader of `id` stands.
@@ -300,9 +342,49 @@ pub(crate) mod bench {
             position(&id.parse().unwrap(), &view)
         }
 
-        /// The commands the engine was sent since last asked.
+        /// The commands the engine was sent since last asked, not applied.
         pub fn sent(&mut self) -> Vec<Command> {
             self.engine.take_commands()
+        }
+
+        /// The engine run for `seconds`, a period of 10 ms at least: what it was sent applied,
+        /// its state told.
+        pub fn run(&mut self, seconds: f64) {
+            let frames = 480;
+            let (input, mut output) = (vec![0.0; frames * 2], vec![0.0; frames * 2]);
+            for _ in 0..(seconds / 0.01).round().max(1.0) as usize {
+                self.engine.process(&input, 2, &mut output, 2);
+            }
+        }
+
+        /// A silent track of `seconds` on `deck`, with a beat grid at `bpm` from its start if
+        /// it has one, stopped at its start.
+        pub fn load(&mut self, deck: usize, seconds: f64, bpm: Option<f64>) {
+            let audio = TrackAudio::from_interleaved(48_000, vec![0.0; (seconds * 48_000.0) as usize * 2]);
+            let tempo = bpm.map(|bpm| prisme_analysis::Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 });
+            let track = LoadedTrack {
+                load_id: LoadedTrack::next_load_id(),
+                path: format!("deck{deck}.flac").into(),
+                audio: Arc::new(audio),
+                waveform: TrackWaveform::growing(1),
+                detected: prisme_analysis::TrackAnalysis { tempo, key: None },
+                edits: Default::default(),
+                tags: Default::default(),
+                cues: Vec::new(),
+                key_shift: 0,
+                stems: Default::default(),
+                stem_mix: Default::default(),
+                loudness: None,
+            };
+            let commands = track.load_commands(deck, false);
+            let turn = self.state.ask_load(deck);
+            self.state.put_track(deck, turn, Some(track), commands).unwrap();
+            self.run(0.01);
+        }
+
+        /// What the engine shows of `deck`.
+        pub fn status(&self, deck: usize) -> prisme_engine::DeckStatus {
+            self.state.deck_status(deck).unwrap()
         }
     }
 }

@@ -1050,7 +1050,7 @@ fn give(
 
 /// Tells the UI the stems the track on `deck` has.
 fn tell(app: &AppHandle, deck: usize, load_id: u64, stems: DeckStemsDto) {
-    let update = DeckTrackUpdateDto { deck, load_id, analysis: None, stems: Some(stems), cues: None };
+    let update = DeckTrackUpdateDto { deck, load_id, analysis: None, stems: Some(stems) };
     let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
 }
 

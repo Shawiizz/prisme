@@ -82,6 +82,7 @@ impl Performing<'_> {
                 sampler::trigger_sample(state, deck, slot, None)
             }
             DeckAction::Sample(slot, SampleAction::Held) => sampler::stop_sample(state, deck, slot),
+            DeckAction::Cue => self.cue(deck, held),
             DeckAction::GridMove => self.edit_grid(deck, action, given),
             DeckAction::Tempo => self.step_tempo(deck, steps),
             DeckAction::Size if steps != 0 => deck::scale_size(state, deck, 2f64.powi(steps)),
@@ -93,6 +94,19 @@ impl Performing<'_> {
             DeckAction::Size | DeckAction::Fx(_, FxAction::Beats) => Ok(()),
             // a key let go
             _ if !held && action.kind() == Kind::Button => Ok(()),
+            DeckAction::Play => self.play(deck),
+            DeckAction::CuePlay => self.to_cue(deck, Some(true)),
+            DeckAction::CueStop => self.to_cue(deck, Some(false)),
+            DeckAction::CueGoto => self.to_cue(deck, None),
+            DeckAction::CueSet => self.set_cue_here(deck),
+            DeckAction::Start => self.to(deck, 0.0, Some(false)),
+            DeckAction::StartPlay => self.to(deck, 0.0, Some(true)),
+            DeckAction::StartKeep => self.to(deck, 0.0, None),
+            DeckAction::End => match state.deck_status(deck) {
+                Ok(status) if status.duration_s > 0.0 => self.seek(deck, status.duration_s),
+                _ => Ok(()),
+            },
+            DeckAction::HotCue(slot) => self.hot_cue(deck, slot),
             DeckAction::Brake => send(Command::Brake { deck }),
             DeckAction::LoopIn => send(Command::LoopIn { deck }),
             DeckAction::LoopOut => send(Command::LoopOut { deck }),

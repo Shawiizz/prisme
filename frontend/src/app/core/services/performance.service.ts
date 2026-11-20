@@ -1,8 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { invoke } from '@tauri-apps/api/core';
 import { Cue, MAX_DECKS, SLICES } from '../models/engine';
 import { EngineService } from './engine.service';
-import { errorText } from '../errors';
 import { CUT_BEATS } from '../../shared/beats';
 
 const BEATS_PER_BAR = 4;
@@ -28,13 +26,11 @@ export class PerformanceService {
 
   /** Jumps to the hot cue, or sets it there if the slot is empty. */
   pressHotCue(deck: number, slot: number) {
-    return this.hotCue(deck, slot)
-      ? this.engine.call('trigger_hot_cue', { deck, slot })
-      : this.updateCues(deck, 'set_hot_cue', slot);
+    return this.engine.press(deck, `hotcue${slot + 1}`);
   }
 
   deleteHotCue(deck: number, slot: number) {
-    return this.updateCues(deck, 'delete_hot_cue', slot);
+    return this.engine.press(deck, `hotcue${slot + 1}.delete`);
   }
 
   beatLoop(deck: number, beats: number) {
@@ -83,12 +79,6 @@ export class PerformanceService {
 
   censor(deck: number, active: boolean) {
     return this.engine.call('censor', { deck, active });
-  }
-
-  /** The very end of the track: playing, the deck stops there (or starts again on repeat). */
-  toEnd(deck: number) {
-    const duration = this.engine.status()?.decks[deck]?.durationS ?? 0;
-    if (duration > 0) this.engine.seek(deck, duration);
   }
 
   /** The track played backwards at the deck's rate, or forwards again; with slip, it comes
@@ -169,14 +159,6 @@ export class PerformanceService {
   private beatGrid(deck: number): { firstBeatS: number; beatS: number } | null {
     const tempo = this.engine.tracks()[deck]?.tempo;
     return tempo ? { firstBeatS: tempo.firstBeatS, beatS: 60 / tempo.bpm } : null;
-  }
-
-  private async updateCues(deck: number, command: string, slot: number) {
-    try {
-      this.engine.setCues(deck, await invoke<Cue[]>(command, { deck, slot }));
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
   }
 }
 

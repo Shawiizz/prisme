@@ -176,8 +176,7 @@ mod tests {
             bench.perform(id, Input::Value(value), Source::Interface).unwrap();
         }
         let view = view_of(&bench.state, false, &bench.actions.perform, 0.0);
-        let doing =
-            Performing { state: &bench.state, actions: &bench.actions, app: None, source: Source::Interface };
+        let doing = bench.performing(Source::Interface);
         for id in [
             "deck1.eq.low",
             "deck2.fx3.period",

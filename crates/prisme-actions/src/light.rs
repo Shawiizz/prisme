@@ -2,6 +2,7 @@
 //! (a cue paused, a sample loaded or playing, the end of a track soon), and the colour of a
 //! hot cue.
 
+use crate::cue::at_cue;
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
@@ -10,8 +11,6 @@ use prisme_control::{
 };
 use prisme_engine::DeckStatus;
 
-/// A deck this close to its cue point (s) is on it.
-const CUE_TOLERANCE_S: f64 = 0.02;
 /// The share of a beat its light shows, from its start.
 const BEAT_LIT: f64 = 0.25;
 /// The end of a track near (s), and soon (s).
@@ -231,7 +230,7 @@ fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
     let cue_s = track.and_then(|t| t.main_cue_s).unwrap_or(0.0);
     if !status.loaded {
         State::Off
-    } else if (status.position_s - cue_s).abs() < CUE_TOLERANCE_S {
+    } else if at_cue(status.position_s, cue_s) {
         State::On
     } else if status.playing {
         State::Off

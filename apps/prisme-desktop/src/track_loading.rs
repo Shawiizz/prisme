@@ -215,7 +215,7 @@ impl Updates {
         let at = match self.0.iter().position(|u| u.deck == deck && u.load_id == load_id) {
             Some(at) => at,
             None => {
-                self.0.push(DeckTrackUpdateDto { deck, load_id, analysis: None, stems: None, cues: None });
+                self.0.push(DeckTrackUpdateDto { deck, load_id, analysis: None, stems: None });
                 self.0.len() - 1
             }
         };

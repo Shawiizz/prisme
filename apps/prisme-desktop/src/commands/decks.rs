@@ -17,9 +17,7 @@ pub fn set_playing(
     deck: usize,
     playing: bool,
 ) -> AppResult<()> {
-    state.has_deck(deck)?;
-    auto_dj.take_over(Takeover::Transport(deck));
-    state.send(Command::SetPlaying { deck, playing })
+    transport::set_playing(&state, Some(&auto_dj), deck, playing)
 }
 
 #[tauri::command]

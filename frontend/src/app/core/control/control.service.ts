@@ -39,9 +39,6 @@ export class ControlService {
 
   private readonly actions: ControlActions = {
     perform: (id, value, steps) => this.engine.perform(id, value, steps),
-    togglePlay: (deck) => this.engine.togglePlay(deck),
-    cue: (deck, pressed) => (pressed ? this.engine.cueDown(deck) : this.engine.cueUp(deck)),
-    hotCue: (deck, slot) => this.performance.pressHotCue(deck, slot),
     slice: (deck, index, held) => this.performance.slice(deck, index, held),
     slicePlaying: (deck) => this.performance.slicePlaying(deck),
     cut: (deck, index, held) => this.performance.cut(deck, index, held),
@@ -83,16 +80,6 @@ export class ControlService {
     toggleHelp: () => this.navigation.toggleSettings('shortcuts'),
     togglePalette: () => this.navigation.togglePalette(),
     openSettings: () => this.navigation.openSettings(),
-    toCue: (deck, then) => {
-      this.engine.seek(deck, this.engine.mainCue(deck)?.positionS ?? 0);
-      if (then !== 'goto') this.engine.setPlaying(deck, then === 'play');
-    },
-    setCueHere: (deck) => this.engine.setMainCue(deck, this.engine.livePosition(deck) ?? 0),
-    toStart: (deck, then) => {
-      this.engine.seek(deck, 0);
-      if (then !== 'goto') this.engine.setPlaying(deck, then === 'play');
-    },
-    toEnd: (deck) => this.performance.toEnd(deck),
     eject: (deck) => this.engine.eject(deck),
     search: (deck, direction, held) => {
       clearInterval(this.searches.get(deck));

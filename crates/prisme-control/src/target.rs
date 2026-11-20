@@ -381,7 +381,18 @@ impl Target {
         match self {
             Target::Deck(
                 _,
-                DeckAction::Jog
+                DeckAction::Play
+                | DeckAction::Cue
+                | DeckAction::CuePlay
+                | DeckAction::CueStop
+                | DeckAction::CueGoto
+                | DeckAction::CueSet
+                | DeckAction::Start
+                | DeckAction::StartPlay
+                | DeckAction::StartKeep
+                | DeckAction::End
+                | DeckAction::HotCue(_)
+                | DeckAction::Jog
                 | DeckAction::JogTouch
                 | DeckAction::JogSearch
                 | DeckAction::Pitch

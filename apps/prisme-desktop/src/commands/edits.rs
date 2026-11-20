@@ -114,7 +114,7 @@ fn edit(
         if on == deck {
             analysis = Some(dto.clone());
         }
-        let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None, cues: None };
+        let update = DeckTrackUpdateDto { deck: on, load_id, analysis: Some(dto), stems: None };
         let _ = app.emit(DECK_TRACK_UPDATE_EVENT, update);
     }
     library.announce(&path);

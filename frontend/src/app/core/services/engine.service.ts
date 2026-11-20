@@ -5,7 +5,6 @@ import { listen } from '@tauri-apps/api/event';
 import { semitonesToMix, transposeCamelot } from '../../shared/camelot';
 import {
   ControlState,
-  Cue,
   MAX_DECKS,
   DeckTrackUpdate,
   DEFAULT_FX,
@@ -32,9 +31,6 @@ import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText } from '../errors';
 
-/** A deck this close to its cue point counts as sitting on it. */
-const CUE_TOLERANCE_S = 0.02;
-const MAIN_CUE_COLOR = 0xffb02e;
 /** Slower than this, a deck under its record is still: a hand holding it, the record stopped. */
 const MOVING_SPEED = 0.05;
 /** How long a refusal stays said. */
@@ -121,7 +117,6 @@ export class EngineService {
     });
   }
 
-  private readonly previewing = new Set<number>();
   /** Where each deck's playhead was when, and its speed: what it is drawn from. */
   private playheads: (Playhead | null)[] = [];
 
@@ -407,9 +402,7 @@ export class EngineService {
 
   /** PLAY; pressed while CUE previews, the deck plays on once CUE is let go, as on a CDJ. */
   togglePlay(deck: number) {
-    if (this.previewing.delete(deck)) return;
-    const status = this.status()?.decks[deck];
-    if (status?.loaded) this.setPlaying(deck, !status.playing);
+    return this.press(deck, 'play');
   }
 
   setPlaying(deck: number, playing: boolean) {
@@ -494,29 +487,6 @@ export class EngineService {
     return this.perform(`deck${deck + 1}.sync`, 1);
   }
 
-  /**
-   * CDJ cue, pressed: while playing, back to the cue point and stop; stopped on the cue
-   * point, play while held; stopped elsewhere, set the cue point there.
-   */
-  async cueDown(deck: number) {
-    const d = this.status()?.decks[deck];
-    if (!d?.loaded) return;
-    const cue = this.mainCue(deck)?.positionS ?? 0;
-    if (d.playing) {
-      this.returnToCue(deck);
-    } else if (Math.abs(d.positionS - cue) < CUE_TOLERANCE_S) {
-      this.previewing.add(deck);
-      this.setPlaying(deck, true);
-    } else {
-      await this.setMainCue(deck, d.positionS);
-    }
-  }
-
-  /** CDJ cue, released: a preview goes back to the cue point. */
-  cueUp(deck: number) {
-    if (this.previewing.delete(deck)) this.returnToCue(deck);
-  }
-
   /** -1, 0 or 1: slower, released, faster, as the bend keys. */
   pitchBend(deck: number, direction: -1 | 0 | 1) {
     return this.perform(
@@ -525,55 +495,11 @@ export class EngineService {
     );
   }
 
-  private returnToCue(deck: number) {
-    this.setPlaying(deck, false);
-    this.seek(deck, this.mainCue(deck)?.positionS ?? 0);
-  }
-
-  /** Stores the cue point (the backend may move it onto the beat) and goes there. */
-  async setMainCue(deck: number, seconds: number) {
-    try {
-      const positionS = await invoke<number>('set_main_cue', { deck, seconds });
-      const main: Cue = {
-        hot: null,
-        positionS,
-        loopLengthS: null,
-        color: MAIN_CUE_COLOR,
-        label: '',
-      };
-      this.setCues(deck, [
-        ...(this.tracks()[deck]?.cues ?? []).filter((c) => c.hot !== null),
-        main,
-      ]);
-      this.seek(deck, positionS);
-    } catch (e) {
-      this.error.set(errorText(e));
-    }
-  }
-
-  mainCue(deck: number): Cue | null {
-    return this.tracks()[deck]?.cues.find((c) => c.hot === null) ?? null;
-  }
-
-  /** Replaces the cues of the track on `deck` (after the backend changed them). */
-  setCues(deck: number, cues: Cue[]) {
-    const track = this.tracks()[deck];
-    if (track) this.patch(this.tracks, deck, { ...track, cues });
-  }
-
-  /** Analysis and stems that arrive after the track was put on its deck, and cues changed on
-   * another deck playing the same file. */
-  private completeTrack({ deck, loadId, analysis, stems, cues }: DeckTrackUpdate) {
+  /** Analysis and stems that arrive after the track was put on its deck. */
+  private completeTrack({ deck, loadId, analysis, stems }: DeckTrackUpdate) {
     const track = this.tracks()[deck];
     if (track?.loadId !== loadId) return;
-    if (analysis || stems || cues) {
-      this.patch(this.tracks, deck, {
-        ...track,
-        ...analysis,
-        ...stems,
-        cues: cues ?? track.cues,
-      });
-    }
+    if (analysis || stems) this.patch(this.tracks, deck, { ...track, ...analysis, ...stems });
   }
 
   /** The waveform of the load `loadId` on `deck`: what is known of it at once, then, while the
@@ -616,6 +542,11 @@ export class EngineService {
    * fader's position, or an encoder's steps (`steps`), as a controller's control would. */
   perform(target: string, value: number, steps = false) {
     return this.call('perform_action', { target, value, steps, step: null });
+  }
+
+  /** The key of `action` of `deck` (`play`, `cue`…) pressed, or let go (`down` false). */
+  press(deck: number, action: string, down = true) {
+    return this.perform(`deck${deck + 1}.${action}`, down ? 1 : 0);
   }
 
   /** Runs a backend command; a failure is shown rather than thrown, until one goes through. */

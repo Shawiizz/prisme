@@ -17,7 +17,6 @@ const TEXTS: Record<string, (p: Params) => string> = {
   noStemsModel: () => t('The separation model is not installed'),
   invalidDeck: (p) => t('There is no deck {deck}', onDeck(p)),
   noTrack: (p) => t('No track on deck {deck}', onDeck(p)),
-  invalidCue: (p) => t('There is no hot cue {n}', { n: Number(p['cue']) + 1 }),
   emptyCrateName: () => t('A crate needs a name'),
   smartCrate: () => t('A smart crate picks its own tracks'),
   noBeatGrid: (p) => t('Deck {deck} has no beat grid', onDeck(p)),

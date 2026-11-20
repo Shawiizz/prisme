@@ -76,11 +76,11 @@ export class DeckControls {
   }
 
   cueDown() {
-    this.engine.cueDown(this.deck());
+    this.engine.press(this.deck(), 'cue');
   }
 
   cueUp() {
-    this.engine.cueUp(this.deck());
+    this.engine.press(this.deck(), 'cue', false);
   }
 
   syncDown() {

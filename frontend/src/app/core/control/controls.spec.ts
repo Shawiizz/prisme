@@ -42,22 +42,14 @@ describe('controls', () => {
     find('deck2.bend.up').apply(1);
     find('deck2.bend.up').apply(0);
     expect(calls).toEqual([
-      'togglePlay(0)',
-      'cue(1,true)',
-      'cue(1,false)',
-      'hotCue(0,2)',
+      'perform(deck1.play,1,false)',
+      'perform(deck1.play,0,false)',
+      'perform(deck2.cue,1,false)',
+      'perform(deck2.cue,0,false)',
+      'perform(deck1.hotcue3,1,false)',
       'perform(deck2.bend.up,1,false)',
       'perform(deck2.bend.up,0,false)',
     ]);
-  });
-
-  it('a pad hit softly is pressed all the same', () => {
-    const { calls, find } = recorder();
-    const soft = 20 / 127;
-    find('deck1.hotcue3').apply(soft);
-    find('deck2.cue').apply(soft);
-    find('deck2.cue').apply(0);
-    expect(calls).toEqual(['hotCue(0,2)', 'cue(1,true)', 'cue(1,false)']);
   });
 
   it('faders and encoders pass their value on', () => {
@@ -104,7 +96,7 @@ describe('controls', () => {
     find('deck2.sample9').apply(1);
     expect(find('deck1.hotcue17')).toBeUndefined();
     expect(find('deck1.sample17')).toBeUndefined();
-    expect(calls).toEqual(['hotCue(0,15)', 'perform(deck2.sample9,1,false)']);
+    expect(calls).toEqual(['perform(deck1.hotcue16,1,false)', 'perform(deck2.sample9,1,false)']);
   });
 
   it('light only what the app keeps, the backend lighting the rest', () => {
@@ -281,15 +273,6 @@ describe('controls', () => {
       'perform(deck2.reverse.held,1,false)',
       'perform(deck2.reverse.held,0,false)',
     ]);
-  });
-
-  it('go to the start, stopped, playing or as it was, and near the end', () => {
-    const { calls, find } = recorder();
-    find('deck1.start').apply(1);
-    find('deck2.start.play').apply(1);
-    find('deck1.start.keep').apply(1);
-    find('deck2.end').apply(1);
-    expect(calls).toEqual(['toStart(0,stop)', 'toStart(1,play)', 'toStart(0,goto)', 'toEnd(1)']);
   });
 
   it('jump and loop by the size of the deck, which a step halves or doubles', () => {
