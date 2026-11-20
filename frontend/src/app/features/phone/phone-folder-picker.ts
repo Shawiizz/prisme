@@ -1,6 +1,6 @@
 import { Component, computed, inject, output, signal, viewChild } from '@angular/core';
 import { errorText } from '../../core/errors';
-import { folderName, folderOf, stepsFrom } from '../../core/folders';
+import { folderName, stepsFrom } from '../../core/folders';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { DirListing, StoragePlace } from '../../core/models/library';
@@ -238,13 +238,7 @@ export class PhoneFolderPicker {
   protected readonly error = signal<string | null>(null);
   protected readonly adding = signal(false);
 
-  /** Android's data folder, at the top of a place, holds the applications' files, not music. */
-  protected readonly folders = computed(() => {
-    const at = this.at();
-    if (!at) return [];
-    const top = at.listing.path === at.place.path;
-    return at.listing.folders.filter((folder) => !(top && folder.name === 'Android'));
-  });
+  protected readonly folders = computed(() => this.at()?.listing.folders ?? []);
   /** Where the folder listed is: "Phone / Download / Sets". */
   protected readonly trail = computed(() => {
     const at = this.at();
@@ -254,8 +248,8 @@ export class PhoneFolderPicker {
   });
   /** The music folder the folder listed is already in, by name. */
   protected readonly within = computed(() => {
-    const path = this.at()?.listing.path;
-    const folder = path ? folderOf(this.library.folders(), path) : null;
+    const within = this.at()?.listing.within;
+    const folder = this.library.folders().find((f) => f.path === within);
     return folder ? folderName(folder) : null;
   });
 

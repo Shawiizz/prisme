@@ -1,4 +1,4 @@
-import { folderOf, isWithin, lastName, parentOf, shortPath, stepsFrom } from './folders';
+import { lastName, parentOf, shortPath, stepsFrom } from './folders';
 
 describe('lastName', () => {
   it('is the last folder of a path, a drive by its letter', () => {
@@ -14,25 +14,6 @@ describe('parentOf', () => {
     expect(parentOf('/home/dj/a.mp3')).toBe('/home/dj');
     expect(parentOf('E:\\a.mp3')).toBe('E:\\');
     expect(parentOf('/a.mp3')).toBe('/');
-  });
-});
-
-describe('isWithin', () => {
-  it('takes the folder and what is inside it, not its namesakes', () => {
-    expect(isWithin('C:\\Music', 'C:\\Music')).toBe(true);
-    expect(isWithin('C:\\Music\\House', 'C:\\Music')).toBe(true);
-    expect(isWithin('C:\\Musical', 'C:\\Music')).toBe(false);
-    expect(isWithin('E:\\Sets', 'E:\\')).toBe(true);
-  });
-});
-
-describe('folderOf', () => {
-  it('is the deepest folder holding the path', () => {
-    const folders = ['C:\\Music', 'C:\\Music\\Sets', 'E:\\'].map((path) => ({ path }));
-    expect(folderOf(folders, 'C:\\Music\\Sets\\2025')?.path).toBe('C:\\Music\\Sets');
-    expect(folderOf(folders, 'C:\\Music\\House')?.path).toBe('C:\\Music');
-    expect(folderOf(folders, 'E:\\DJ')?.path).toBe('E:\\');
-    expect(folderOf(folders, 'D:\\Other')).toBeNull();
   });
 });
 

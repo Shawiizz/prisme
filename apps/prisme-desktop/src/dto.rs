@@ -2092,6 +2092,8 @@ impl From<prisme_library::AnalysisProgress> for ProgressDto {
 #[serde(rename_all = "camelCase")]
 pub struct DirListingDto {
     pub path: String,
+    /// The music folder it is or is in, the deepest.
+    pub within: Option<String>,
     pub parent: Option<String>,
     pub folders: Vec<FolderDto>,
     pub tracks: usize,

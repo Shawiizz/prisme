@@ -31,24 +31,6 @@ export function folderName(folder: MusicFolder): string {
   return folder.main && name === 'Music' ? t('Music') : name;
 }
 
-/** Whether `path` is `folder` or inside it. */
-export function isWithin(path: string, folder: string): boolean {
-  if (path === folder) return true;
-  const separator = separatorOf(folder);
-  return path.startsWith(folder.endsWith(separator) ? folder : folder + separator);
-}
-
-/** The deepest of `folders` that `path` is in, if it is in one. */
-export function folderOf<F extends { path: string }>(folders: F[], path: string): F | null {
-  return folders.reduce<F | null>(
-    (deepest, f) =>
-      isWithin(path, f.path) && (deepest === null || f.path.length > deepest.path.length)
-        ? f
-        : deepest,
-    null,
-  );
-}
-
 /** The folders from `root` down to `path`, which is in it. */
 export function stepsFrom(root: string, path: string): PathStep[] {
   const separator = separatorOf(root);

@@ -194,6 +194,8 @@ export interface HistorySession {
 /** A folder looked into: the folders in it, and how many tracks. */
 export interface DirListing {
   path: string;
+  /** The music folder it is or is in, the deepest. */
+  within: string | null;
   parent: string | null;
   folders: Folder[];
   tracks: number;
