@@ -182,7 +182,7 @@ fn restart<T>(
 ) -> AppResult<(AudioInfo, T)> {
     let places = state.carry_places();
     // the device may not open twice; closed outside the lock, as it waits for the audio thread
-    let previous = lock(&state.session).take();
+    let previous = state.replace_session(None);
     let simulated = previous.as_ref().is_some_and(|s| s.info.simulated);
     drop(previous);
     let between = between();
@@ -197,7 +197,7 @@ fn restart<T>(
     // held from before the session is in place: a recording started on it meanwhile would
     // have its writer, on the live engine, waited for by the resume
     let mut recorder = lock(&state.recorder);
-    *lock(&state.session) = Some(session);
+    state.replace_session(Some(session));
     // a recording goes on, in a file of its own
     if let Some(Err(e)) = recorder.as_mut().map(|r| r.resume(state)) {
         error!("recording ended, not resumed: {e}");

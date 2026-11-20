@@ -485,6 +485,15 @@ impl AppState {
     }
 
     /// The engine's latest view of `deck`.
+    /// The audio running on `session` from now, or stopped (`None`): the one it replaces is
+    /// given back, to be closed outside the lock. The interface hears of the decks and the
+    /// routing as the device lays them out.
+    pub fn replace_session(&self, session: Option<AudioSession>) -> Option<AudioSession> {
+        let previous = std::mem::replace(&mut *lock(&self.session), session);
+        self.revision.fetch_add(1, Ordering::SeqCst);
+        previous
+    }
+
     /// What the running engine shows of every deck.
     pub fn engine_status(&self) -> AppResult<EngineStatus> {
         let mut session = lock(&self.session);
@@ -1267,6 +1276,17 @@ mod tests {
         drop(slow);
         assert_eq!(state.loading(), [false; MAX_DECKS]);
         assert!(state.revision() > revision, "the interface hears of it");
+    }
+
+    #[test]
+    fn the_interface_hears_of_the_audio_stopped_or_started_as_of_what_it_lays_out() {
+        let bench = crate::actions::bench::Bench::new();
+        let revision = bench.state.revision();
+        let session = bench.state.replace_session(None);
+        assert!(session.is_some());
+        assert!(bench.state.revision() > revision);
+        bench.state.replace_session(session);
+        assert!(lock(&bench.state.session).is_some());
     }
 
     /// An engine called every few milliseconds, as by a sound card, until the returned flag

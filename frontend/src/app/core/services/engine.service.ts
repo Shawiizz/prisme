@@ -135,13 +135,6 @@ export class EngineService {
     return mixer;
   }
 
-  /** The decks' settings as the backend has them once the audio starts again, which may
-   * change them: the simulated turntable taking deck A as it comes, decks layered on one
-   * turntable given its record. */
-  async reloadDecks() {
-    this.showDecks(await invoke<MixerState>('mixer_state'));
-  }
-
   private showDecks(mixer: MixerState) {
     this.decks.set(mixer.decks.map((d) => ({ ...DEFAULT_DECK, ...d })));
   }
@@ -430,12 +423,6 @@ export class EngineService {
   setAnalysis(deck: number, analysis: TrackAnalysis) {
     const track = this.tracks()[deck];
     if (track) this.patch(this.tracks, deck, { ...track, ...analysis });
-  }
-
-  patchDeck(deck: number, changes: Partial<DeckSettings>): DeckSettings {
-    const next = { ...this.decks()[deck], ...changes };
-    this.patch(this.decks, deck, next);
-    return next;
   }
 
   private patch<T>(s: { (): T[]; set(v: T[]): void }, index: number, value: T) {

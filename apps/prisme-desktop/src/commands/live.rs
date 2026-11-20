@@ -7,25 +7,21 @@ use crate::state::{lock, AppState};
 use prisme_engine::Command;
 use tauri::State;
 
-/// The inputs `source` comes in on, kept for the next start; returns whether they are in use
-/// on the running device (the turntables leave them free).
+/// The inputs `source` comes in on, kept for the next start: in use on the running device if
+/// the turntables leave them free.
 #[tauri::command]
 pub fn set_live_input(
     state: State<'_, AppState>,
     source: LiveSourceDto,
     input: Option<InputChannelsDto>,
-) -> AppResult<bool> {
+) -> AppResult<()> {
     state.update_preferences(|p| match source {
         LiveSourceDto::Mic => p.mixer.mic.input = input,
         LiveSourceDto::Aux => p.mixer.aux.input = input,
     });
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let channels = state.live_input(source, info.as_ref());
-    state.send_if_running(Command::SetLiveInput {
-        source: source.into(),
-        channels: channels.map(Into::into),
-    })?;
-    Ok(channels.is_some())
+    state.send_if_running(Command::SetLiveInput { source: source.into(), channels: channels.map(Into::into) })
 }
 
 /// How far the music ducks under the microphone (dB); kept for the next start.

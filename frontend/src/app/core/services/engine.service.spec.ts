@@ -158,19 +158,6 @@ describe('EngineService', () => {
     });
   });
 
-  describe('the audio started again', () => {
-    afterEach(() => clearMocks());
-
-    it('shows the decks as the backend left them', async () => {
-      const [a, b] = engine.decks();
-      mockIPC((command) =>
-        command === 'mixer_state' ? { decks: [{ ...a, vinylEnabled: true }, b] } : undefined,
-      );
-      await engine.reloadDecks();
-      expect(engine.decks().map((d) => d.vinylEnabled)).toEqual([true, false]);
-    });
-  });
-
   describe('a track separated once on its deck', () => {
     const stems = { separation: 'vocals', partial: false } as const;
     const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({

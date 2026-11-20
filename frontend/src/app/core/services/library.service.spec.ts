@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { DirEntry, DirListing } from '../models/library';
+import { DeckSettings } from '../models/engine';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { EngineService } from './engine.service';
 import { HistoryService } from './history.service';
@@ -26,9 +27,11 @@ describe('LibraryService', () => {
     TestBed.tick();
 
     const sorted = library.visibleTracks();
-    engine.patchDeck(1, { volume: 0.5 });
+    const change = (changes: Partial<DeckSettings>) =>
+      engine.decks.update((decks) => decks.map((d, i) => (i === 1 ? { ...d, ...changes } : d)));
+    change({ volume: 0.5 });
     expect(library.visibleTracks()).toBe(sorted);
-    engine.patchDeck(1, { pitchRange: 0.5 });
+    change({ pitchRange: 0.5 });
     expect(library.visibleTracks()).not.toBe(sorted);
   });
 

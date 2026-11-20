@@ -1,5 +1,4 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { invoke } from '@tauri-apps/api/core';
 import {
   Band,
   ChannelStrip,
@@ -14,8 +13,6 @@ import {
   RecordSource,
 } from '../models/engine';
 import { EngineService } from './engine.service';
-import { SettingsService } from './settings.service';
-import { errorText } from '../errors';
 import { same } from '../same';
 
 const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cue: false };
@@ -28,7 +25,6 @@ const LIVE_OFF: LiveState = { input: null, inUse: false, level: 1, on: false, cu
 @Injectable({ providedIn: 'root' })
 export class MixerService {
   private readonly engine = inject(EngineService);
-  private readonly settings = inject(SettingsService);
 
   readonly crossfader = signal(0);
   /** The mode the user chose. */
@@ -73,11 +69,7 @@ export class MixerService {
   readonly fallback = computed(() => this.mode() === 'external' && this.modeInUse() === 'internal');
 
   constructor() {
-    // the routing depends on the device the audio runs on
-    effect(() => {
-      if (this.settings.info()) void this.followDevice();
-    });
-    // what the backend changed
+    // what the backend changed, the routing the device it runs on lays out among it
     effect(() => {
       const controls = this.engine.controls();
       if (controls) untracked(() => this.apply(controls.mixer));
@@ -92,21 +84,9 @@ export class MixerService {
     return `${pair * 2 + 1}-${pair * 2 + 2}`;
   }
 
-  private async followDevice() {
-    try {
-      this.applyRouting(await invoke<MixerState>('mixer_state'));
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
-  }
-
-  private applyRouting(state: MixerState) {
-    // of two decks layered on a turntable, one follows it on this device, and both read its record
-    state.decks.forEach(({ vinylEnabled, timecode }, deck) => {
-      const shown = this.engine.decks()[deck];
-      if (shown.vinylEnabled !== vinylEnabled || shown.timecode !== timecode)
-        this.engine.patchDeck(deck, { vinylEnabled, timecode });
-    });
+  apply(state: MixerState) {
+    this.crossfader.set(state.crossfader);
+    this.mode.set(state.mode);
     this.modeInUse.set(state.modeInUse);
     this.headphones.set(state.headphones);
     this.headphonesInUse.set(state.headphonesInUse);
@@ -116,12 +96,6 @@ export class MixerService {
     this.mic.set(state.mic);
     this.aux.set(state.aux);
     this.freeInputs.set(state.freeInputs);
-  }
-
-  apply(state: MixerState) {
-    this.crossfader.set(state.crossfader);
-    this.mode.set(state.mode);
-    this.applyRouting(state);
     this.cueMix.set(state.cueMix);
     this.splitCue.set(state.splitCue);
     this.headphoneGain.set(state.headphoneGain);
@@ -136,33 +110,17 @@ export class MixerService {
     this.recordSource.set(state.recordSource);
   }
 
-  async setMode(mode: MixMode) {
-    this.mode.set(mode);
-    try {
-      this.modeInUse.set(await invoke<MixMode | null>('set_mix_mode', { mode }));
-      // the headphones too: with an external mixer they need a pair of their own
-      await this.followDevice();
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  /** The mixer the DJ uses, the routing in use following (`apply`). */
+  setMode(mode: MixMode) {
+    return this.engine.call('set_mix_mode', { mode });
   }
 
-  async setHeadphones(output: HeadphonesOutput) {
-    this.headphones.set(output);
-    try {
-      this.headphonesInUse.set(await invoke<number | null>('set_headphones_output', { output }));
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  setHeadphones(output: HeadphonesOutput) {
+    return this.engine.call('set_headphones_output', { output });
   }
 
-  async setBooth(first: number | null) {
-    this.booth.set(first);
-    try {
-      this.boothInUse.set(await invoke<number | null>('set_booth_output', { first }));
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  setBooth(first: number | null) {
+    return this.engine.call('set_booth_output', { first });
   }
 
   setMainGain(gain: number) {
@@ -187,14 +145,8 @@ export class MixerService {
   }
 
   /** The inputs `source` comes in on, `null` for none. */
-  async setLiveInput(source: LiveSource, input: InputChannels | null) {
-    this.patchLive(source, { input, inUse: false });
-    try {
-      const inUse = await invoke<boolean>('set_live_input', { source, input });
-      this.patchLive(source, { inUse });
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  setLiveInput(source: LiveSource, input: InputChannels | null) {
+    return this.engine.call('set_live_input', { source, input });
   }
 
   /** The level of `source`, where its knob stands (0 to 1). */
@@ -218,10 +170,6 @@ export class MixerService {
 
   setTalkoverDepth(db: number) {
     return this.engine.call('set_talkover_depth', { db });
-  }
-
-  private patchLive(source: LiveSource, changes: Partial<LiveState>) {
-    this.live(source).update((state) => ({ ...state, ...changes }));
   }
 
   setVolume(deck: number, gain: number) {
@@ -264,8 +212,9 @@ export class MixerService {
     return this.engine.perform(`deck${deck + 1}.eq.${band}`, knob);
   }
 
+  /** `band` of `deck` killed, as its kill key held does, or back. */
   setKill(deck: number, band: Band, kill: boolean) {
-    return this.engine.call('set_eq_kill', { deck, band, kill });
+    return this.engine.perform(`deck${deck + 1}.eq.${band}.kill`, kill ? 1 : 0);
   }
 
   /** The filter of `deck`, where its knob stands (0 to 1). */

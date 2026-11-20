@@ -305,7 +305,6 @@ pub fn run() {
             commands::mixer::mixer_state,
             commands::mixer::set_mix_mode,
             commands::mixer::set_headphones_output,
-            commands::mixer::set_eq_kill,
             commands::mixer::set_limiter,
             commands::mixer::set_booth_output,
             commands::live::set_live_input,

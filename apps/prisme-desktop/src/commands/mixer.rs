@@ -1,12 +1,11 @@
-use crate::actions::mixer;
 use crate::dto::{
-    BandDto, CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto,
-    MixModeDto, MixerStateDto,
+    CrossfaderSideDto, DeckSettingsDto, HeadphonesOutputDto, LiveSourceDto, LiveStateDto, MixModeDto,
+    MixerStateDto,
 };
 use crate::error::AppResult;
 use crate::sampler;
 use crate::state::{free_inputs, live_preferences, lock, AppState};
-use prisme_engine::{Command, OutputRouting};
+use prisme_engine::Command;
 use tauri::State;
 
 /// Deck and mixer settings as the backend knows them (to rebuild the UI).
@@ -90,42 +89,32 @@ pub fn mixer_state_of(state: &AppState) -> MixerStateDto {
     }
 }
 
-/// External or software mixer, kept for the next start; returns the mode in use.
+/// External or software mixer, kept for the next start: the mode in use follows (an external
+/// mixer needs an output pair per deck).
 #[tauri::command]
-pub fn set_mix_mode(state: State<'_, AppState>, mode: MixModeDto) -> AppResult<Option<MixModeDto>> {
+pub fn set_mix_mode(state: State<'_, AppState>, mode: MixModeDto) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.mode = mode);
-    Ok(route(&state)?.map(|routing| routing.mode.into()))
+    route(&state)
 }
 
-/// Where the headphones go, kept for the next start; returns their first output in use.
+/// Where the headphones go, kept for the next start.
 #[tauri::command]
-pub fn set_headphones_output(
-    state: State<'_, AppState>,
-    output: HeadphonesOutputDto,
-) -> AppResult<Option<usize>> {
+pub fn set_headphones_output(state: State<'_, AppState>, output: HeadphonesOutputDto) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.headphones = output);
-    Ok(route(&state)?.and_then(|routing| routing.headphones))
+    route(&state)
 }
 
-/// The booth monitors' outputs (the first of the pair), kept for the next start; returns the
-/// first in use.
+/// The booth monitors' outputs (the first of the pair), kept for the next start.
 #[tauri::command]
-pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> AppResult<Option<usize>> {
+pub fn set_booth_output(state: State<'_, AppState>, first: Option<usize>) -> AppResult<()> {
     state.update_preferences(|p| p.mixer.booth = first);
-    Ok(route(&state)?.and_then(|routing| routing.booth))
+    route(&state)
 }
 
 /// Applies the routing the preferences give to the running audio, if any.
-fn route(state: &AppState) -> AppResult<Option<OutputRouting>> {
-    let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(None) };
-    let routing = state.routing(&info);
-    state.send(Command::SetRouting { routing })?;
-    Ok(Some(routing))
-}
-
-#[tauri::command]
-pub fn set_eq_kill(state: State<'_, AppState>, deck: usize, band: BandDto, kill: bool) -> AppResult<()> {
-    mixer::set_eq_kill(&state, deck, band, kill)
+fn route(state: &AppState) -> AppResult<()> {
+    let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(()) };
+    state.send(Command::SetRouting { routing: state.routing(&info) })
 }
 
 /// Master limiter; kept for the next start.
