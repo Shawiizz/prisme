@@ -24,6 +24,7 @@ pub trait Sees {
     fn faders(&self) -> Faders;
     /// The slot of the effect chain of `deck` the effect knobs turn.
     fn fx_focus(&self, deck: usize) -> Option<usize>;
+    fn quantize(&self) -> bool;
 }
 
 impl Sees for View {
@@ -53,6 +54,10 @@ impl Sees for View {
 
     fn fx_focus(&self, deck: usize) -> Option<usize> {
         self.perform.decks[deck].fx_focus
+    }
+
+    fn quantize(&self) -> bool {
+        self.quantize
     }
 }
 
@@ -178,8 +183,8 @@ pub struct Live {
 }
 
 impl View {
-    /// What the engine shows of `deck`.
-    pub fn status(&self, deck: usize) -> &DeckStatus {
+    /// What the engine shows of `deck`, borrowed (see [`Sees::status`]).
+    pub fn deck_status(&self, deck: usize) -> &DeckStatus {
         &self.status.decks[deck]
     }
 
@@ -196,7 +201,7 @@ impl View {
     /// The rate `deck` plays at, gestures aside: the engine's for a track, which a record or
     /// the sync may give it, else its tempo fader's.
     pub fn tempo_rate(&self, deck: usize) -> f64 {
-        let status = self.status(deck);
+        let status = self.deck_status(deck);
         if status.loaded {
             status.rate
         } else {

@@ -12,9 +12,10 @@ use prisme_actions::scales::{
     balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
     trim_gain, Tempo,
 };
+use prisme_actions::switch::turned;
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
-    MixerAction, MixerSwitch, SampleAction, Target, Turn, FX_SLOTS,
+    MixerAction, MixerSwitch, SampleAction, Target, FX_SLOTS,
 };
 use prisme_engine::Command;
 use transport::{LOOP_BEATS, PITCH_BEND, SMALL_BEND, TEMPO_STEP};
@@ -33,6 +34,9 @@ impl Performing<'_> {
             return deck::turn(self, deck, action, input);
         }
         let Some(given) = self.given(target, input) else { return Ok(()) };
+        if let Some(on) = given.pressed().then(|| turned(target, self)).flatten() {
+            return self.switch(target, on);
+        }
         match *target {
             Target::Deck(deck, action) => match given {
                 Given::Value(position) if action.kind() == Kind::Fader => {
@@ -154,7 +158,6 @@ impl Performing<'_> {
             DeckAction::SizeDouble => deck::scale_size(state, deck, 2.0),
             DeckAction::SyncLeader => deck::toggle_leader(state, deck),
             DeckAction::SyncOnce => deck::match_once(state, deck),
-            DeckAction::Switch(switch, turn) => self.switch(deck, switch, turn),
             DeckAction::TempoReset => deck::set_pitch(state, deck, 1.0),
             DeckAction::TempoUp => self.step_tempo(deck, 1),
             DeckAction::TempoDown => self.step_tempo(deck, -1),
@@ -166,10 +169,6 @@ impl Performing<'_> {
             DeckAction::KeyTo(semitones) => deck::key_to(state, deck, semitones),
             DeckAction::HeadphonesSolo => mixer::solo_cue(state, deck),
             DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side.into()),
-            DeckAction::Fx(slot, FxAction::Enabled(turn)) => {
-                let on = lock(&state.decks)[deck].fx.slots[slot].enabled;
-                fx::set_fx_enabled(state, deck, slot, turn.turns(on))
-            }
             DeckAction::Sample(slot, SampleAction::Trigger) => {
                 sampler::trigger_sample(state, deck, slot, None)
             }
@@ -193,29 +192,43 @@ impl Performing<'_> {
         }
     }
 
-    /// A switch of `deck` turned `turn`, from where it stands.
-    fn switch(&self, deck: usize, switch: DeckSwitch, turn: Turn) -> AppResult<()> {
+    /// The switch `target` turns, turned `on` or off.
+    fn switch(&self, target: &Target, on: bool) -> AppResult<()> {
         let state = self.state;
-        let d = lock(&state.decks)[deck];
-        let status = || state.deck_status(deck).unwrap_or_default();
-        let send = |command| transport::send(state, deck, command);
-        match switch {
-            DeckSwitch::Sync => deck::set_sync(state, deck, turn.turns(status().sync.locked)),
-            DeckSwitch::Slip => send(Command::SetSlip { deck, enabled: turn.turns(status().slip_mode) }),
-            DeckSwitch::Reverse => send(Command::SetReverse { deck, enabled: turn.turns(status().reverse) }),
-            DeckSwitch::Repeat => deck::set_repeat(state, deck, turn.turns(d.repeat)),
-            DeckSwitch::FaderStart => mixer::set_fader_start(state, deck, turn.turns(d.fader_start)),
-            DeckSwitch::KeyLock => deck::set_key_lock(state, deck, turn.turns(d.key_lock)),
-            DeckSwitch::Headphones => mixer::set_deck_cue(state, deck, turn.turns(d.cue)),
-            DeckSwitch::Mute => mixer::set_mute(state, deck, turn.turns(d.mute)),
-            DeckSwitch::Passthrough => deck::set_passthrough(state, deck, turn.turns(d.passthrough)),
-            // from what the deck shows: off while the deck layered with it has the turntable
-            DeckSwitch::Vinyl => {
-                let shown = state.decks_laid_out()[deck].vinyl_enabled;
-                deck::set_vinyl(state, deck, VinylChangeDto::Enabled(turn.turns(shown)))
+        match *target {
+            Target::Deck(deck, DeckAction::Switch(switch, _)) => {
+                let send = |command| transport::send(state, deck, command);
+                match switch {
+                    DeckSwitch::Sync => deck::set_sync(state, deck, on),
+                    DeckSwitch::Slip => send(Command::SetSlip { deck, enabled: on }),
+                    DeckSwitch::Reverse => send(Command::SetReverse { deck, enabled: on }),
+                    DeckSwitch::Repeat => deck::set_repeat(state, deck, on),
+                    DeckSwitch::FaderStart => mixer::set_fader_start(state, deck, on),
+                    DeckSwitch::KeyLock => deck::set_key_lock(state, deck, on),
+                    DeckSwitch::Headphones => mixer::set_deck_cue(state, deck, on),
+                    DeckSwitch::Mute => mixer::set_mute(state, deck, on),
+                    DeckSwitch::Passthrough => deck::set_passthrough(state, deck, on),
+                    DeckSwitch::Vinyl => deck::set_vinyl(state, deck, VinylChangeDto::Enabled(on)),
+                    DeckSwitch::JogScratch => deck::set_jog_scratch(state, deck, on),
+                    DeckSwitch::FxChain => fx::set_fx_chain_enabled(state, deck, on),
+                }
             }
-            DeckSwitch::JogScratch => deck::set_jog_scratch(state, deck, turn.turns(d.jog_scratch)),
-            DeckSwitch::FxChain => fx::set_fx_chain_enabled(state, deck, turn.turns(d.fx.enabled)),
+            Target::Deck(deck, DeckAction::Fx(slot, FxAction::Enabled(_))) => {
+                fx::set_fx_enabled(state, deck, slot, on)
+            }
+            Target::Mixer(MixerAction::Switch(MixerSwitch::HeadphonesSplit, _)) => {
+                mixer::set_split_cue(state, on)
+            }
+            Target::Mixer(MixerAction::Switch(MixerSwitch::Talkover, _)) => mixer::set_talkover(state, on),
+            Target::Mixer(MixerAction::Switch(MixerSwitch::CrossfaderReverse, _)) => {
+                mixer::set_crossfader_reverse(state, on)
+            }
+            Target::Mixer(MixerAction::MicOn) => mixer::set_live_on(state, LiveSourceDto::Mic, on),
+            Target::Mixer(MixerAction::AuxOn) => mixer::set_live_on(state, LiveSourceDto::Aux, on),
+            Target::Mixer(MixerAction::MicCue) => mixer::set_live_cue(state, LiveSourceDto::Mic, on),
+            Target::Mixer(MixerAction::AuxCue) => mixer::set_live_cue(state, LiveSourceDto::Aux, on),
+            Target::General(GeneralAction::Quantize(_)) => general::set_quantize(state, on),
+            _ => Err(not_performed(target)),
         }
     }
 
@@ -327,7 +340,6 @@ impl Performing<'_> {
         let target = Target::Mixer(action);
         let Given::Value(at) = given else { return Ok(()) };
         let mixer = state.preferences.read(|p| p.mixer);
-        let switches = *lock(&state.live);
         let live = |source: LiveSourceDto| {
             let gain = live_gain(at);
             mixer::set_live_level(state, source, gain)?;
@@ -360,36 +372,24 @@ impl Performing<'_> {
             }
             // a key let go
             _ if !given.pressed() => Ok(()),
-            MixerAction::MicOn => mixer::set_live_on(state, LiveSourceDto::Mic, !switches[0].on),
-            MixerAction::AuxOn => mixer::set_live_on(state, LiveSourceDto::Aux, !switches[1].on),
-            MixerAction::MicCue => mixer::set_live_cue(state, LiveSourceDto::Mic, !switches[0].cue),
-            MixerAction::AuxCue => mixer::set_live_cue(state, LiveSourceDto::Aux, !switches[1].cue),
             MixerAction::CrossfaderCurveNext => {
                 let sharp = mixer.crossfader_curve == CrossfaderCurveDto::Sharp;
                 let curve = if sharp { CrossfaderCurveDto::Smooth } else { CrossfaderCurveDto::Sharp };
                 mixer::set_crossfader_curve(state, curve)
             }
-            MixerAction::Switch(MixerSwitch::HeadphonesSplit, turn) => {
-                mixer::set_split_cue(state, turn.turns(mixer.split_cue))
-            }
-            MixerAction::Switch(MixerSwitch::Talkover, turn) => {
-                mixer::set_talkover(state, turn.turns(mixer.talkover))
-            }
-            MixerAction::Switch(MixerSwitch::CrossfaderReverse, turn) => {
-                mixer::set_crossfader_reverse(state, turn.turns(mixer.crossfader_reverse))
-            }
-            MixerAction::MainClip => Err(not_performed(&target)),
+            MixerAction::MicOn
+            | MixerAction::AuxOn
+            | MixerAction::MicCue
+            | MixerAction::AuxCue
+            | MixerAction::Switch(..)
+            | MixerAction::MainClip => Err(not_performed(&target)),
         }
     }
 
     /// An action of every deck, given `given`.
     fn general(&self, action: GeneralAction, given: Given) -> AppResult<()> {
-        let state = self.state;
         match action {
             _ if !given.pressed() => Ok(()),
-            GeneralAction::Quantize(turn) => {
-                general::set_quantize(state, turn.turns(state.preferences.read(|p| p.dj.quantize)))
-            }
             GeneralAction::TempoRange => self.next_tempo_range(None, 1),
             GeneralAction::TempoRangePrevious => self.next_tempo_range(None, -1),
             GeneralAction::Record => self.record(),

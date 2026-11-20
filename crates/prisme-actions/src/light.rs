@@ -4,11 +4,12 @@
 
 use crate::cue::at_cue;
 use crate::pads::{loop_beats, plays_loop, slice_at, LOOP_LENGTH_WITHIN, ROLL_BEATS};
+use crate::switch::{is_on, turn_of};
 use crate::sync::{phase, Beat, Phase};
 use crate::view::{band_index, TrackView, View};
 use prisme_control::{
-    AutoDjAction, Beats, DeckAction, DeckSwitch, FxAction, GeneralAction, LibraryAction, MixerAction,
-    MixerSwitch, SampleAction, Target, Turn,
+    AutoDjAction, Beats, DeckAction, FxAction, GeneralAction, LibraryAction, MixerAction, SampleAction,
+    Target, Turn,
 };
 use prisme_engine::DeckStatus;
 
@@ -79,16 +80,18 @@ pub fn told_by_interface(target: &Target) -> bool {
 
 /// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use.
 pub fn light(target: &Target, view: &View) -> Option<Light> {
-    let light = match target {
-        Target::Deck(deck, action) => deck_light(*deck, *action, view),
-        Target::Mixer(action) => mixer_light(*action, view).map(Light::lit),
-        Target::Library(LibraryAction::Load(deck)) => Some(Light::of(deck_state(view.status(*deck)))),
-        Target::Library(LibraryAction::Preview) => {
+    let light = match (is_on(target, view), target) {
+        (Some(on), _) => Some(Light::lit(shows(turn_of(target), on))),
+        (None, Target::Deck(deck, action)) => deck_light(*deck, *action, view),
+        (None, Target::Mixer(MixerAction::MainClip)) => Some(Light::lit(view.perform.main_clipping)),
+        (None, Target::Library(LibraryAction::Load(deck))) => {
+            Some(Light::of(deck_state(view.deck_status(*deck))))
+        }
+        (None, Target::Library(LibraryAction::Preview)) => {
             Some(Light::lit(view.status.preview.is_some() || view.preview_opening))
         }
-        Target::General(GeneralAction::Record) => Some(Light::lit(view.status.recording.is_some())),
-        Target::General(GeneralAction::Quantize(turn)) => Some(Light::lit(shows(*turn, view.quantize))),
-        Target::AutoDj(AutoDjAction::Toggle) => Some(Light::lit(view.auto_dj)),
+        (None, Target::General(GeneralAction::Record)) => Some(Light::lit(view.status.recording.is_some())),
+        (None, Target::AutoDj(AutoDjAction::Toggle)) => Some(Light::lit(view.auto_dj)),
         _ => None,
     }?;
     Some(if target.deck().is_some_and(|deck| !view.shows(deck)) { Light::OFF } else { light })
@@ -105,7 +108,7 @@ fn shows(turn: Turn, on: bool) -> bool {
 }
 
 fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
-    let status = view.status(deck);
+    let status = view.deck_status(deck);
     let settings = &view.decks[deck];
     let track = settings.track.as_ref();
     let key_shift = track.map_or(0, |t| t.key_shift);
@@ -115,23 +118,6 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
     let lit = match action {
         DeckAction::Play => status.playing,
         DeckAction::Cue => return Some(Light::of(cue_state(status, track))),
-        DeckAction::Switch(switch, turn) => {
-            let on = match switch {
-                DeckSwitch::Sync => status.sync.locked,
-                DeckSwitch::Slip => status.slip_mode,
-                DeckSwitch::Reverse => status.reverse,
-                DeckSwitch::Repeat => settings.repeat,
-                DeckSwitch::FaderStart => settings.fader_start,
-                DeckSwitch::KeyLock => settings.key_lock,
-                DeckSwitch::Headphones => settings.cue,
-                DeckSwitch::Mute => settings.mute,
-                DeckSwitch::Passthrough => settings.passthrough,
-                DeckSwitch::Vinyl => settings.vinyl,
-                DeckSwitch::JogScratch => settings.jog_scratch,
-                DeckSwitch::FxChain => settings.fx.enabled,
-            };
-            shows(turn, on)
-        }
         DeckAction::HotCue(slot) => {
             return Some(match track.and_then(|t| t.hot_cues[slot]) {
                 Some(colour) => Light { state: State::On, colour: Some(colour) },
@@ -158,7 +144,6 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
             }))
         }
         DeckAction::Sample(slot, SampleAction::Held | SampleAction::Velocity) => sample(slot).0,
-        DeckAction::Fx(slot, FxAction::Enabled(turn)) => shows(turn, fx(slot).enabled),
         DeckAction::Fx(slot, FxAction::Held) => fx(slot).enabled,
         DeckAction::Fx(slot, FxAction::Effect(effect)) => fx(slot).enabled && fx(slot).effect == effect,
         DeckAction::Fx(slot, FxAction::Focus) => perform.fx_focus == Some(slot),
@@ -182,26 +167,6 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         _ => return None,
     };
     Some(Light::lit(lit))
-}
-
-fn mixer_light(action: MixerAction, view: &View) -> Option<bool> {
-    let mixer = &view.mixer;
-    Some(match action {
-        MixerAction::Switch(switch, turn) => shows(
-            turn,
-            match switch {
-                MixerSwitch::HeadphonesSplit => mixer.split_cue,
-                MixerSwitch::Talkover => mixer.talkover,
-                MixerSwitch::CrossfaderReverse => mixer.crossfader_reverse,
-            },
-        ),
-        MixerAction::MicOn => mixer.mic.on,
-        MixerAction::MicCue => mixer.mic.cue,
-        MixerAction::AuxOn => mixer.aux.on,
-        MixerAction::AuxCue => mixer.aux.cue,
-        MixerAction::MainClip => view.perform.main_clipping,
-        _ => return None,
-    })
 }
 
 /// A CDJ's cue: on at the cue point, paused stopped elsewhere, off playing or empty.
@@ -259,7 +224,7 @@ fn tempo(deck: usize, view: &View) -> Tempo {
     if (view.tempo_rate(deck) - 1.0).abs() < AT_TEMPO {
         return Tempo::Zero;
     }
-    match (view.status(deck).bpm, view.status(view.mixed_with(deck)).bpm) {
+    match (view.deck_status(deck).bpm, view.deck_status(view.mixed_with(deck)).bpm) {
         (Some(own), Some(other)) if (own - other).abs() >= SAME_BPM => {
             if own < other {
                 Tempo::Slower
@@ -274,9 +239,9 @@ fn tempo(deck: usize, view: &View) -> Tempo {
 /// Where a deck's beats are against the leader's, another deck in use leading, else against
 /// the deck it mixes with.
 fn phase_of(deck: usize, view: &View) -> Phase {
-    let leads = |d: &usize| *d != deck && *d < view.status.deck_count && view.status(*d).sync.leader;
+    let leads = |d: &usize| *d != deck && *d < view.status.deck_count && view.deck_status(*d).sync.leader;
     let reference = (0..view.decks_in_use).find(leads).unwrap_or_else(|| view.mixed_with(deck));
-    phase(Beat::playing(view.status(deck)), Beat::playing(view.status(reference)), IN_PHASE)
+    phase(Beat::playing(view.deck_status(deck)), Beat::playing(view.deck_status(reference)), IN_PHASE)
 }
 
 #[cfg(test)]

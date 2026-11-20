@@ -30,7 +30,7 @@ pub fn output(source: &Source, view: &View) -> Option<f64> {
         Source::Position(target) => return position(target, view).map(f64::from),
         Source::Measured(deck, measure) => (*deck, *measure),
     };
-    let status = view.status(deck);
+    let status = view.deck_status(deck);
     if !view.shows(deck) || !status.loaded {
         return None;
     }

@@ -16,6 +16,7 @@ pub mod position;
 pub mod press;
 pub mod scales;
 pub mod stems;
+pub mod switch;
 pub mod sync;
 pub mod tap;
 pub mod view;

@@ -40,8 +40,8 @@ pub fn view_of(state: &AppState, auto_dj: bool, memory: &Mutex<Memory>, now_s: f
     View { decks_in_use, status, decks, mixer, quantize, auto_dj, preview_opening, perform }
 }
 
-/// What a move reads, as it reads it: the settings of a deck as asked (a turntable taken by the
-/// deck layered with it is not looked at), without its track and its sampler, its track only
+/// What a move reads, as it reads it: the settings of a deck as it shows them (a turntable
+/// taken by the deck layered with it off), without its track and its sampler, its track only
 /// when asked, the engine's state of a deck only.
 impl Sees for Performing<'_> {
     fn decks_in_use(&self) -> usize {
@@ -50,7 +50,7 @@ impl Sees for Performing<'_> {
 
     fn deck(&self, deck: usize) -> DeckView {
         let range = self.state.tempo_range(deck);
-        let settings = lock(&self.state.decks)[deck];
+        let settings = self.state.decks_laid_out()[deck];
         deck_view(deck, &settings, range, 0, None)
     }
 
@@ -73,6 +73,10 @@ impl Sees for Performing<'_> {
 
     fn fx_focus(&self, deck: usize) -> Option<usize> {
         lock(&self.state.perform).decks[deck].fx_focus
+    }
+
+    fn quantize(&self) -> bool {
+        self.state.preferences.read(|p| p.dj.quantize)
     }
 }
 
