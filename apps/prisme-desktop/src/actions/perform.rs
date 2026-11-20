@@ -1,7 +1,7 @@
 //! What each action does, by its target, with what its control gives: a key pressed or let go,
 //! a fader's position, an encoder's steps.
 
-use super::{deck, fx, general, mixer, sampler, transport, Performing};
+use super::{deck, fx, general, mixer, sampler, transport, Performing, Source};
 use crate::dto::{CrossfaderCurveDto, LiveSourceDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
@@ -334,14 +334,20 @@ impl Performing<'_> {
     }
 
     /// The tempo of `deck` moved by so many steps from where it is, and kept: on the step, so
-    /// that steps back bring it to the track's own again. Past its fader's range too, from a
-    /// tempo there (kept from a sync, given by the Auto DJ) as from any.
+    /// that steps back bring it to the track's own again. A controller's go past its fader's
+    /// range too, from a tempo there (kept from a sync, given by the Auto DJ) as from any; the
+    /// interface's stop at its ends, as its fader's cap does.
     fn step_tempo(&self, deck: usize, steps: i32) -> AppResult<()> {
         if steps == 0 {
             return Ok(());
         }
         let ratio = lock(&self.state.decks)[deck].pitch + f64::from(steps) * TEMPO_STEP;
-        deck::set_pitch(self.state, deck, ((ratio / TEMPO_STEP).round() * TEMPO_STEP).max(0.0))
+        let mut ratio = ((ratio / TEMPO_STEP).round() * TEMPO_STEP).max(0.0);
+        if matches!(self.source(), Source::Interface { .. }) {
+            let range = self.state.tempo_range(deck);
+            ratio = ratio.clamp(1.0 - range, 1.0 + range);
+        }
+        deck::set_pitch(self.state, deck, ratio)
     }
 
     /// The range of the tempo fader of `deck`, or of them all (`None`), `step` places on.
@@ -949,6 +955,22 @@ mod switches {
         press(&bench, "deck1.tempo.down");
         press(&bench, "deck1.tempo.down");
         assert!((pitch() - 1.159).abs() < 1e-9, "{}", pitch());
+    }
+
+    #[test]
+    fn the_interface_s_tempo_keys_stop_at_the_faders_ends() {
+        let bench = Bench::new();
+        let pitch = || lock(&bench.state.decks)[0].pitch;
+        let range = bench.state.tempo_range(0);
+        let screen = |id: &str| {
+            bench.perform(id, Input::Value(1.0), super::Source::Interface { confirmed: false }).unwrap();
+        };
+        crate::actions::deck::set_pitch(&bench.state, 0, 1.0 + range).unwrap();
+        screen("deck1.tempo.up");
+        assert!((pitch() - (1.0 + range)).abs() < 1e-9, "{}", pitch());
+        crate::actions::deck::set_pitch(&bench.state, 0, 1.0 - range - 0.05).unwrap();
+        screen("deck1.tempo.down");
+        assert!((pitch() - (1.0 - range)).abs() < 1e-9, "brought within: {}", pitch());
     }
 
     #[test]
