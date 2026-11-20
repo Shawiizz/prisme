@@ -159,7 +159,7 @@ impl Performing<'_> {
     /// plays, else once the DJ is asked.
     fn may_replace(&self, target: &Target, deck: usize, eject: bool) -> AppResult<()> {
         let heard = self.state.deck_status(deck).is_ok_and(|s| plays(&s));
-        if !heard || matches!(self.source(), Source::Confirmed) {
+        if !heard || matches!(self.source(), Source::Interface { confirmed: true }) {
             Ok(())
         } else if self.state.preferences.read(|p| p.dj.protect_playing) {
             Err(AppError::DeckPlays { deck, eject })
@@ -177,7 +177,7 @@ mod tests {
     use prisme_actions::input::Input;
 
     fn confirmed(bench: &Bench, id: &str) -> AppResult<()> {
-        bench.perform(id, Input::Value(1.0), Source::Confirmed)
+        bench.perform(id, Input::Value(1.0), Source::Interface { confirmed: true })
     }
 
     fn loaded(state: &AppState) -> [bool; 2] {

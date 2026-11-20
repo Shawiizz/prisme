@@ -162,7 +162,7 @@ fn a_midi_controller_plays_its_deck_and_lights_it_with_the_interface_asleep() {
 
     // the screen left the volume at 0.2: the fader takes it once it reaches it
     let volume = || lock(&bench.state.decks)[0].volume;
-    bench.perform("deck1.volume", Input::Value(0.2), Source::Interface).unwrap();
+    bench.perform("deck1.volume", Input::Value(0.2), Source::Interface { confirmed: false }).unwrap();
     jogvision.send(&[0xb0, VOLUME, 127]);
     jogvision.send(&[0xb0, VOLUME, 30]);
     assert_eq!(volume(), 0.2, "not picked up");
@@ -338,7 +338,7 @@ fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_r
     // the volume fader, at its bottom, far from the setting the screen gave: it takes it once it
     // crosses it
     let volume = || lock(&bench.state.decks)[0].volume;
-    bench.perform("deck1.volume", Input::Value(0.5), Source::Interface).unwrap();
+    bench.perform("deck1.volume", Input::Value(0.5), Source::Interface { confirmed: false }).unwrap();
     s4.fader(S4_VOLUME, 1200);
     s4.fader(S4_VOLUME, 1900);
     assert_eq!(volume(), 0.5, "not picked up");

@@ -37,6 +37,7 @@ use prisme_actions::view::View;
 use prisme_control::{DeckAction, LibraryAction, Owner, SampleAction, Target, Unknown};
 use prisme_library::LibraryDb;
 use serde::Serialize;
+use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -57,70 +58,44 @@ const SELECTION_WAIT: Duration = Duration::from_millis(500);
 const ORDER_WAIT: Duration = Duration::from_millis(50);
 
 /// A move of a controller: which one, when on its clock, and how many steps a turn of its jog
-/// wheels sends.
-#[derive(Debug, Clone, Copy)]
+/// wheels sends. Its name is borrowed as it moves, owned once kept for a lane's worker.
+#[derive(Debug, Clone)]
 pub struct Moved<'d> {
-    pub device: &'d str,
+    pub device: Cow<'d, str>,
     pub at_s: f64,
     pub jog_steps_per_turn: f64,
 }
 
 /// Who asks for an action.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Source<'d> {
     /// A controller's control moved.
     Controller(Moved<'d>),
-    /// The interface: a click, a drag, a key, the command palette.
-    Interface,
-    /// The interface, the DJ having said yes to what the action replaces: the track of a deck
-    /// that plays.
-    Confirmed,
+    /// The interface: a click, a drag, a key, the command palette; `confirmed`, the DJ having
+    /// said yes to what the action replaces (the track of a deck that plays).
+    Interface { confirmed: bool },
 }
 
 /// An action asked for, as it was sent, whenever it is performed: by whom, when on the clock of
 /// the one asking (a controller's own, else Prisme's), and after how many of the actions the
 /// interface was told to perform (`ui-action`).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Asked<'d> {
     pub source: Source<'d>,
     pub at_s: f64,
     pub told: u64,
 }
 
-/// An [`Asked`] kept for a lane's worker.
-struct Kept {
-    source: KeptSource,
-    at_s: f64,
-    told: u64,
-}
-
-enum KeptSource {
-    Controller { device: String, at_s: f64, jog_steps_per_turn: f64 },
-    Interface,
-    Confirmed,
-}
-
-impl Kept {
-    fn of(asked: Asked) -> Self {
-        let source = match asked.source {
-            Source::Controller(Moved { device, at_s, jog_steps_per_turn }) => {
-                KeptSource::Controller { device: device.to_owned(), at_s, jog_steps_per_turn }
-            }
-            Source::Interface => KeptSource::Interface,
-            Source::Confirmed => KeptSource::Confirmed,
-        };
-        Kept { source, at_s: asked.at_s, told: asked.told }
-    }
-
-    fn asked(&self) -> Asked<'_> {
+impl Asked<'_> {
+    /// Kept for a lane's worker: the controller's name owned.
+    fn into_owned(self) -> Asked<'static> {
         let source = match self.source {
-            KeptSource::Controller { ref device, at_s, jog_steps_per_turn } => {
-                Source::Controller(Moved { device, at_s, jog_steps_per_turn })
+            Source::Controller(moved) => {
+                Source::Controller(Moved { device: Cow::Owned(moved.device.into_owned()), ..moved })
             }
-            KeptSource::Interface => Source::Interface,
-            KeptSource::Confirmed => Source::Confirmed,
+            Source::Interface { confirmed } => Source::Interface { confirmed },
         };
-        Asked { source, at_s: self.at_s, told: self.told }
+        Asked { source, ..self }
     }
 }
 
@@ -381,9 +356,9 @@ impl Actions {
         answer: Answer,
         in_turn: &mut InTurn,
     ) {
-        let at_s = match source {
+        let at_s = match &source {
             Source::Controller(moved) => moved.at_s,
-            Source::Interface | Source::Confirmed => self.now_s(),
+            Source::Interface { .. } => self.now_s(),
         };
         let asked = Asked { source, at_s, told: self.told.load(Ordering::SeqCst) };
         let sent = self.sent_as(host.app_state(), target);
@@ -393,13 +368,13 @@ impl Actions {
         };
         let done = Arc::new(Done::default());
         let (after, ending) = (in_turn.0.replace(done.clone()), Ending(done));
-        let (host, target, kept) = (host.clone(), target.clone(), Kept::of(asked));
+        let (host, target, asked) = (host.clone(), target.clone(), asked.into_owned());
         queuing.push(Box::new(move || {
             let _ending = ending;
             if let Some(after) = after {
                 after.wait();
             }
-            answer.give(&host, host.perform_here(&target, input, kept.asked()));
+            answer.give(&host, host.perform_here(&target, input, asked));
         }));
     }
 
@@ -576,8 +551,8 @@ impl Performing<'_> {
     }
 
     /// Who asks.
-    fn source(&self) -> Source<'_> {
-        self.asked.source
+    fn source(&self) -> &Source<'_> {
+        &self.asked.source
     }
 
     /// The track selected in the library, once the interface applied the actions it was told to
@@ -600,16 +575,16 @@ impl Performing<'_> {
     /// pick their setting up first (see `Inputs`); nothing while it gives nothing. Only where
     /// its fader stands is read.
     fn given(&self, target: &Target, input: Input) -> Option<Given> {
-        match (self.asked.source, input) {
-            (Source::Interface | Source::Confirmed, Input::Value(value)) => Some(Given::Value(value)),
+        match (&self.asked.source, input) {
+            (Source::Interface { .. }, Input::Value(value)) => Some(Given::Value(value)),
             // the interface's encoders under a name no controller has
-            (Source::Interface | Source::Confirmed, steps) => {
+            (Source::Interface { .. }, steps) => {
                 let at = position(target, self);
                 lock(&self.actions.inputs).resolve("", target, steps, at)
             }
             (Source::Controller(moved), input) => {
                 let at = position(target, self);
-                lock(&self.actions.inputs).resolve(moved.device, target, input, at)
+                lock(&self.actions.inputs).resolve(&moved.device, target, input, at)
             }
         }
     }
@@ -637,7 +612,7 @@ pub async fn perform_action(
 ) -> AppResult<()> {
     let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
     let input = Input::of(value, steps, None);
-    let source = if confirmed { Source::Confirmed } else { Source::Interface };
+    let source = Source::Interface { confirmed };
     crate::commands::blocking(move || {
         let actions = app.state::<Actions>();
         let (answer, outcome) = mpsc::sync_channel(1);
@@ -747,7 +722,8 @@ pub(crate) mod bench {
 
         /// `id` driven to `value` by the controller `device`.
         pub fn moved(&self, device: &str, id: &str, input: Input) -> AppResult<()> {
-            let source = Source::Controller(Moved { device, at_s: 0.0, jog_steps_per_turn: 720.0 });
+            let source =
+                Source::Controller(Moved { device: device.into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
             self.perform(id, input, source)
         }
 
@@ -764,9 +740,9 @@ pub(crate) mod bench {
 
         /// An action asked for by `source`, now.
         pub(in crate::actions) fn performing<'a>(&'a self, source: Source<'a>) -> Performing<'a> {
-            let at_s = match source {
+            let at_s = match &source {
                 Source::Controller(moved) => moved.at_s,
-                Source::Interface | Source::Confirmed => self.actions.now_s(),
+                Source::Interface { .. } => self.actions.now_s(),
             };
             self.asked(Asked { source, at_s, told: self.actions.told.load(Ordering::SeqCst) })
         }
@@ -830,7 +806,12 @@ pub(crate) mod bench {
         pub fn at(&self, deck: usize, seconds: f64) {
             let duration_s = self.status(deck).duration_s;
             let input = Input::Value((seconds / duration_s) as f32);
-            self.perform(&format!("deck{}.position", deck + 1), input, Source::Interface).unwrap();
+            self.perform(
+                &format!("deck{}.position", deck + 1),
+                input,
+                Source::Interface { confirmed: false },
+            )
+            .unwrap();
             self.run(0.01);
         }
 
@@ -880,7 +861,7 @@ mod lanes {
 
     /// `id` driven to `value` by a controller, after what `in_turn` sent.
     fn sent(bench: &Arc<Bench>, id: &str, value: f32, in_turn: &mut InTurn) {
-        let source = Source::Controller(Moved { device: "DDJ", at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let source = Source::Controller(Moved { device: "DDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
         let target: Target = id.parse().unwrap();
         bench.actions.perform(bench, &target, Input::Value(value), source, Answer::Told, in_turn);
     }
@@ -975,7 +956,7 @@ mod lanes {
         bench.load(0, 60.0, Some(100.0));
         let busy = held(&bench, Lane::Track(0));
         let tap = |at_s: f64| {
-            let source = Source::Controller(Moved { device: "DDJ", at_s, jog_steps_per_turn: 720.0 });
+            let source = Source::Controller(Moved { device: "DDJ".into(), at_s, jog_steps_per_turn: 720.0 });
             let tap: Target = "deck1.tap".parse().unwrap();
             bench.actions.perform(
                 &bench,
@@ -1005,7 +986,7 @@ mod selection {
     use std::time::Duration;
 
     fn load(bench: &Arc<Bench>, id: &str) {
-        let source = Source::Controller(Moved { device: "CDJ", at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let source = Source::Controller(Moved { device: "CDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
         let target: Target = id.parse().unwrap();
         bench.actions.perform(
             bench,

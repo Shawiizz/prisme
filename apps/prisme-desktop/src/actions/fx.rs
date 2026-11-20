@@ -124,7 +124,7 @@ mod tests {
     }
 
     fn set(bench: &Bench, id: &str, value: f32) {
-        bench.perform(id, Input::Value(value), Source::Interface).unwrap();
+        bench.perform(id, Input::Value(value), Source::Interface { confirmed: false }).unwrap();
     }
 
     #[test]

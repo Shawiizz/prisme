@@ -26,7 +26,7 @@ pub const MAX_KEY_SHIFT: u8 = 12;
 pub(super) fn turn(doing: &Performing, deck: usize, action: DeckAction, input: Input) -> AppResult<()> {
     let steps_per_turn = match doing.source() {
         super::Source::Controller(moved) => moved.jog_steps_per_turn,
-        super::Source::Interface | super::Source::Confirmed => prisme_control::JOG_STEPS_PER_TURN,
+        super::Source::Interface { .. } => prisme_control::JOG_STEPS_PER_TURN,
     };
     let jog_scratch = lock(&doing.state.decks)[deck].jog_scratch;
     let Some(command) = jog(deck, action, input, doing.at_s(), steps_per_turn, jog_scratch) else {
@@ -413,7 +413,7 @@ mod tests {
         assert!(pitch(&mut bench, "DDJ", 0.5).is_some());
         assert_eq!(pitch(&mut bench, "CDJ", 0.9), None, "its fader is elsewhere");
         assert!(pitch(&mut bench, "DDJ", 0.55).is_some());
-        bench.perform("deck1.pitch", Input::Value(1.0), Source::Interface).unwrap();
+        bench.perform("deck1.pitch", Input::Value(1.0), Source::Interface { confirmed: false }).unwrap();
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6);
     }
 
@@ -487,7 +487,7 @@ mod tests {
     fn a_tempo_is_tapped_on_the_controllers_own_clock() {
         let bench = Bench::new();
         let tap = |at_s: f64| {
-            let source = Source::Controller(Moved { device: "DDJ", at_s, jog_steps_per_turn: 720.0 });
+            let source = Source::Controller(Moved { device: "DDJ".into(), at_s, jog_steps_per_turn: 720.0 });
             bench.performing(source).tapped(0)
         };
         assert_eq!([0.0, 0.48, 0.96].map(tap), [None, None, None]);

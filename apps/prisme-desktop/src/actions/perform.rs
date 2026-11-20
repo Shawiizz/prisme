@@ -553,7 +553,7 @@ mod tests {
                 continue;
             }
             for value in [1.0, 0.0] {
-                let outcome = bench.perform(id, Input::Value(value), Source::Interface);
+                let outcome = bench.perform(id, Input::Value(value), Source::Interface { confirmed: false });
                 assert!(!matches!(outcome, Err(AppError::NotPerformed(_))), "{id}");
             }
         }
@@ -576,7 +576,7 @@ mod faders {
 
     /// `id` set to `value` on the screen.
     fn set(bench: &Bench, id: &str, value: f32) {
-        bench.perform(id, Input::Value(value), Source::Interface).unwrap();
+        bench.perform(id, Input::Value(value), Source::Interface { confirmed: false }).unwrap();
     }
 
     /// A 7-bit knob from full left to `to`.

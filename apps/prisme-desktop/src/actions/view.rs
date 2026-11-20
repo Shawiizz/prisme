@@ -184,10 +184,10 @@ mod tests {
         for (id, value) in
             [("deck1.eq.low", 0.01), ("deck2.fx3.period", 0.2), ("mixer.mic", 0.3), ("deck2.volume", 0.4)]
         {
-            bench.perform(id, Input::Value(value), Source::Interface).unwrap();
+            bench.perform(id, Input::Value(value), Source::Interface { confirmed: false }).unwrap();
         }
         let view = bench.view();
-        let doing = bench.performing(Source::Interface);
+        let doing = bench.performing(Source::Interface { confirmed: false });
         for id in [
             "deck1.eq.low",
             "deck2.fx3.period",

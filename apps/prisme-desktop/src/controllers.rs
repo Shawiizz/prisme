@@ -1160,7 +1160,7 @@ impl Controllers {
         match routed {
             Some(Routed::Learned(mapping)) => host.tell(LEARNED_EVENT, mapping),
             Some(Routed::Actions(actions)) => {
-                self.act(host, actions, Moved { device, at_s, jog_steps_per_turn })
+                self.act(host, actions, Moved { device: device.into(), at_s, jog_steps_per_turn })
             }
             None => {}
         }
@@ -1210,13 +1210,13 @@ impl Controllers {
             match action {
                 Action::Ui(id, input) => {
                     let Some(target) = id.target() else { continue };
-                    if let Some(value) = host.actions().interface_value(moved.device, target, input) {
+                    if let Some(value) = host.actions().interface_value(&moved.device, target, input) {
                         let number = host.actions().tell_interface();
                         host.tell(UI_ACTION_EVENT, UiActionDto { target: id.into(), value, number });
                     }
                 }
                 Action::Rust(target, input) => {
-                    host.perform(&target, input, Source::Controller(moved), in_turn)
+                    host.perform(&target, input, Source::Controller(moved.clone()), in_turn)
                 }
             }
         }
@@ -1237,10 +1237,15 @@ impl Controllers {
                 _ => None,
             })
             .collect();
-        let source = Source::Controller(Moved { device, at_s: 0.0, jog_steps_per_turn });
+        let moved = Moved { device: device.into(), at_s: 0.0, jog_steps_per_turn };
         for deck in touched {
             let touch = Target::Deck(deck, DeckAction::JogTouch);
-            host.perform(&touch, Input::Value(0.0), source, &mut InTurn::default());
+            host.perform(
+                &touch,
+                Input::Value(0.0),
+                Source::Controller(moved.clone()),
+                &mut InTurn::default(),
+            );
         }
     }
 
@@ -1403,7 +1408,11 @@ impl Controllers {
             match pressed {
                 Some((action, at_s)) => {
                     let jog_steps_per_turn = self.jog_steps_per_turn(&device);
-                    self.act(host, vec![action], Moved { device: &device, at_s, jog_steps_per_turn });
+                    self.act(
+                        host,
+                        vec![action],
+                        Moved { device: device.as_str().into(), at_s, jog_steps_per_turn },
+                    );
                 }
                 None => self.show_lights(host, &device),
             }
