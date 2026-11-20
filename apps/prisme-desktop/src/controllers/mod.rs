@@ -141,7 +141,8 @@ struct Holding {
     control: Control,
     hold: Hold,
     since: Instant,
-    /// When it was pressed, on its controller's clock.
+    /// When it was pressed, on its controller's clock; when it was let go, once its release
+    /// waits for its hold.
     at_s: f64,
     /// Timed from `since`.
     pressed: Pressed,
@@ -798,9 +799,10 @@ mod tests {
         assert_eq!(mode(&c), "roll");
         lock(&c.mappings).learn(mode_key(0));
         route(&c, &[0x90, 9, 127]);
-        assert_eq!(c.fired_holds(), [("DDJ".to_owned(), None)]);
+        assert_eq!(c.fired_holds(), [("DDJ".to_owned(), key, None)]);
         assert_eq!(mode(&c), "slicer");
         assert_eq!(route(&c, &[0x90, 9, 0]), None);
+        assert_eq!(c.hold_fired("DDJ", key), None, "a mode chosen: nothing to let go");
         assert_eq!(mode(&c), "slicer", "let go after its hold, its own mode is not chosen");
         lock(&c.reader).set_modes("DDJ", Modes::from([("pads".into(), "cues".into())]));
         route(&c, &[0x90, 9, 127]);
@@ -814,6 +816,23 @@ mod tests {
         let c = with_mappings([with(mapping(PAD, "library.load1"), eject)]);
         assert_eq!(route(&c, &[0x90, 36, 127]), None);
         assert_eq!(route(&c, &[0x90, 36, 0]), inputs_of(&[("deck1.eject", 1.0), ("deck1.eject", 0.0)]));
+    }
+
+    #[test]
+    fn a_key_let_go_while_the_clock_performs_its_hold_lets_it_go_after() {
+        let eject = |b: &mut ProfileControl| b.hold = Some(Hold { ms: 0, target: "deck1.eject".into() });
+        let c = with_mappings([with(mapping(PAD, "library.load1"), eject)]);
+        let action = |value| Action::press(&"deck1.eject".into(), value);
+        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 1.0), None);
+        assert_eq!(c.fired_holds(), [("DDJ".to_owned(), PAD, Some((action(1.0), 1.0)))]);
+        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 0]).unwrap(), 1.5), None, "its hold not performed yet");
+        assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 1.6), None, "pressed again meanwhile");
+        assert_eq!(c.hold_fired("DDJ", PAD), Some((action(0.0), 1.5)), "performed: let go now, as it was");
+        assert_eq!(lock(&c.holdings).len(), 1, "the second press waits");
+        assert_eq!(c.hold_fired("DDJ", PAD), None);
+        c.fired_holds();
+        assert_eq!(c.hold_fired("DDJ", PAD), None, "held on");
+        assert_eq!(route(&c, &[0x90, 36, 0]), inputs_of(&[("deck1.eject", 0.0)]));
     }
 
     #[test]
@@ -851,9 +870,10 @@ mod tests {
         let held = Some((rust("deck1.jog.touch", Input::Value(1.0)), 2.5));
         assert_eq!(
             c.fired_holds(),
-            [("DDJ".to_owned(), held)],
+            [("DDJ".to_owned(), third, held)],
             "held, at its time on the controller's clock"
         );
+        assert_eq!(c.hold_fired("DDJ", third), None);
         assert_eq!(route(&c, &[0x90, 38, 0]), direct("deck1.jog.touch", Input::Value(0.0)));
         assert_eq!(route(&c, &[0x90, 36, 127]), direct("deck1.jog.touch", Input::Value(1.0)), "latched");
         assert_eq!(route(&c, &[0x90, 36, 0]), None);

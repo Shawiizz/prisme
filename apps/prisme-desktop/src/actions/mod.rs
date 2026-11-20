@@ -656,11 +656,15 @@ impl Actions {
         self.started.elapsed().as_secs_f64()
     }
 
-    /// The interface's keys held whose time came in `view`, performed (see `keys`).
+    /// The interface's keys held whose time came in `view`, performed (see `keys`): an action
+    /// let go after it, its key let go meanwhile.
     pub fn fire_keys(&self, host: &impl Host, view: &View) {
-        for target in self.keys.due(self.now_s(), view) {
-            let source = Source::Interface { confirmed: false };
-            host.perform(&target, Input::Value(1.0), source, &mut InTurn::default());
+        let source = || Source::Interface { confirmed: false };
+        for (key, action) in self.keys.due(self.now_s(), view) {
+            host.perform(&action, Input::Value(1.0), source(), &mut InTurn::default());
+            if self.keys.fired(&key) {
+                host.perform(&action, Input::Value(0.0), source(), &mut InTurn::default());
+            }
         }
     }
 

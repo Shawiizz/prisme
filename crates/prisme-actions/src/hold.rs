@@ -40,6 +40,18 @@ pub struct Pressed {
     /// When it acts next, if it still does.
     next_s: Option<f64>,
     acted: bool,
+    firing: Firing,
+}
+
+/// An action due while the key is held, performed by a clock away from the lock keeping the
+/// key: a release coming meanwhile is performed after it, never before.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Firing {
+    No,
+    /// Due, not performed yet.
+    Now,
+    /// Let go meanwhile: its release waits for it.
+    LetGo,
 }
 
 impl Pressed {
@@ -47,11 +59,12 @@ impl Pressed {
         let wait = match timing {
             Timing::Held(ms) | Timing::Repeated { wait: ms, .. } => ms,
         };
-        Self { timing, next_s: Some(now_s + f64::from(wait) / 1000.0), acted: false }
+        Self { timing, next_s: Some(now_s + f64::from(wait) / 1000.0), acted: false, firing: Firing::No }
     }
 
     /// Whether it acts at `now_s`: held long enough (once), or its next repeat come. Asked late
-    /// (a stall), a repeat acts once and goes on at its pace from then.
+    /// (a stall), a repeat acts once and goes on at its pace from then. Acting, it fires until
+    /// its action is performed ([`Self::fired`]).
     pub fn due(&mut self, now_s: f64) -> bool {
         let Some(next_s) = self.next_s.filter(|&next| now_s >= next) else { return false };
         self.next_s = match self.timing {
@@ -59,7 +72,28 @@ impl Pressed {
             Timing::Repeated { every, .. } => Some(next_s.max(now_s) + f64::from(every) / 1000.0),
         };
         self.acted = true;
+        self.firing = Firing::Now;
         true
+    }
+
+    /// Let go: whether its release waits for its action due, not performed yet ([`Self::fired`]
+    /// then says it was let go).
+    pub fn let_go(&mut self) -> bool {
+        if self.firing == Firing::Now {
+            self.firing = Firing::LetGo;
+        }
+        self.released()
+    }
+
+    /// Let go already, its release waiting for its action.
+    pub fn released(&self) -> bool {
+        self.firing == Firing::LetGo
+    }
+
+    /// Its action due performed: whether it was let go meanwhile, its release to be performed
+    /// now.
+    pub fn fired(&mut self) -> bool {
+        std::mem::replace(&mut self.firing, Firing::No) == Firing::LetGo
     }
 
     /// It acted while held: a key with a hold let go then lets its hold go, not its own action.
@@ -80,6 +114,22 @@ mod tests {
         assert!(pressed.due(10.45));
         assert!(!pressed.due(11.0), "once");
         assert!(pressed.acted());
+    }
+
+    #[test]
+    fn a_key_let_go_while_its_action_is_performed_is_let_go_after_it() {
+        let mut pressed = Pressed::new(Timing::Held(450), 0.0);
+        assert!(!pressed.let_go(), "nothing due: let go at once");
+        assert!(pressed.due(0.5));
+        assert!(!pressed.released());
+        assert!(pressed.let_go(), "its action not performed yet");
+        assert!(pressed.released());
+        assert!(pressed.fired(), "performed: let go now");
+        assert!(!pressed.released());
+        let mut kept = Pressed::new(Timing::Held(450), 0.0);
+        kept.due(0.5);
+        assert!(!kept.fired(), "held on");
+        assert!(!kept.let_go(), "its action performed: let go at once");
     }
 
     #[test]

@@ -14,6 +14,9 @@ use prisme_control::hid::Read;
 use prisme_control::{Control, Event, FaderSet, Hold, Mapping, Owner, Reader, TargetId};
 use std::time::{Duration, Instant};
 
+/// An action of a key held, and when on its controller's clock.
+type Timed = (Action, f64);
+
 impl Controllers {
     /// An event of `device`, whose jog wheels turn by `jog_steps_per_turn`, at `at_s` on its
     /// clock.
@@ -212,7 +215,14 @@ impl Controllers {
             });
             return None;
         }
-        let at = holdings.iter().position(|h| h.device == device && h.control == event.control)?;
+        let at = holdings
+            .iter()
+            .position(|h| h.device == device && h.control == event.control && !h.pressed.released())?;
+        if holdings[at].pressed.let_go() {
+            // the clock performs its hold now: let go after it (see `hold_fired`)
+            holdings[at].at_s = at_s;
+            return None;
+        }
         let mut held = holdings.remove(at);
         // let go after its time, the clock late: held all the same
         let late = !held.pressed.acted() && held.pressed.due(held.since.elapsed().as_secs_f64());
@@ -235,37 +245,41 @@ impl Controllers {
         driven(pressed)
     }
 
-    /// The keys held long enough: their hold's action pressed, or its mode chosen.
+    /// The keys held long enough: their hold's action pressed, or its mode chosen; let go after
+    /// it, the key let go meanwhile.
     pub(super) fn fire_holds(&self, host: &impl Host) {
-        for (device, pressed) in self.fired_holds() {
+        for (device, control, pressed) in self.fired_holds() {
             match pressed {
-                Some((action, at_s)) => {
-                    let jog_steps_per_turn = self.jog_steps_per_turn(&device);
-                    self.act(
-                        host,
-                        vec![action],
-                        Moved { device: device.as_str().into(), at_s, jog_steps_per_turn },
-                    );
-                }
+                Some(pressed) => self.act_held(host, &device, pressed),
                 None => self.show_lights(host, &device),
+            }
+            if let Some(let_go) = self.hold_fired(&device, control) {
+                self.act_held(host, &device, let_go);
             }
         }
     }
 
-    /// The holds whose time came, by controller: the action each presses and when, on the
-    /// controller's clock, or `None` for a mode it chose (here).
-    pub(super) fn fired_holds(&self) -> Vec<(String, Option<(Action, f64)>)> {
+    /// The action of a key of `device` held, at its time on the controller's clock.
+    fn act_held(&self, host: &impl Host, device: &str, (action, at_s): Timed) {
+        let jog_steps_per_turn = self.jog_steps_per_turn(device);
+        self.act(host, vec![action], Moved { device: device.into(), at_s, jog_steps_per_turn });
+    }
+
+    /// The holds whose time came, by controller and key: the action each presses and when, on
+    /// the controller's clock, or `None` for a mode it chose (here). Each is said performed
+    /// after ([`Self::hold_fired`]).
+    pub(super) fn fired_holds(&self) -> Vec<(String, Control, Option<Timed>)> {
         let mut fired = Vec::new();
         for held in lock(&self.holdings).iter_mut() {
             if held.pressed.due(held.since.elapsed().as_secs_f64()) {
                 let at_s = held.at_s + f64::from(held.hold.ms) / 1000.0;
-                fired.push((held.device.clone(), held.hold.target.clone(), at_s));
+                fired.push((held.device.clone(), held.control, held.hold.target.clone(), at_s));
             }
         }
         // the reader once the holdings are let go: a key read takes them the other way round
         fired
             .into_iter()
-            .map(|(device, target, at_s)| {
+            .map(|(device, control, target, at_s)| {
                 let pressed = match target.mode() {
                     Some((group, mode)) => {
                         lock(&self.reader).set_mode(&device, group, mode);
@@ -273,9 +287,22 @@ impl Controllers {
                     }
                     None => Some((Action::press(&target, 1.0), at_s)),
                 };
-                (device, pressed)
+                (device, control, pressed)
             })
             .collect()
+    }
+
+    /// The hold of `device`'s key `control` performed: its action let go and when, the key let
+    /// go meanwhile (a mode chosen has nothing to let go).
+    pub(super) fn hold_fired(&self, device: &str, control: Control) -> Option<Timed> {
+        let mut holdings = lock(&self.holdings);
+        let at = holdings.iter().position(|h| h.device == device && h.control == control)?;
+        if !holdings[at].pressed.fired() {
+            return None;
+        }
+        let held = holdings.remove(at);
+        let target = held.hold.target;
+        target.mode().is_none().then(|| (Action::press(&target, 0.0), held.at_s))
     }
 }
 
