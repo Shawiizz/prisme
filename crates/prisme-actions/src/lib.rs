@@ -5,3 +5,4 @@
 
 pub mod scales;
 pub mod stems;
+pub mod sync;
