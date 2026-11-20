@@ -331,9 +331,10 @@ export class LibraryService {
     return invoke<DirListing>('list_dir', { path });
   }
 
-  /** Looks for new or changed files and analyses them, shown as a rescan (see `rescanning`). */
-  rescan(): Promise<void> {
-    return invoke('rescan_library');
+  /** Looks for new or changed files and analyses them, shown as a rescan (see `rescanning`).
+   * Whether it started. */
+  rescan(): Promise<boolean> {
+    return this.attempt(() => invoke('rescan_library'));
   }
 
   /** The list and the rows sent last, whichever came first: a view told before another is not

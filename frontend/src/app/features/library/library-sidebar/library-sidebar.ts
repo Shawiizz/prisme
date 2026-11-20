@@ -14,7 +14,6 @@ import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
 import { Crate, MusicFolder } from '../../../core/models/library';
 import { FileDropService, fileDropAttribute } from '../../../core/services/file-drop.service';
 import { shortPath } from '../../../core/folders';
-import { errorText } from '../../../core/errors';
 import { PHONE } from '../../../core/platform';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { Popover, popoverBeside } from '../../../shared/popover';
@@ -196,8 +195,7 @@ export class LibrarySidebar {
     this.folderMenu.set(null);
     if (!folder) return;
     if (action === 'show') this.library.showInFileManager(folder.path);
-    else if (action === 'rescan')
-      this.library.rescan().catch((e) => this.library.error.set(errorText(e)));
+    else if (action === 'rescan') void this.library.rescan();
     else this.library.removeFolder(folder);
   }
 

@@ -21,7 +21,6 @@ import { dragSize, saveSize, savedSize } from '../../shared/resize';
 import { TrackTable } from './track-table/track-table';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { deckLetter } from '../../shared/time';
-import { errorText } from '../../core/errors';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { LIST_LABEL, SEARCH_PLACEHOLDER } from './list-labels';
 import { PathStep, folderName, lastName, stepsFrom } from '../../core/folders';
@@ -108,6 +107,6 @@ export class Library {
 
   protected startRescan() {
     this.rescanned.set(false);
-    this.library.rescan().catch((e) => this.library.error.set(errorText(e)));
+    void this.library.rescan();
   }
 }

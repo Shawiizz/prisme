@@ -10,7 +10,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { LibraryRow, LibraryView, SortColumn, TrackSource } from '../../../core/models/library';
+import { LibraryRow, LibraryView, SortColumn } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
@@ -24,25 +24,12 @@ import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
 import { t } from '../../../core/i18n/i18n';
-import { errorText } from '../../../core/errors';
+import { emptyText } from '../list-labels';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { lastName, parentOf, shortPath } from '../../../core/folders';
 import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
-
-/** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
-const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {
-  folder: () => t('No audio file in this folder'),
-  crate: () => t('This crate is empty: drag tracks onto it'),
-  history: () => t('No track in this set'),
-  prepare: (key) =>
-    key
-      ? t('Drag tracks here or press {key} to line them up for the set', { key })
-      : t('Drag tracks here to line them up for the set'),
-  duplicates: () => t('No two tracks share an artist and a title'),
-  elsewhere: () => t('Every track is in your folders'),
-};
 
 const STARS = [1, 2, 3, 4, 5];
 /** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */
@@ -143,16 +130,9 @@ export class TrackTable {
     }),
   );
 
-  protected readonly emptyMessage = computed(() => {
-    const unread = this.library.view()?.unread;
-    if (unread) return t('The music folder could not be read: {why}', { why: errorText(unread) });
-    const kind = this.library.source()?.kind ?? 'folder';
-    if (this.library.scope() === 'list')
-      return EMPTY_LIST[kind](this.keyboard.keyOf('library.prepare'));
-    return this.library.filter().trim()
-      ? t('No analysed track matches')
-      : t('Type to search every analysed track');
-  });
+  protected readonly emptyMessage = computed(() =>
+    emptyText(this.library.view(), this.library.filter(), this.keyboard.keyOf('library.prepare')),
+  );
 
   constructor() {
     overlay(
