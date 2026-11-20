@@ -159,25 +159,6 @@ describe('EngineService', () => {
     });
   });
 
-  describe('fewer decks', () => {
-    it('leaves C and D empty, as the backend leaves them', () => {
-      const dj = TestBed.inject(PreferencesService).dj;
-      const decks = (deckCount: number) => {
-        dj.update((p) => ({ ...p, deckCount }));
-        TestBed.tick();
-      };
-      const track = (loadId: number) => ({ loadId }) as TrackInfo;
-      decks(4);
-      engine.tracks.set([track(1), track(2), track(3), track(4)]);
-      engine.waveforms.set(Array(4).fill({} as Waveform));
-      decks(2);
-      expect(engine.tracks()).toEqual([track(1), track(2), null, null]);
-      expect(engine.waveforms().map((w) => w !== null)).toEqual([true, true, false, false]);
-      decks(4);
-      expect(engine.tracks()[2]).toBeNull();
-    });
-  });
-
   describe('a track separated once on its deck', () => {
     const stems = { separation: 'vocals', partial: false } as const;
     const update = (changes: Partial<DeckTrackUpdate>): DeckTrackUpdate => ({

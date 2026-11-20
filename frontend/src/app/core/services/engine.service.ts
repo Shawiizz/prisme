@@ -90,7 +90,6 @@ export class EngineService {
       (_, i) => i,
     ),
   );
-  private readonly deckCount = computed(() => this.deckIndexes().length);
   readonly error = signal<string | null>(null);
   /** Why what the DJ just asked was not done, nothing being wrong: said for a few seconds,
    * or until the next thing asked. */
@@ -107,15 +106,6 @@ export class EngineService {
     // what failed while the audio was away is behind once it runs again
     effect(() => {
       if (this.audioRunning()) untracked(() => this.error.set(null));
-    });
-    // fewer decks leave the others empty, as the backend leaves them
-    effect(() => {
-      const count = this.deckCount();
-      const kept = <T>(values: (T | null)[]) => values.map((v, d) => (d < count ? v : null));
-      untracked(() => {
-        this.tracks.update(kept);
-        this.waveforms.update(kept);
-      });
     });
   }
 
