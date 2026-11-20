@@ -119,6 +119,8 @@ export class LibraryService {
   private analyzed = new Map<string, TrackDetails>();
   /** The number of the last action a controller had the app perform, applied. */
   private appliedAction: number | null = null;
+  /** The track the backend was last told is selected, once told. */
+  private toldPath?: string | null;
 
   /** The folders whose tracks make the library, the main one first. */
   readonly folders = signal<MusicFolder[]>([]);
@@ -284,7 +286,7 @@ export class LibraryService {
   constructor() {
     effect(() => {
       const path = this.selected();
-      untracked(() => void this.tellSelection(path));
+      if (path !== this.toldPath) untracked(() => void this.tellSelection(path));
     });
     effect(() => {
       this.referenceTrack();
@@ -708,6 +710,7 @@ export class LibraryService {
 
   /** Tells the backend the track selected, and the last controller's action applied. */
   private tellSelection(path: string | null): Promise<void> {
+    this.toldPath = path;
     const applied = this.appliedAction;
     return invoke<void>('set_library_selection', { path, applied }).catch((e) =>
       this.error.set(errorText(e)),
