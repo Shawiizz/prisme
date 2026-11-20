@@ -2,6 +2,7 @@
 //! what it needs to word it (`params`), and its English message for the codes the interface
 //! does not know (`errors.ts`).
 
+use crate::dto::LiveSourceDto;
 use prisme_audio_io::latency::LatencyError;
 use prisme_audio_io::AudioError;
 use prisme_media::MediaError;
@@ -46,6 +47,9 @@ pub enum AppError {
     NoPreviewOutput,
     #[error("nothing to record without asking: choose the inputs of your mixer in the Rec menu")]
     NoRecordSource,
+    /// An input of a live source chosen for the other.
+    #[error("the {0:?} source has one of these inputs")]
+    InputTaken(LiveSourceDto),
     /// The track of a deck that plays stays on it, the DJ having chosen so (`eject`: taken off,
     /// else replaced).
     #[error("deck {} plays: its track stays on it", .deck + 1)]
@@ -133,6 +137,7 @@ impl AppError {
             AppError::SilentMaster => ("silentMaster", none()),
             AppError::NoPreviewOutput => ("noPreviewOutput", none()),
             AppError::NoRecordSource => ("noRecordSource", none()),
+            AppError::InputTaken(source) => ("inputTaken", json!({ "source": source })),
             AppError::DeckPlays { deck, eject } => ("deckPlays", json!({ "deck": deck, "eject": eject })),
             AppError::ConfirmReplace { target, deck, eject } => {
                 ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject }))

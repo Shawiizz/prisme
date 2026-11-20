@@ -16,7 +16,14 @@ import {
 import { EngineService } from './engine.service';
 import { same } from '../same';
 
-const LIVE_OFF: LiveState = { input: null, inUse: false, on: false, cue: false };
+const LIVE_OFF: LiveState = {
+  input: null,
+  inUse: false,
+  choices: [],
+  note: null,
+  on: false,
+  cue: false,
+};
 
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,
@@ -33,16 +40,12 @@ export class MixerService {
   readonly crossfader = signal(0);
   /** The mode the user chose. */
   readonly mode = signal<MixMode>('external');
-  /** The mode in use: an external mixer needs an output pair per deck. */
-  readonly modeInUse = signal<MixMode | null>(null);
   /** Where the user wants the headphones: those of the software mixer, or with an external
    * mixer those of the preview. */
   readonly headphones = signal<HeadphonesOutput>({ kind: 'auto' }, { equal: same });
   /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
    * external mixer, a pair no deck uses, for the preview alone. */
   readonly headphonesInUse = signal<number | null>(null);
-  /** Outputs of the running device. */
-  readonly outputChannels = signal<number | null>(null);
   /** Headphones: the cue on the left and the master on the right, each in mono. */
   readonly splitCue = signal(false);
   readonly crossfaderCurve = signal<CrossfaderCurve>('smooth');
@@ -57,14 +60,21 @@ export class MixerService {
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
   readonly talkover = signal(false);
   readonly talkoverDepthDb = signal(-18);
-  /** The inputs of the running device the turntables leave free (0-based). */
-  readonly freeInputs = signal<number[]>([], { equal: same });
   /** What was recorded last: a recording started without asking takes it again. */
   readonly recordSource = signal<RecordSource | null>(null, { equal: same });
   /** The software mixer is in use. */
-  readonly internal = computed(() => (this.modeInUse() ?? this.mode()) === 'internal');
-  /** External mode asked for, but the device has too few outputs: the software mixer runs. */
-  readonly fallback = computed(() => this.mode() === 'external' && this.modeInUse() === 'internal');
+  readonly internal = signal(false);
+  /** External mode asked for, but the device has too few outputs (it needs this many): the
+   * software mixer runs. */
+  readonly fallback = signal<number | null>(null);
+  /** The routing as the backend tells it: first outputs of the decks, the pairs the
+   * headphones and the booth can take and where they are heard. */
+  readonly routing = signal<Pick<
+    MixerState,
+    'deckOutputs' | 'headphonesChoices' | 'headphonesNote' | 'boothChoices' | 'boothNote'
+  > | null>(null, { equal: same });
+  /** What the Rec menu offers. */
+  readonly recordOptions = signal<MixerState['recordOptions']>([], { equal: same });
 
   /** The mixer as the backend last told it: the same while it tells other sections. */
   private readonly told = computed(() => this.engine.controls()?.mixer);
@@ -77,27 +87,32 @@ export class MixerService {
     });
   }
 
-  /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`): its own pair, or
-   * that of the deck it is layered over when the device has no pair for each deck. */
+  /** The outputs of `deck` to an external mixer, counting from 1 (`3-4`). */
   outputsOf(deck: number): string {
-    const decks = this.engine.deckIndexes().length;
-    const pair = (this.outputChannels() ?? 0) >= 2 * decks ? deck : deck % 2;
-    return `${pair * 2 + 1}-${pair * 2 + 2}`;
+    const first = this.routing()?.deckOutputs[deck] ?? 0;
+    return `${first + 1}-${first + 2}`;
   }
 
   apply(state: MixerState) {
     this.knobs.set(state.knobs);
     this.crossfader.set(state.crossfader);
     this.mode.set(state.mode);
-    this.modeInUse.set(state.modeInUse);
+    this.internal.set(state.internal);
+    this.fallback.set(state.fallback);
+    this.routing.set({
+      deckOutputs: state.deckOutputs,
+      headphonesChoices: state.headphonesChoices,
+      headphonesNote: state.headphonesNote,
+      boothChoices: state.boothChoices,
+      boothNote: state.boothNote,
+    });
+    this.recordOptions.set(state.recordOptions);
     this.headphones.set(state.headphones);
     this.headphonesInUse.set(state.headphonesInUse);
-    this.outputChannels.set(state.outputChannels);
     this.booth.set(state.booth);
     this.boothInUse.set(state.boothInUse);
     this.mic.set(state.mic);
     this.aux.set(state.aux);
-    this.freeInputs.set(state.freeInputs);
     this.splitCue.set(state.splitCue);
     this.crossfaderCurve.set(state.crossfaderCurve);
     this.crossfaderReverse.set(state.crossfaderReverse);

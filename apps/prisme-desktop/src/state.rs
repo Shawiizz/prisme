@@ -1051,7 +1051,7 @@ pub fn free_inputs(info: &AudioInfo) -> Vec<usize> {
 }
 
 /// The channels chosen for a live source, if they are all `free`.
-fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option<InputChannelsDto> {
+pub fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option<InputChannelsDto> {
     chosen.filter(|c| c.channels().all(|channel| free.contains(&channel)))
 }
 
@@ -1122,6 +1122,9 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
     commands
 }
 
+/// The outputs an external mixer needs: two pairs.
+pub const EXTERNAL_MIXER_OUTPUTS: usize = 4;
+
 /// The routing `mixer` asks for on the device of `info`: an external mixer needs two output
 /// pairs (four decks share them if there are no more, see `deck_pair`), its headphones a pair
 /// of their own for the preview, after the decks' on an ASIO interface by default; else the
@@ -1129,7 +1132,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
 fn routing_for(mixer: MixerPreferences, info: &AudioInfo) -> OutputRouting {
     let outputs = info.output_channels;
     let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
-    if mixer.mode != MixModeDto::External || outputs < 4 {
+    if mixer.mode != MixModeDto::External || outputs < EXTERNAL_MIXER_OUTPUTS {
         let headphones = headphones_output(mixer.headphones, info.backend, outputs);
         let booth = booth_output(mixer.booth, headphones, outputs);
         return OutputRouting {

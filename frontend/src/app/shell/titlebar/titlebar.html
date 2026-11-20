@@ -64,12 +64,14 @@
         >{{ 'library not saved' | t }}</span
       >
     }
-    @if (mixer.fallback() && settings.turntables()) {
+    @if (settings.turntables() && mixer.fallback(); as outputs) {
       <span
         class="pr-chip pr-chip--warn notice"
         [title]="'Each deck needs its own pair of outputs' | t"
       >
-        <span class="pr-chip__text">{{ 'External mixer needs 4 outputs' | t }}</span>
+        <span class="pr-chip__text">{{
+          'External mixer needs {n} outputs' | t: { n: outputs }
+        }}</span>
       </span>
     }
     @if (engine.status()?.health; as h) {

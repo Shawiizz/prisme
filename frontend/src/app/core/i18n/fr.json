@@ -212,7 +212,6 @@
   "Headphone volume": "Volume du casque",
   "Crossfader curve: smooth for blending, sharp for scratching": "Courbe du crossfader : douce pour les enchaînements, sèche pour le scratch",
   "Each deck needs its own pair of outputs": "Chaque deck a besoin de sa paire de sorties",
-  "External mixer needs 4 outputs": "Table externe : 4 sorties nécessaires",
   "Volume of deck {deck}": "Volume du deck {deck}",
   "Level sent to outputs {outputs}": "Niveau envoyé aux sorties {outputs}",
   "Pad mode": "Mode des pads",
@@ -969,5 +968,8 @@
   "Remove “{title}” from Prisme?": "Retirer « {title} » de Prisme ?",
   "Remove these {n} tracks from Prisme?": "Retirer ces {n} morceaux de Prisme ?",
   "It leaves the library. The file stays where it is.": "Il quitte la bibliothèque. Le fichier reste où il est.",
-  "They leave the library. The files stay where they are.": "Ils quittent la bibliothèque. Les fichiers restent où ils sont."
+  "They leave the library. The files stay where they are.": "Ils quittent la bibliothèque. Les fichiers restent où ils sont.",
+  "External mixer needs {n} outputs": "Table externe : {n} sorties nécessaires",
+  "The microphone has one of these inputs": "Le micro a l’une de ces entrées",
+  "The aux line has one of these inputs": "La ligne aux a l’une de ces entrées"
 }

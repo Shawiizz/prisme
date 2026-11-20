@@ -21,7 +21,13 @@ import { StemsService } from '../../core/services/stems.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
 import { AudioBackend, AudioSettings, BACKEND_NAMES, BUFFER_SIZES } from '../../core/models/audio';
-import { InputChannels, LiveSource, MAX_DECKS, MixMode } from '../../core/models/engine';
+import {
+  InputChannels,
+  LiveSource,
+  MAX_DECKS,
+  MixMode,
+  OutputNote,
+} from '../../core/models/engine';
 import { DjPreferences, LibraryPreferences, PITCH_RANGES } from '../../core/models/preferences';
 import { LANGUAGES, language, setLanguage, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
@@ -35,7 +41,6 @@ import { SettingsSearch } from './settings-search';
 import { SettingControl, SettingRow } from './setting-row';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
-import { boothPairs } from '../../core/outputs';
 import { errorText } from '../../core/errors';
 import { Dismiss, overlay } from '../../shared/overlay';
 
@@ -50,26 +55,6 @@ const TALKOVER_DEPTHS = [-6, -12, -18, -24];
 /** A choice of input channels as the value of an option. */
 function inputKey(input: InputChannels | null): string {
   return input ? `${input.stereo ? 'pair' : 'one'}${input.first}` : '';
-}
-
-/** What a live source can come in on among the `free` inputs the `other` source leaves: each
- * pair, and each input alone if it can be `mono`; the one `chosen` as well, on this device or
- * not. */
-function inputChoices(
-  free: number[],
-  other: InputChannels | null,
-  chosen: InputChannels | null,
-  mono: boolean,
-): InputChannels[] {
-  if (other)
-    free = free.filter((c) => c !== other.first && !(other.stereo && c === other.first + 1));
-  const choices: InputChannels[] = [];
-  for (const first of free) {
-    if (mono) choices.push({ first, stereo: false });
-    if (first % 2 === 0 && free.includes(first + 1)) choices.push({ first, stereo: true });
-  }
-  if (chosen && !choices.some((c) => inputKey(c) === inputKey(chosen))) choices.push(chosen);
-  return choices;
 }
 
 /**
@@ -132,54 +117,28 @@ export class SettingsDialog implements OnInit {
   protected readonly quantize = computed(() => this.engine.controls()?.quantize ?? false);
   protected readonly pitchRange = computed(() => this.engine.controls()?.pitchRange ?? null);
   /** The pairs the headphones can take on the running device, with the one chosen. */
-  protected readonly headphonesPairs = computed(() => {
-    const pairs = new Set<number>();
-    for (let first = 2; first + 2 <= (this.mixer.outputChannels() ?? 0); first += 2)
-      pairs.add(first);
-    const chosen = this.mixer.headphones();
-    if (chosen.kind === 'pair') pairs.add(chosen.first);
-    return [...pairs].sort((a, b) => a - b);
-  });
+  protected readonly headphonesPairs = computed(
+    () => this.mixer.routing()?.headphonesChoices ?? [],
+  );
   /** What the choice of the headphones does, and where they are heard on the running device. */
   protected readonly headphonesHelp = computed(() => {
     const described = SETTING_BY_ID.get('mixing.headphones')!.description();
     const help = this.mixer.internal()
       ? described
       : `${described} ${t('With an external mixer, only the preview plays there, on a pair no deck uses; Automatic takes the pair after the decks’ on an ASIO interface.')}`;
-    if (this.mixer.outputChannels() === null) return help;
-    const first = this.mixer.headphonesInUse();
-    return first === null
-      ? `${help} ${t('Not heard on this device.')}`
-      : `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
+    return withNote(help, this.mixer.routing()?.headphonesNote ?? null);
   });
-  /** The headphones' pair on the software mixer of the running device, which the booth
-   * cannot share. */
-  private readonly headphonesPair = computed(() =>
-    this.mixer.internal() ? this.mixer.headphonesInUse() : null,
-  );
   /** The pairs the booth can take on the running device (the master has 1-2, the headphones
    * theirs), with the one chosen. */
-  protected readonly boothPairs = computed(() =>
-    boothPairs(this.mixer.outputChannels() ?? 0, this.headphonesPair(), this.mixer.booth()),
+  protected readonly boothPairs = computed(() => this.mixer.routing()?.boothChoices ?? []);
+  protected readonly boothHelp = computed(() =>
+    withNote(
+      SETTING_BY_ID.get('mixing.booth')!.description(),
+      this.mixer.routing()?.boothNote ?? null,
+    ),
   );
-  protected readonly boothHelp = computed(() => {
-    const help = SETTING_BY_ID.get('mixing.booth')!.description();
-    if (!this.mixer.internal() || this.mixer.outputChannels() === null) return help;
-    const first = this.mixer.boothInUse();
-    if (first !== null)
-      return `${help} ${t('Now on outputs {a}-{b}.', { a: first + 1, b: first + 2 })}`;
-    const chosen = this.mixer.booth();
-    if (chosen === null) return help;
-    return chosen === this.headphonesPair()
-      ? `${help} ${t('Not heard: the headphones are on outputs {a}-{b}.', { a: chosen + 1, b: chosen + 2 })}`
-      : `${help} ${t('Not on this device.')}`;
-  });
-  protected readonly micChoices = computed(() =>
-    inputChoices(this.mixer.freeInputs(), this.mixer.aux().input, this.mixer.mic().input, true),
-  );
-  protected readonly auxChoices = computed(() =>
-    inputChoices(this.mixer.freeInputs(), this.mixer.mic().input, this.mixer.aux().input, false),
-  );
+  protected readonly micChoices = computed(() => this.mixer.mic().choices);
+  protected readonly auxChoices = computed(() => this.mixer.aux().choices);
   protected readonly micHelp = computed(() => this.liveHelp('mic', 'mixing.mic'));
   protected readonly auxHelp = computed(() => this.liveHelp('aux', 'mixing.aux'));
   protected readonly talkoverDepths = TALKOVER_DEPTHS;
@@ -382,12 +341,14 @@ export class SettingsDialog implements OnInit {
   /** What a live source does, and why it is not heard on the running device. */
   private liveHelp(source: LiveSource, setting: string): string {
     const help = SETTING_BY_ID.get(setting)!.description();
-    if (this.mixer.outputChannels() === null) return help;
-    const state = this.mixer.live(source)();
-    if (state.input && !state.inUse) return `${help} ${t('Not on this device.')}`;
-    if (!state.input && this.mixer.freeInputs().length === 0)
-      return `${help} ${t('The turntables take every input of this device.')}`;
-    return help;
+    switch (this.mixer.live(source)().note) {
+      case 'notOnDevice':
+        return `${help} ${t('Not on this device.')}`;
+      case 'turntablesTakeAll':
+        return `${help} ${t('The turntables take every input of this device.')}`;
+      case null:
+        return help;
+    }
   }
 
   setHeadphones(value: string) {
@@ -487,4 +448,18 @@ export class SettingsDialog implements OnInit {
   }
 }
 
-/** Every word typed is found in the text. */
+/** `help`, and where the output is heard on the running device, or why not. */
+function withNote(help: string, note: OutputNote | null): string {
+  switch (note?.kind) {
+    case undefined:
+      return help;
+    case 'on':
+      return `${help} ${t('Now on outputs {a}-{b}.', { a: note.first + 1, b: note.first + 2 })}`;
+    case 'notHeard':
+      return `${help} ${t('Not heard on this device.')}`;
+    case 'takenByHeadphones':
+      return `${help} ${t('Not heard: the headphones are on outputs {a}-{b}.', { a: note.first + 1, b: note.first + 2 })}`;
+    case 'notOnDevice':
+      return `${help} ${t('Not on this device.')}`;
+  }
+}

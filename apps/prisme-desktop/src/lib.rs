@@ -32,6 +32,7 @@ mod android_jni;
 mod audio_host;
 mod audio_watchdog;
 mod auto_dj;
+mod choices;
 mod commands;
 mod controller_hid;
 mod controller_profiles;

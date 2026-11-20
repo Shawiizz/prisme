@@ -2,6 +2,7 @@
 
 use crate::auto_dj::machine::{Reason, State, Status, Takeover};
 use crate::auto_dj::plan::FadeLength;
+use crate::choices::{BoothChoice, LiveNote, OutputNote};
 use crate::commands::mixer::mixer_state_of;
 use crate::state::{lock, AppState, LoadedTrack, Section};
 use prisme_actions::knobs::{MixerKnobs, StripKnobs};
@@ -940,6 +941,10 @@ pub struct LiveStateDto {
     pub input: Option<InputChannelsDto>,
     /// They are on the running device, left free by the turntables.
     pub in_use: bool,
+    /// What it can come in on: the inputs the turntables and the other source leave.
+    pub choices: Vec<InputChannelsDto>,
+    /// Why it is not heard on the running device.
+    pub note: Option<LiveNote>,
     pub on: bool,
     pub cue: bool,
 }
@@ -955,14 +960,20 @@ pub struct MixerStateDto {
     pub crossfader: f32,
     /// The mode the user chose.
     pub mode: MixModeDto,
-    /// The mode in use: an external mixer needs an output pair per deck.
-    pub mode_in_use: Option<MixModeDto>,
+    /// The software mixer is in use (or would be, the audio off).
+    pub internal: bool,
+    /// An external mixer chosen, the device too small for it: the outputs it needs.
+    pub fallback: Option<usize>,
+    /// The first output each deck in use plays on to an external mixer (0-based).
+    pub deck_outputs: Vec<usize>,
     pub headphones: HeadphonesOutputDto,
     /// The first output of the headphones in use, if they are heard: with an external mixer,
     /// a pair no deck uses, for the preview alone.
     pub headphones_in_use: Option<usize>,
-    /// Outputs of the running device.
-    pub output_channels: Option<usize>,
+    /// The pairs the headphones can take, with the one chosen (first outputs).
+    pub headphones_choices: Vec<usize>,
+    /// Where the headphones are heard on the running device.
+    pub headphones_note: Option<OutputNote>,
     /// Headphones: the cue on the left and the master on the right.
     pub split_cue: bool,
     pub crossfader_curve: CrossfaderCurveDto,
@@ -972,14 +983,26 @@ pub struct MixerStateDto {
     /// The first output of the booth chosen, and the one in use if it is heard.
     pub booth: Option<usize>,
     pub booth_in_use: Option<usize>,
+    pub booth_choices: Vec<BoothChoice>,
+    /// Where the booth chosen is heard, or why not, on the software mixer of the running device.
+    pub booth_note: Option<OutputNote>,
     pub mic: LiveStateDto,
     pub aux: LiveStateDto,
     pub talkover: bool,
     pub talkover_depth_db: f32,
-    /// The inputs of the running device the turntables leave free (0-based).
-    pub free_inputs: Vec<usize>,
     /// What was recorded last.
     pub record_source: Option<RecordSourceDto>,
+    /// What can be recorded on the running device.
+    pub record_options: Vec<RecordOptionDto>,
+}
+
+/// A source the Rec menu offers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RecordOptionDto {
+    pub source: RecordSourceDto,
+    /// A turntable comes into these inputs: its timecode would be recorded.
+    pub turntable: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]

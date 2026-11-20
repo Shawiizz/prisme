@@ -543,6 +543,10 @@ export interface LiveState {
   input: InputChannels | null;
   /** They are on the running device, left free by the turntables. */
   inUse: boolean;
+  /** What it can come in on: the inputs the turntables and the other source leave. */
+  choices: InputChannels[];
+  /** Why it is not heard on the running device. */
+  note: 'notOnDevice' | 'turntablesTakeAll' | null;
   /** Heard in the master. */
   on: boolean;
   /** Heard in the headphones. */
@@ -576,14 +580,20 @@ export interface MixerState {
   /** From -1 (left) to 1. */
   crossfader: number;
   mode: MixMode;
-  /** An external mixer needs an output pair per deck; `null` without audio. */
-  modeInUse: MixMode | null;
+  /** The software mixer is in use (or would be, the audio off). */
+  internal: boolean;
+  /** An external mixer chosen, the device too small for it: the outputs it needs. */
+  fallback: number | null;
+  /** The first output (0-based) each deck in use plays on to an external mixer. */
+  deckOutputs: number[];
   headphones: HeadphonesOutput;
   /** First output (0-based) of the headphones in use; `null` when they are not heard. With an
    * external mixer, a pair no deck uses, for the preview alone. */
   headphonesInUse: number | null;
-  /** Outputs of the running device; `null` without audio. */
-  outputChannels: number | null;
+  /** The pairs the headphones can take, with the one chosen (first outputs). */
+  headphonesChoices: number[];
+  /** Where the headphones are heard on the running device. */
+  headphonesNote: OutputNote | null;
   /** Headphones: the cue on the left and the master on the right, each in mono. */
   splitCue: boolean;
   crossfaderCurve: CrossfaderCurve;
@@ -594,16 +604,27 @@ export interface MixerState {
   /** First output (0-based) of the booth chosen, and of the booth in use. */
   booth: number | null;
   boothInUse: number | null;
+  /** The pairs the booth can take: `taken` by the headphones, or free. */
+  boothChoices: { first: number; taken: boolean }[];
+  /** Where the booth chosen is heard, or why not, on the software mixer of the running device. */
+  boothNote: OutputNote | null;
   mic: LiveState;
   aux: LiveState;
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
   talkover: boolean;
   talkoverDepthDb: number;
-  /** The inputs of the running device the turntables leave free (0-based). */
-  freeInputs: number[];
   /** What was recorded last. */
   recordSource: RecordSource | null;
+  /** What can be recorded on the running device: a turntable's inputs told apart. */
+  recordOptions: { source: RecordSource; turntable: boolean }[];
 }
+
+/** Why an output chosen is heard or not on the running device. */
+export type OutputNote =
+  | { kind: 'on'; first: number }
+  | { kind: 'notHeard' }
+  | { kind: 'takenByHeadphones'; first: number }
+  | { kind: 'notOnDevice' };
 
 /** The decks there can be: two are shown, or all four (a preference). */
 export const MAX_DECKS = 4;

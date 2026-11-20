@@ -1,7 +1,7 @@
 //! What the DJ sets for every deck (quantize), and the recording of the mix (see `recording`).
 
 use super::Performing;
-use crate::dto::{MixModeDto, RecordSourceDto, RecordingDto};
+use crate::dto::{AudioInfo, MixModeDto, RecordOptionDto, RecordSourceDto, RecordingDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::recording::Recorder;
@@ -74,17 +74,35 @@ fn preferred_source(
     kept.or_else(|| offered.iter().copied().find(|&s| s == RecordSourceDto::Master))
 }
 
+/// What can be recorded on the device of `info` with the software mixer mixing or not
+/// (`internal`): its master, then each input pair, those a turntable comes into told apart.
+pub fn record_options(internal: bool, info: Option<&AudioInfo>) -> Vec<RecordOptionDto> {
+    let master = internal.then_some(RecordOptionDto { source: RecordSourceDto::Master, turntable: false });
+    let inputs = info.map_or(0, |info| info.input_channels);
+    let free = info.map(free_inputs).unwrap_or_default();
+    let pairs = (0..inputs.saturating_sub(1)).step_by(2).map(|first| RecordOptionDto {
+        source: RecordSourceDto::Input { first },
+        turntable: !free.contains(&first),
+    });
+    master.into_iter().chain(pairs).collect()
+}
+
 /// What a recording started without asking takes on the running device (see
 /// [`preferred_source`]): its master if the software mixer mixes, else one of its input pairs.
 fn preferred_on(state: &AppState) -> Option<RecordSourceDto> {
     let info = lock(&state.session).as_ref().map(|s| s.info.clone());
     let mixer = state.preferences.read(|p| p.mixer);
     let mode = info.as_ref().map_or(mixer.mode, |info| state.routing(info).mode.into());
-    let inputs = info.as_ref().map_or(0, |info| info.input_channels);
-    let master = (mode == MixModeDto::Internal).then_some(RecordSourceDto::Master);
-    let pairs = (0..inputs.saturating_sub(1)).step_by(2).map(|first| RecordSourceDto::Input { first });
-    let offered: Vec<RecordSourceDto> = master.into_iter().chain(pairs).collect();
-    let free = info.as_ref().map(free_inputs).unwrap_or_default();
+    let options = record_options(mode == MixModeDto::Internal, info.as_ref());
+    let offered: Vec<RecordSourceDto> = options.iter().map(|o| o.source).collect();
+    let free: Vec<usize> = options
+        .iter()
+        .filter(|o| !o.turntable)
+        .filter_map(|o| match o.source {
+            RecordSourceDto::Input { first } => Some(first),
+            RecordSourceDto::Master => None,
+        })
+        .collect();
     preferred_source(&offered, mixer.record_source, &free)
 }
 

@@ -42,6 +42,10 @@ const TEXTS: Record<string, (p: Params) => string> = {
     t('Your own mixer mixes: the master of Prisme plays nothing. Record the inputs of your mixer'),
   noPreviewOutput: () =>
     t('No headphones of their own to preview in: choose their outputs in the settings'),
+  inputTaken: (p) =>
+    p['source'] === 'mic'
+      ? t('The microphone has one of these inputs')
+      : t('The aux line has one of these inputs'),
   noRecordSource: () =>
     t('Nothing to record without asking: choose the inputs of your mixer in the Rec menu'),
   genreNotWritten: (p) =>
