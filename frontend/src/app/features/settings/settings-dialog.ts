@@ -176,7 +176,7 @@ export class SettingsDialog implements OnInit {
   private readonly listDraftDevices = effect(() => {
     const backend = this.draftBackend();
     this.service.info();
-    if (backend) void this.service.loadDevices(backend);
+    if (backend) this.saved(this.service.loadDevices(backend));
   });
   /** One device for the outputs and, if the turntables are on it, the inputs: an ASIO driver,
    * a USB card Prisme drives itself. */
@@ -235,7 +235,7 @@ export class SettingsDialog implements OnInit {
   }
 
   async ngOnInit() {
-    void this.service.loadBackends();
+    this.saved(this.service.loadBackends());
     this.version.set(await getVersion().catch(() => ''));
   }
 
@@ -289,18 +289,22 @@ export class SettingsDialog implements OnInit {
   change(change: AudioChange): Promise<void> {
     return this.drafting.run(async () => {
       const draft = this.draft();
-      if (draft)
-        this.drafted.set(await invoke<AudioDraft>('change_audio_draft', { draft, change }));
+      if (draft) await this.shape(draft, change);
     });
   }
 
   /** The draft started again from `settings`, as the backend shapes it. */
   private redraft(settings: AudioSettings): Promise<void> {
-    return this.drafting.run(async () =>
-      this.drafted.set(
-        await invoke<AudioDraft>('change_audio_draft', { draft: settings, change: null }),
-      ),
-    );
+    return this.drafting.run(() => this.shape(settings, null));
+  }
+
+  /** `draft` with `change` as the backend shapes it, drafted: what failed shown. */
+  private async shape(draft: AudioSettings, change: AudioChange | null) {
+    try {
+      this.drafted.set(await invoke<AudioDraft>('change_audio_draft', { draft, change }));
+    } catch (e) {
+      this.error.set(errorText(e));
+    }
   }
 
   set<K extends keyof Settings>(setting: K, value: Settings[K]) {
@@ -318,7 +322,7 @@ export class SettingsDialog implements OnInit {
     this.saved(this.library.setRoot(null));
   }
 
-  /** A preference saving: what fails is told under the page. */
+  /** A preference saving, or a list read: what fails is told under the page. */
   private saved(saving: Promise<void>) {
     saving.catch((e) => this.error.set(errorText(e)));
   }
@@ -380,11 +384,9 @@ export class SettingsDialog implements OnInit {
   protected readonly stemsFast = computed(() => this.preferences.library().stemsFast);
 
   /** Another backend has other devices: start again from its defaults. */
-  async setBackend(backend: AudioBackend) {
-    await Promise.all([
-      this.change({ setting: 'backend', value: backend }),
-      this.service.loadDevices(backend),
-    ]);
+  setBackend(backend: AudioBackend) {
+    void this.change({ setting: 'backend', value: backend });
+    this.saved(this.service.loadDevices(backend));
   }
 
   /** Plays clicks on the output chosen and times their return on the input chosen. */
@@ -428,7 +430,7 @@ export class SettingsDialog implements OnInit {
     await this.drafting.settled();
     this.mixMode.set(this.mixer.mode());
     const settings = this.service.settings();
-    await this.service.loadDevices(settings.backend);
+    this.saved(this.service.loadDevices(settings.backend));
     await this.redraft(settings);
   }
 
