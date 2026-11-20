@@ -12,7 +12,7 @@
 //! maker's driver then speaks to the device itself.
 
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::controller_direct::Performer;
+use crate::controller_direct::{Moved, Performer};
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
@@ -1094,7 +1094,9 @@ impl Controllers {
         }
         match routed {
             Some(Routed::Learned(mapping)) => drop(app.emit("controller-learned", mapping)),
-            Some(Routed::Actions(actions)) => self.act(app, actions, at_s, jog_steps_per_turn),
+            Some(Routed::Actions(actions)) => {
+                self.act(app, actions, Moved { device, at_s, jog_steps_per_turn })
+            }
             None => {}
         }
     }
@@ -1128,15 +1130,13 @@ impl Controllers {
         Reported::Events(read.events(&fields))
     }
 
-    /// Performs what a controller drove at `at_s` on its clock: the UI is told its actions, the
-    /// direct ones are done here.
-    fn act(&self, app: &AppHandle, actions: Vec<Action>, at_s: f64, jog_steps_per_turn: f64) {
+    /// Performs what a controller drove (`moved`): the UI is told its actions, the direct ones
+    /// are done here.
+    fn act(&self, app: &AppHandle, actions: Vec<Action>, moved: Moved) {
         for action in actions {
             match action {
                 Action::Ui(input) => drop(app.emit("controller-input", input)),
-                Action::Rust(deck, action, value) => {
-                    self.perform(app, deck, action, value, at_s, jog_steps_per_turn)
-                }
+                Action::Rust(deck, action, value) => self.perform(app, moved, deck, action, value),
             }
         }
     }
@@ -1159,7 +1159,8 @@ impl Controllers {
             })
             .collect();
         for deck in touched {
-            self.perform(app, deck, DeckAction::JogTouch, 0.0, 0.0, jog_steps_per_turn);
+            let moved = Moved { device, at_s: 0.0, jog_steps_per_turn };
+            self.perform(app, moved, deck, DeckAction::JogTouch, 0.0);
         }
     }
 
@@ -1318,7 +1319,7 @@ impl Controllers {
             match pressed {
                 Some((action, at_s)) => {
                     let jog_steps_per_turn = self.jog_steps_per_turn(&device);
-                    self.act(app, vec![action], at_s, jog_steps_per_turn);
+                    self.act(app, vec![action], Moved { device: &device, at_s, jog_steps_per_turn });
                 }
                 None => self.show_lights(&device),
             }
@@ -1374,16 +1375,9 @@ impl Controllers {
         Some(fine_mapping)
     }
 
-    /// Drives the engine for `action` of `deck`, performed here; the UI hears of a new tempo.
-    fn perform(
-        &self,
-        app: &AppHandle,
-        deck: usize,
-        action: DeckAction,
-        value: f32,
-        at_s: f64,
-        jog_steps_per_turn: f64,
-    ) {
+    /// Drives the engine for `action` of `deck`, performed here, as `moved`; the UI hears of a
+    /// new tempo.
+    fn perform(&self, app: &AppHandle, moved: Moved, deck: usize, action: DeckAction, value: f32) {
         let state = app.state::<AppState>();
         if state.has_deck(deck).is_err() {
             return;
@@ -1394,9 +1388,7 @@ impl Controllers {
         }
         let range = state.tempo_range(deck);
         let tempo = Tempo { ratio: lock(&state.decks)[deck].pitch, range };
-        let Some(command) =
-            lock(&self.performer).command(deck, action, value, at_s, jog_steps_per_turn, tempo)
-        else {
+        let Some(command) = lock(&self.performer).command(moved, deck, action, value, tempo) else {
             return;
         };
         if action != DeckAction::Pitch {
