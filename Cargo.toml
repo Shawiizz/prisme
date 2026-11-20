@@ -20,6 +20,7 @@ prisme-session = { path = "crates/prisme-session" }
 prisme-import = { path = "crates/prisme-import" }
 prisme-dsp = { path = "crates/prisme-dsp" }
 prisme-control = { path = "crates/prisme-control" }
+prisme-actions = { path = "crates/prisme-actions" }
 prisme-stems = { path = "crates/prisme-stems" }
 
 anyhow = "1"

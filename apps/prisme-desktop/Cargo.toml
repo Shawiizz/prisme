@@ -24,6 +24,7 @@ prisme-library.workspace = true
 prisme-session.workspace = true
 prisme-import.workspace = true
 prisme-control.workspace = true
+prisme-actions.workspace = true
 prisme-stems.workspace = true
 midir.workspace = true
 tracing.workspace = true

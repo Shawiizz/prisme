@@ -4181,6 +4181,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "prisme-actions"
+version = "0.4.0"
+dependencies = [
+ "prisme-control",
+]
+
+[[package]]
 name = "prisme-analysis"
 version = "0.4.0"
 dependencies = [
@@ -4240,6 +4247,7 @@ dependencies = [
  "objc2-app-kit",
  "objc2-foundation",
  "percent-encoding",
+ "prisme-actions",
  "prisme-analysis",
  "prisme-audio-io",
  "prisme-control",

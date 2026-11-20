@@ -3,29 +3,12 @@
 //! under shift say), and the tempo faders, moved finely. The UI hears of the tempo it then
 //! shows (`deck-pitch`).
 
+use prisme_actions::scales::Tempo;
 use prisme_control::{DeckAction, Pickup};
 use prisme_engine::Command;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
-
-/// What a deck's tempo fader acts on: the tempo now and the fader's range.
-#[derive(Debug, Clone, Copy)]
-pub struct Tempo {
-    pub ratio: f64,
-    pub range: f64,
-}
-
-impl Tempo {
-    /// The fader position of the tempo (0-1, the middle being the track's own tempo).
-    fn position(self) -> f32 {
-        (0.5 + (self.ratio - 1.0) / (2.0 * self.range)).clamp(0.0, 1.0) as f32
-    }
-
-    fn at(self, position: f32) -> f64 {
-        1.0 + (f64::from(position) * 2.0 - 1.0) * self.range
-    }
-}
 
 /// Turns direct actions into engine commands, with the pickup of each tempo fader.
 #[derive(Debug, Default)]

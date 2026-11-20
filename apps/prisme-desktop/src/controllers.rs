@@ -12,13 +12,14 @@
 //! maker's driver then speaks to the device itself.
 
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::controller_direct::{Performer, Tempo};
+use crate::controller_direct::Performer;
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::{ControllerInputDto, DeckPitchDto, LightDto, OutputDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{Ignore, MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
+use prisme_actions::scales::Tempo;
 use prisme_audio_io::base_device_name;
 use prisme_control::hid::{self, Field, Learnt, Read};
 use prisme_control::{

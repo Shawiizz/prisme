@@ -1,0 +1,11 @@
+[package]
+name = "prisme-actions"
+description = "What the application's actions decide, apart from what they drive: the scales of the knobs, the parts of a separated track, the phase and the keys of two decks, how a control's moves reach its action"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+prisme-control.workspace = true
