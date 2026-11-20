@@ -103,13 +103,13 @@ fn prepare(path: PathBuf, library: &LibraryDb) -> AppResult<(LoadedTrack, Comple
     let stored = stamp
         .and_then(|s| library.get(&path).ok().flatten().filter(|r| r.is_current(s) && r.error.is_none()));
     let waveform = match stamp.and_then(|s| library.waveform(&path, s).ok().flatten()) {
-        Some(stored) => TrackWaveform::Whole(stored),
+        Some(stored) => TrackWaveform::whole(stored),
         None => TrackWaveform::growing(WAVEFORM_SLICES_PER_S),
     };
     let completion = Completion {
         path: path.clone(),
         stamp,
-        waveform_missing: waveform.whole().is_none(),
+        waveform_missing: !waveform.is_whole(),
         analysis_missing: stored.is_none(),
         loading,
     };

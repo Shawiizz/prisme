@@ -18,6 +18,7 @@ use crate::library_service::LibraryService;
 use crate::preferences::AutoDjPreferences;
 use crate::state::{lock, AppState};
 use crate::track_loading;
+use crate::track_waveform::TrackWaveform;
 pub use machine::Takeover;
 use machine::{Action, DeckView, Machine, TrackView, View, DECKS};
 use plan::{Audible, FadeLength};
@@ -247,7 +248,7 @@ impl Decks {
                 load_id: t.load_id,
                 grid: t.grid(),
                 cue_s: t.cue(CueSlot::Main).map(|c| c.position_s),
-                audible: self.audible(d, t.load_id, t.waveform.whole()),
+                audible: self.audible(d, t.load_id, &t.waveform),
             });
             DeckView {
                 playing: deck.loaded && deck.playing,
@@ -264,17 +265,11 @@ impl Decks {
         Some(View { decks, crossfader, software_mixer, next })
     }
 
-    fn audible(
-        &mut self,
-        deck: usize,
-        load_id: u64,
-        waveform: Option<&prisme_analysis::Waveform>,
-    ) -> Option<Audible> {
+    fn audible(&mut self, deck: usize, load_id: u64, waveform: &TrackWaveform) -> Option<Audible> {
         match self.audible[deck] {
             Some((id, audible)) if id == load_id => Some(audible),
             _ => {
-                let waveform = waveform?;
-                let audible = plan::audible(&waveform.peak, waveform.slices_per_second)?;
+                let audible = waveform.read_whole(|w| plan::audible(&w.peak, w.slices_per_second))??;
                 self.audible[deck] = Some((load_id, audible));
                 Some(audible)
             }

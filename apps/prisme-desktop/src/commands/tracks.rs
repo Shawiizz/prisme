@@ -9,7 +9,13 @@ use tauri::State;
 /// another track was loaded.
 #[tauri::command]
 pub fn watch_waveform(state: State<'_, AppState>, deck: usize, load_id: u64, channel: Channel) {
-    state.with_loaded(deck, load_id, |t| t.waveform.watch(channel));
+    let waveform = lock(&state.tracks).get(deck).and_then(|t| {
+        let t = t.as_ref().filter(|t| t.load_id == load_id)?;
+        Some(t.waveform.same())
+    });
+    if let Some(waveform) = waveform {
+        waveform.watch(channel);
+    }
 }
 
 /// Where each part of the separated track on `deck` plays (`prisme_analysis::stem_activity`):
