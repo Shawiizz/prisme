@@ -39,6 +39,8 @@ pub struct Library {
     separations: HashMap<TrackId, SeparationDto>,
     /// As the status stream last read it (see [`Around`]).
     pub around: Around,
+    /// Why the music folder shown at start could not be read, until a list is read.
+    unread: Option<serde_json::Value>,
 }
 
 impl Library {
@@ -81,6 +83,7 @@ impl Library {
                 Shelf::Crate(id) => ShelfDto::Crate { id: id.0 },
             },
             reference: effective(browser.reference(), self.around.decks_in_use),
+            unread: self.unread.clone(),
             window: self.window(),
         }
     }
@@ -254,8 +257,13 @@ pub fn start(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
     }
     let last = state.preferences.read(|p| p.library.last_folder.clone()).map(PathBuf::from);
     if last.is_none_or(|last| open(state, db, Source::Folder(last)).is_err()) {
-        if let Err(e) = open(state, db, Source::Folder(main)) {
+        if let Err(e) = open(state, db, Source::Folder(main.clone())) {
             error!("the music folder not listed: {e}");
+            let why = serde_json::to_value(&e).ok();
+            state.browse(|l| {
+                l.unread = why;
+                l.browser.show(Source::Folder(main), Vec::new());
+            });
         }
     }
 }
@@ -317,6 +325,7 @@ pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
     state.browse(|l| {
         let rows = l.browser.entries(rows);
         l.folders = folders;
+        l.unread = None;
         l.browser.show(source, rows);
     });
     Ok(())
@@ -339,6 +348,7 @@ pub fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
         if *l.browser.source() == source {
             let rows = l.browser.entries(rows);
             l.folders = folders;
+            l.unread = None;
             l.browser.refresh(rows);
         }
     });
@@ -830,6 +840,22 @@ mod tests {
 
     fn prepared(bench: &Bench) -> Vec<String> {
         bench.library.prepare_list().unwrap().into_iter().map(|e| e.path).collect()
+    }
+
+    #[test]
+    fn a_music_folder_that_cannot_be_read_at_start_is_shown_empty_with_why() {
+        let bench = Bench::new();
+        let root = std::env::temp_dir().join(format!("prisme-unread-{}", std::process::id()));
+        std::fs::write(&root, b"not a folder").unwrap();
+        start(&bench.state, &bench.library, vec![root.clone()]);
+        let view = lock(&bench.state.library).view();
+        assert!(matches!(view.source, SourceDto::Folder { .. }), "{:?}", view.source);
+        assert!(view.unread.is_some_and(|why| why["code"].is_string()));
+        std::fs::remove_file(&root).unwrap();
+        std::fs::create_dir(&root).unwrap();
+        refresh(&bench.state, &bench.library).unwrap();
+        assert_eq!(lock(&bench.state.library).view().unread, None, "read at last");
+        std::fs::remove_dir(&root).unwrap();
     }
 
     #[test]

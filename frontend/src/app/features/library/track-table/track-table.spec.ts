@@ -18,6 +18,7 @@ const view = (cursor: number, cursorMoves: number, filter = ''): LibraryView => 
   focus: 'tracks',
   pointed: { kind: 'prepare' },
   reference: 0,
+  unread: null,
   window: { seq: 1, first: 0, rows: [] },
 });
 

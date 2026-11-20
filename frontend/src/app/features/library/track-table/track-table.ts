@@ -24,6 +24,7 @@ import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { COLUMNS, Column, ColumnId, gridTemplate } from './columns';
 import { TrackMenu, TrackMenuPanel } from '../track-menu/track-menu';
 import { t } from '../../../core/i18n/i18n';
+import { errorText } from '../../../core/errors';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
@@ -146,6 +147,8 @@ export class TrackTable {
   );
 
   protected readonly emptyMessage = computed(() => {
+    const unread = this.library.view()?.unread;
+    if (unread) return t('The music folder could not be read: {why}', { why: errorText(unread) });
     const kind = this.library.source()?.kind ?? 'folder';
     if (this.library.scope() === 'list')
       return EMPTY_LIST[kind](this.keyboard.keyOf('library.prepare'));

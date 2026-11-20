@@ -22,6 +22,7 @@ const view = (seq: number, filter: string): LibraryView => ({
   focus: 'tracks',
   pointed: { kind: 'prepare' },
   reference: 0,
+  unread: null,
   window: window(seq, 0),
 });
 

@@ -1,3 +1,4 @@
+import { BackendError } from '../errors';
 import { MusicalKey } from './engine';
 import { RowStems } from './stems';
 
@@ -118,6 +119,8 @@ export interface LibraryView {
   pointed: { kind: 'prepare' } | { kind: 'crate'; id: number };
   /** The deck the tracks are compared with. */
   reference: number;
+  /** Why the music folder shown at start could not be read. */
+  unread: BackendError | null;
   window: LibraryWindow;
 }
 

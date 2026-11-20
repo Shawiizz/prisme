@@ -1840,6 +1840,8 @@ pub struct LibraryViewDto {
     pub pointed: ShelfDto,
     /// The deck the tracks are compared with.
     pub reference: usize,
+    /// Why the music folder shown at start could not be read (an `AppError`).
+    pub unread: Option<serde_json::Value>,
     pub window: LibraryWindowDto,
 }
 
@@ -2412,8 +2414,6 @@ mod tests {
         assert_eq!(sizes.iter().map(|s| s.frames).collect::<Vec<_>>(), [128, 256, 512]);
         assert!((sizes[0].ms - 2.666).abs() < 0.01);
         assert_eq!(BufferSizeDto::offered(None, 0).len(), 7, "every one, at 48 kHz");
-        assert_eq!(BufferSizeDto::offered(None, 0)[1].ms, 64_000.0 / 48_000.0);
-    }
         assert_eq!(DevicesDto::of(Vec::new()).buffer_sizes, BufferSizeDto::offered(None, 0), "no device");
         let output = |is_default| DeviceDto {
             name: "Out".into(),
@@ -2425,6 +2425,8 @@ mod tests {
         };
         assert_eq!(DevicesDto::of(vec![output(true)]).buffer_sizes, sizes, "the default output's");
         assert_eq!(DevicesDto::of(vec![output(false)]).buffer_sizes.len(), 7);
+        assert_eq!(BufferSizeDto::offered(None, 0)[1].ms, 64_000.0 / 48_000.0);
+    }
 
     #[test]
     fn a_change_moves_the_revision_of_its_section_alone() {
