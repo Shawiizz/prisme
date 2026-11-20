@@ -1,13 +1,13 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
-import { Control } from '../../core/control/controls';
+import { Control, Target } from '../../core/control/controls';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
-import { Key, CTRL, Shortcut } from '../../core/keyboard/shortcuts';
+import { Key, CTRL } from '../../core/keyboard/shortcuts';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { EngineService } from '../../core/services/engine.service';
 import { errorText } from '../../core/errors';
 import { invoke } from '@tauri-apps/api/core';
-import { t } from '../../core/i18n/i18n';
+import { labelText, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 
 interface Line {
@@ -16,6 +16,13 @@ interface Line {
   keys: string[];
   /** The DJ changed them. */
   changed: boolean;
+}
+
+/** A key another action has, which the keys given would take from it. */
+interface TakenKey extends Key {
+  control: string;
+  /** The action that has it, as the backend names it. */
+  action: Target | null;
 }
 
 /** Keys given to a control that other controls have: they are taken only once the DJ says so. */
@@ -132,16 +139,16 @@ export class ShortcutsSettings implements OnDestroy {
   }
 
   /** "Ctrl + K: Command palette (General)" */
-  private owner(shortcut: Shortcut): string {
-    const control = this.controls.find(shortcut.control);
-    const what = control ? `${control.label} (${control.group})` : shortcut.control;
-    return t('{key}: {action}', { key: this.keyboard.label(shortcut), action: what });
+  private owner(taken: TakenKey): string {
+    const { action } = taken;
+    const what = action ? `${labelText(action.label)} (${labelText(action.group)})` : taken.control;
+    return t('{key}: {action}', { key: this.keyboard.label(taken), action: what });
   }
 
   /** The keys other actions have that `keys` would take from them, unless taken. */
   private async setKeys(control: string, keys: Key[] | null, take: boolean) {
     try {
-      return await invoke<Shortcut[]>('set_keys', { control, keys, take });
+      return await invoke<TakenKey[]>('set_keys', { control, keys, take });
     } catch (e) {
       this.engine.error.set(errorText(e));
       return null;

@@ -1,6 +1,7 @@
 use crate::commands::audio::start_audio;
 use crate::commands::blocking;
 use crate::commands::live::TALKOVER_DEPTHS;
+use crate::commands::targets::{self, TargetDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::preferences::{
@@ -237,8 +238,17 @@ pub fn set_keys(
     control: String,
     keys: Option<Vec<KeyPreference>>,
     take: bool,
-) -> AppResult<Vec<Shortcut>> {
+) -> AppResult<Vec<TakenKeyDto>> {
     give_keys(&state, &control, keys, take)
+}
+
+/// A key another action has, which a change of keys would take from it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TakenKeyDto {
+    #[serde(flatten)]
+    pub shortcut: Shortcut,
+    /// The action that has it, as the interface names it.
+    pub action: Option<TargetDto>,
 }
 
 fn give_keys(
@@ -246,7 +256,7 @@ fn give_keys(
     control: &str,
     keys: Option<Vec<KeyPreference>>,
     take: bool,
-) -> AppResult<Vec<Shortcut>> {
+) -> AppResult<Vec<TakenKeyDto>> {
     if !shortcuts::keyed(control) {
         return Err(AppError::Other(format!("no key presses {control}")));
     }
@@ -258,7 +268,15 @@ fn give_keys(
             p.keys = shortcuts::assign(&p.keys, control, &keys);
         }
     });
-    Ok(if take { Vec::new() } else { taken })
+    if take {
+        return Ok(Vec::new());
+    }
+    let decks = targets::decks(state);
+    let action = |control: &str| control.parse::<Target>().ok().map(|t| TargetDto::of(&t, decks));
+    Ok(taken
+        .into_iter()
+        .map(|shortcut| TakenKeyDto { action: action(&shortcut.control), shortcut })
+        .collect())
 }
 
 /// Every action back to the keys Prisme gives it.
@@ -284,7 +302,11 @@ mod tests {
         let state = state();
         let a = KeyPreference { code: "KeyA".into(), ctrl: false, shift: false };
         let taken = give_keys(&state, "deck1.play", Some(vec![a.clone()]), false).unwrap();
-        assert_eq!(taken.iter().map(|s| s.control.as_str()).collect::<Vec<_>>(), ["deck1.cue"]);
+        assert_eq!(taken.iter().map(|s| s.shortcut.control.as_str()).collect::<Vec<_>>(), ["deck1.cue"]);
+        assert_eq!(
+            taken[0].action.as_ref().map(|a| a.label.clone()),
+            Some("deck1.cue".parse::<Target>().unwrap().label())
+        );
         assert!(state.preferences.read(|p| p.keys.is_empty()), "nothing changed yet");
         assert_eq!(give_keys(&state, "deck1.play", Some(vec![a.clone()]), true).unwrap(), []);
         let shown = PreferencesDto::of(&state);
@@ -296,6 +318,16 @@ mod tests {
         give_keys(&state, "deck1.play", None, false).unwrap();
         assert!(state.preferences.read(|p| p.keys.is_empty()), "both back to their defaults");
         assert!(give_keys(&state, "mixer.crossfader", None, false).is_err(), "no key presses a fader");
+    }
+
+    #[test]
+    fn a_key_taken_from_an_action_left_out_of_the_list_says_what_it_does() {
+        let state = state();
+        let r = KeyPreference { code: "KeyR".into(), ctrl: true, shift: true };
+        give_keys(&state, "deck1.loop.2", Some(vec![r.clone()]), true).unwrap();
+        let taken = give_keys(&state, "deck1.play", Some(vec![r]), false).unwrap();
+        let loop_2: Target = "deck1.loop.2".parse().unwrap();
+        assert_eq!(taken[0].action.as_ref().map(|a| a.label.clone()), Some(loop_2.label()));
     }
 
     #[test]
