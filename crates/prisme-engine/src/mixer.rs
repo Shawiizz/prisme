@@ -79,18 +79,18 @@ const GLIDE_S: f32 = 0.02;
 /// A level the DJ moves, reached over the block after it moved from where the last block
 /// left it: no step, so no click nor zipper noise, and a cut no longer than a block.
 #[derive(Clone, Copy)]
-struct Ramp {
+pub(crate) struct Ramp {
     from: f32,
     to: f32,
 }
 
 impl Ramp {
-    fn new(gain: f32) -> Self {
+    pub(crate) fn new(gain: f32) -> Self {
         Self { from: gain, to: gain }
     }
 
     /// The next block goes from where the last one ended to `gain`.
-    fn next(&mut self, gain: f32) {
+    pub(crate) fn next(&mut self, gain: f32) {
         self.from = self.to;
         self.to = gain;
     }
@@ -101,7 +101,7 @@ impl Ramp {
 
     /// The gain of frame `i` of a block of `frames`.
     #[inline]
-    fn at(&self, i: usize, frames: usize) -> f32 {
+    pub(crate) fn at(&self, i: usize, frames: usize) -> f32 {
         self.to + (self.from - self.to) * (frames - 1 - i) as f32 / frames as f32
     }
 }

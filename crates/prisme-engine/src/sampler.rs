@@ -2,6 +2,7 @@
 //! effects and fader, or its own outputs to a hardware mixer). A trigger waits for the
 //! next beat when the deck plays on its grid with quantize on.
 
+use crate::mixer::Ramp;
 use prisme_media::TrackAudio;
 use std::sync::Arc;
 
@@ -18,15 +19,16 @@ struct Voice {
     gain: f32,
 }
 
-#[derive(Default)]
 pub(crate) struct Sampler {
     voices: [Voice; SAMPLE_SLOTS],
     pub(crate) gain: f32,
+    /// The gain over the block, gliding to `gain`.
+    level: Ramp,
 }
 
 impl Sampler {
     pub(crate) fn new() -> Self {
-        Self { gain: 1.0, ..Default::default() }
+        Self { voices: Default::default(), gain: 1.0, level: Ramp::new(1.0) }
     }
 
     /// Puts a sound in a slot; returns the one it replaces, or the one given for a slot
@@ -60,6 +62,8 @@ impl Sampler {
 
     /// Adds the playing sounds to interleaved stereo at `out_rate`.
     pub(crate) fn render(&mut self, out: &mut [f32], out_rate: f64) {
+        self.level.next(self.gain);
+        let (level, frames) = (self.level, out.len() / 2);
         for voice in &mut self.voices {
             let (Some(sample), Some(mut position)) = (voice.sample.as_ref(), voice.position) else {
                 continue;
@@ -67,10 +71,9 @@ impl Sampler {
             let step = sample.sample_rate() as f64 / out_rate;
             let view = sample.view();
             let length = sample.frames() as f64;
-            let start = voice.wait.min(out.len() / 2);
+            let start = voice.wait.min(frames);
             voice.wait -= start;
-            let gain = self.gain * voice.gain;
-            for frame in out.chunks_exact_mut(2).skip(start) {
+            for (at, frame) in out.chunks_exact_mut(2).enumerate().skip(start) {
                 if position >= length {
                     break;
                 }
@@ -78,6 +81,7 @@ impl Sampler {
                 let i = position.floor();
                 let t = (position - i) as f32;
                 let (a, b) = (view.frame(i as isize), view.frame(i as isize + 1));
+                let gain = level.at(at, frames) * voice.gain;
                 frame[0] += (a.0 + (b.0 - a.0) * t) * gain;
                 frame[1] += (a.1 + (b.1 - a.1) * t) * gain;
                 position += step;
@@ -142,6 +146,8 @@ mod tests {
     fn a_soft_hit_plays_its_own_sound_softly_and_no_other() {
         let mut s = Sampler::new();
         s.gain = 0.8;
+        // reached over a block
+        s.render(&mut [0.0; 64 * 2], 48_000.0);
         s.set(0, Some(sound(100)));
         s.set(1, Some(sound(100)));
         s.trigger(0, 0, 0.25);
@@ -153,6 +159,21 @@ mod tests {
         s.render(&mut out, 48_000.0);
         assert!((out[0] - 0.5 * 0.8 * 1.25).abs() < 1e-6, "the next one at the sampler's level");
         assert_eq!(s.gain, 0.8);
+    }
+
+    #[test]
+    fn its_level_glides_over_a_block_rather_than_click() {
+        let mut s = Sampler::new();
+        s.set(0, Some(sound(1_000)));
+        s.trigger(0, 0, 1.0);
+        s.render(&mut [0.0; 64 * 2], 48_000.0);
+        s.gain = 0.0;
+        let mut out = [0.0f32; 64 * 2];
+        s.render(&mut out, 48_000.0);
+        let left: Vec<f32> = out.iter().step_by(2).copied().collect();
+        assert!(left[0] > 0.49, "from where it was: {}", left[0]);
+        assert!(left.windows(2).all(|w| w[0] - w[1] < 0.01 && w[1] <= w[0]), "{left:?}");
+        assert!(left[63] < 0.01);
     }
 
     #[test]
