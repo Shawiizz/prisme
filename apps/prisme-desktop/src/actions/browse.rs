@@ -25,7 +25,7 @@ use prisme_library::{adopt, CrateId, LibraryDb, Search, SessionId, SmartRules, T
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tauri::Manager;
-use tracing::error;
+use tracing::{error, warn};
 
 /// A set that started longer ago than this is over: its tracks are no longer played tonight.
 const TONIGHT_MS: i64 = 12 * 3600 * 1000;
@@ -476,11 +476,13 @@ fn known(state: &AppState, db: &LibraryDb, files: &[(PathBuf, prisme_library::Fi
         files.iter().filter(|(path, stamp)| current(path, *stamp) != Some(true)).collect()
     };
     for (path, stamp) in unknown {
-        let _ = adopt(db, path, *stamp, Search::Stamp);
-        if let Ok(Some(record)) = db.get(path) {
-            if record.is_current(*stamp) {
-                state.browse(|l| l.browser.put(record));
-            }
+        if let Err(e) = adopt(db, path, *stamp, Search::Stamp) {
+            error!("{} not looked for under another path: {e}", path.display());
+        }
+        match db.get(path) {
+            Ok(Some(record)) if record.is_current(*stamp) => state.browse(|l| l.browser.put(record)),
+            Ok(_) => {}
+            Err(e) => error!("{} not read from the library: {e}", path.display()),
         }
     }
 }
@@ -505,8 +507,11 @@ pub fn add_to_prepare(
 ) -> AppResult<usize> {
     let added = db.add_to_prepare(&as_paths(paths))?;
     if let Some(stems) = stems.filter(|_| stems_service::separates_on_load(state)) {
-        // without a model there is nothing to do, and nothing to tell
-        let _ = stems.enqueue(paths.iter().map(PathBuf::from));
+        match stems.enqueue(paths.iter().map(PathBuf::from)) {
+            // without a model there is nothing to do, and nothing to tell
+            Ok(_) | Err(AppError::NoStemsModel) => {}
+            Err(e) => warn!("the prepare list not queued for separation: {e}"),
+        }
     }
     prepare_changed(state, db);
     Ok(added)
