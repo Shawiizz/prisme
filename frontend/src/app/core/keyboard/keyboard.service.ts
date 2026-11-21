@@ -67,7 +67,7 @@ export class KeyboardService {
   }
 
   /** The first key of a control, as printed on the user's keyboard. */
-  keyOf(control: string): string | null {
+  firstKey(control: string): string | null {
     return this.keysOf(control)[0] ?? null;
   }
 

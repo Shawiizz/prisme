@@ -50,7 +50,7 @@ describe('EngineService', () => {
 
   it('numbers a key whose press is lost after its press', () => {
     engine.press(0, 'sync');
-    engine.letGo(0, 'sync');
+    engine.lose(0, 'sync');
     const [pressed, lost] = calls.map(([, args]) => args['order'] as { number: number });
     expect(calls[1][0]).toBe('let_go_key');
     expect(lost.number).toBe(pressed.number + 1);

@@ -852,9 +852,14 @@ export type ExportedList = { "kind": "crate"; id: number } | {
 } | { "kind": "session"; id: number };
 
 /**
+ * Where a key puts a fader's action: at a position, or at each of two in turn.
+ */
+export type FaderSet = number | [number, number];
+
+/**
  * A fader of the screen that reads nothing under it.
  */
-export type Fader = {
+export type FaderState = {
   /**
    * Where it stands, from 0 to 1.
    */
@@ -864,11 +869,6 @@ export type Fader = {
    */
   home: number;
 };
-
-/**
- * Where a key puts a fader's action: at a position, or at each of two in turn.
- */
-export type FaderSet = number | [number, number];
 
 export type Folder = { name: string; path: string };
 
@@ -1034,7 +1034,7 @@ export type Key = { code: string; ctrl?: boolean; shift?: boolean };
 /**
  * A knob of the screen.
  */
-export type Knob = {
+export type KnobState = {
   /**
    * Where it stands, from 0 to 1.
    */
@@ -1430,14 +1430,14 @@ export type MixerKnobs = {
   /**
    * The crossfader, from 0 (left) to 1, back in the middle.
    */
-  crossfader: Fader;
-  cueMix: Knob;
-  headphones: Knob;
-  main: Knob;
-  balance: Knob;
-  booth: Knob;
-  mic: Knob;
-  aux: Knob;
+  crossfader: FaderState;
+  cueMix: KnobState;
+  headphones: KnobState;
+  main: KnobState;
+  balance: KnobState;
+  booth: KnobState;
+  mic: KnobState;
+  aux: KnobState;
 };
 
 /**
@@ -2127,7 +2127,11 @@ export type StoragePlaceKind = "phone" | "removable" | "home" | "drive";
 /**
  * The knobs of a deck's channel: trim, EQ (low, mid, high) and filter.
  */
-export type StripKnobs = { trim: Knob; eq: [Knob, Knob, Knob]; filter: Knob };
+export type StripKnobs = {
+  trim: KnobState;
+  eq: [KnobState, KnobState, KnobState];
+  filter: KnobState;
+};
 
 /**
  * What a deck's SYNC key does.

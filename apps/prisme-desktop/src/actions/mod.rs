@@ -1036,7 +1036,7 @@ pub(crate) mod bench {
             let path = path.display().to_string();
             self.state.browse(|l| {
                 let rows = l.browser.entries([(path.clone(), None)]);
-                l.browser.show(prisme_library::browse::Source::Prepare, rows);
+                l.browser.show(prisme_library::browse::List::Prepare, rows);
                 let entry = l.browser.find(&path, None).expect("listed");
                 l.browser.select(entry, prisme_library::browse::Pick::Only);
             });
@@ -1534,7 +1534,7 @@ mod selection {
     fn listed(bench: &Bench, files: &[Track]) {
         bench.state.browse(|l| {
             let rows = l.browser.entries(files.iter().map(|f| (f.0.display().to_string(), None)));
-            l.browser.show(prisme_library::browse::Source::Prepare, rows);
+            l.browser.show(prisme_library::browse::List::Prepare, rows);
         });
     }
 

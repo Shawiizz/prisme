@@ -5,7 +5,7 @@ import { Knob } from '../../../shared/knob/knob';
 import { readout } from '../../../shared/readout';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import type { Band, Knob as KnobView, StripKnobs } from '../../../core/models/backend';
+import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
 
 /** A deck's channel of the software mixer, before its fader: EQ with kills, trim, filter. The
  * three bands come first, side by side as on a mixer. */
@@ -61,7 +61,7 @@ export class ChannelStrip {
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
-  protected readonly read = (knob: KnobView) => readout(knob.reads);
+  protected readonly read = (knob: KnobState) => readout(knob.reads);
   protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {
       band: 'high',
@@ -92,7 +92,7 @@ export class ChannelStrip {
     this.mixer.setTrim(this.deck(), knob);
   }
 
-  protected eq(band: Band): KnobView {
+  protected eq(band: Band): KnobState {
     return this.knobs().eq[BANDS.indexOf(band)];
   }
 

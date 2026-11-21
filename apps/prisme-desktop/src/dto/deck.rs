@@ -265,7 +265,7 @@ impl DeckSettingsDto {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SyncStatus"))]
 pub struct SyncDto {
-    pub state: screen::Sync,
+    pub state: screen::SyncState,
     pub leader: bool,
     /// What its SYNC key does.
     pub key: screen::SyncKey,

@@ -301,7 +301,7 @@ mod tests {
         let bench = Bench::new();
         bench.state.browse(|l| {
             let rows = l.browser.entries([("deck1.flac".to_string(), None)]);
-            l.browser.show(prisme_library::browse::Source::Prepare, rows);
+            l.browser.show(prisme_library::browse::List::Prepare, rows);
             l.browser.set_window(0, 10);
         });
         let mut clock = Clock::default();

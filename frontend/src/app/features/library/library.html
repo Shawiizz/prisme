@@ -42,7 +42,7 @@
           (blur)="library.endTyping()"
           (keydown.escape)="search.blur()"
         />
-        @if (keyboard.keyOf('library.search'); as key) {
+        @if (keyboard.firstKey('library.search'); as key) {
           <span class="pr-kbd">{{ key }}</span>
         }
       </label>

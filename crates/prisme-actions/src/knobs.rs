@@ -9,7 +9,7 @@ use serde::Serialize;
 
 /// A knob of the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "KnobState"))]
 pub struct Knob {
     /// Where it stands, from 0 to 1.
     pub at: f32,
@@ -29,7 +29,7 @@ pub struct StripKnobs {
 
 /// A fader of the screen that reads nothing under it.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "FaderState"))]
 pub struct Fader {
     /// Where it stands, from 0 to 1.
     pub at: f32,

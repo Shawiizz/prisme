@@ -222,7 +222,7 @@ pub async fn separate_tracks(
 /// Takes the tracks at `paths` (else those selected) out of the list shown, the prepare list or
 /// a crate filled by hand.
 #[tauri::command]
-pub async fn library_remove(app: AppHandle, paths: Option<Vec<String>>, order: Order) -> AppResult<()> {
+pub async fn remove_from_list(app: AppHandle, paths: Option<Vec<String>>, order: Order) -> AppResult<()> {
     in_turn(app, order, move |state, db| browse::remove_from_list(state, db, paths)).await
 }
 
@@ -230,7 +230,7 @@ pub async fn library_remove(app: AppHandle, paths: Option<Vec<String>>, order: O
 /// library, their files left as they are: their cues, corrections and crate entries are kept
 /// for when the same audio comes back.
 #[tauri::command]
-pub async fn remove_tracks(app: AppHandle, paths: Option<Vec<String>>, order: Order) -> AppResult<()> {
+pub async fn remove_from_library(app: AppHandle, paths: Option<Vec<String>>, order: Order) -> AppResult<()> {
     in_turn(app, order, move |state, db| browse::remove_from_library(state, db, paths)).await
 }
 

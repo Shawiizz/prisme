@@ -1,7 +1,7 @@
 //! The lists of the side panel: the crates and their smart counts, the sets, the prepare list,
 //! the music folders and the tracks under none of them; and a controller's knob over them.
 
-use super::{Belongs, Browser, Entry, Source};
+use super::{Belongs, Browser, Entry, List};
 use crate::catalogue::{folded, Track, TrackId};
 use crate::db::{Crate, CrateId, HistorySession, TrackRecord};
 use crate::duplicates::{duplicate_groups, song_key};
@@ -57,7 +57,7 @@ impl Browser {
         self.crates = crates;
         self.count_smart_crates();
         self.lists_changed();
-        if let Source::Crate(id) = self.source {
+        if let List::Crate(id) = self.source {
             if self.crate_rules(id).is_some() {
                 self.rederive();
             }
@@ -73,7 +73,7 @@ impl Browser {
     pub fn set_prepare(&mut self, paths: &[String]) {
         self.prepare = paths.iter().map(|path| self.catalogue.id(path)).collect();
         self.lists_changed();
-        if self.source == Source::Prepare {
+        if self.source == List::Prepare {
             self.rederive();
         }
     }
@@ -118,7 +118,7 @@ impl Browser {
 
     /// The folder above the folder shown, inside its music folder.
     pub fn folder_above(&self) -> Option<PathBuf> {
-        let Source::Folder(path) = &self.source else { return None };
+        let List::Folder(path) = &self.source else { return None };
         let root = self.root_of(path)?;
         (path != root).then(|| path.parent().map(Path::to_path_buf)).flatten()
     }
@@ -130,24 +130,24 @@ impl Browser {
 
     /// The rows of `source` if they are known here, without the disk: the prepare list, the
     /// tracks from elsewhere, the duplicates, a smart crate.
-    pub fn rows_of(&self, source: &Source) -> Option<Vec<Entry>> {
+    pub fn rows_of(&self, source: &List) -> Option<Vec<Entry>> {
         let entry = |track| Entry { track, played_at_ms: None };
         let rows = match source {
-            Source::Prepare => self.prepare.iter().copied().map(entry).collect(),
-            Source::Elsewhere => self.elsewhere.by_path.iter().copied().map(entry).collect(),
-            Source::Duplicates => {
+            List::Prepare => self.prepare.iter().copied().map(entry).collect(),
+            List::Elsewhere => self.elsewhere.by_path.iter().copied().map(entry).collect(),
+            List::Duplicates => {
                 let records = self.catalogue.ids().filter_map(|id| self.catalogue.get(id).record.as_ref());
                 let groups = duplicate_groups(records.filter(|r| r.error.is_none()));
                 groups.iter().flatten().filter_map(|r| self.catalogue.find(&r.path)).map(entry).collect()
             }
-            Source::Crate(id) => {
+            List::Crate(id) => {
                 let rules = self.crate_rules(*id)?;
                 let matching = self.catalogue.ids().filter(|&id| {
                     self.catalogue.get(id).record.as_ref().is_some_and(|record| rules.matches(record))
                 });
                 matching.map(entry).collect()
             }
-            Source::Folder(_) | Source::History(_) => return None,
+            List::Folder(_) | List::History(_) => return None,
         };
         Some(rows)
     }
@@ -179,27 +179,27 @@ impl Browser {
     }
 
     /// The list pointed at, to open; the knob back on the tracks.
-    pub fn open_pointed(&mut self) -> Source {
+    pub fn open_pointed(&mut self) -> List {
         self.focus = Focus::Tracks;
         self.changed();
         match self.pointed {
-            Shelf::Prepare => Source::Prepare,
-            Shelf::Crate(id) => Source::Crate(id),
+            Shelf::Prepare => List::Prepare,
+            Shelf::Crate(id) => List::Crate(id),
         }
     }
 
     /// The list `steps` after the one shown on the side panel (else after the one pointed at),
     /// to open.
-    pub fn next_list(&mut self, steps: i64) -> Source {
+    pub fn next_list(&mut self, steps: i64) -> List {
         let lists = self.lists();
         let at = lists.iter().rposition(|list| match (list, &self.source) {
-            (Source::Folder(folder), Source::Folder(shown)) => within(shown, folder),
+            (List::Folder(folder), List::Folder(shown)) => within(shown, folder),
             (list, shown) => list == shown,
         });
         let next = lists[(at.unwrap_or(0) as i64 + steps).clamp(0, lists.len() as i64 - 1) as usize].clone();
         match next {
-            Source::Prepare => self.pointed = Shelf::Prepare,
-            Source::Crate(id) => self.pointed = Shelf::Crate(id),
+            List::Prepare => self.pointed = Shelf::Prepare,
+            List::Crate(id) => self.pointed = Shelf::Crate(id),
             _ => {}
         }
         self.focus = Focus::Tracks;
@@ -209,8 +209,8 @@ impl Browser {
 
     /// The lists of the side panel in its order: the prepare list, the duplicates, each music
     /// folder and the folders right under it that hold tracks, the crates, the sets played.
-    fn lists(&self) -> Vec<Source> {
-        let mut lists = vec![Source::Prepare, Source::Duplicates];
+    fn lists(&self) -> Vec<List> {
+        let mut lists = vec![List::Prepare, List::Duplicates];
         for root in &self.roots {
             let depth = root.components().count();
             let mut under: Vec<PathBuf> = self
@@ -223,11 +223,11 @@ impl Browser {
                 .into_iter()
                 .collect();
             under.sort_by_cached_key(|folder| folded(&folder.to_string_lossy()));
-            lists.push(Source::Folder(root.clone()));
-            lists.extend(under.into_iter().map(Source::Folder));
+            lists.push(List::Folder(root.clone()));
+            lists.extend(under.into_iter().map(List::Folder));
         }
-        lists.extend(self.crates.iter().map(|c| Source::Crate(c.id)));
-        lists.extend(self.sessions.iter().map(|s| Source::History(s.id)));
+        lists.extend(self.crates.iter().map(|c| List::Crate(c.id)));
+        lists.extend(self.sessions.iter().map(|s| List::History(s.id)));
         lists
     }
 

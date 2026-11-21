@@ -1,3 +1,6 @@
+//! A deck's pads on the screen: their pages, the effect slot they show, the slicer put on the
+//! bar the track is in.
+
 use crate::actions::pads;
 use crate::error::AppResult;
 use crate::state::AppState;

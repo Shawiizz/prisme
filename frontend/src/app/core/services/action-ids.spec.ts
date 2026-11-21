@@ -97,7 +97,7 @@ describe('the actions the screen sends', () => {
       engine.moveTempo(deck, 0.5);
       KEYS.forEach((key) => {
         engine.press(deck, key);
-        engine.letGo(deck, key);
+        engine.lose(deck, key);
       });
       mixer.setVolume(deck, 0.5);
       mixer.setTrim(deck, 0.5);

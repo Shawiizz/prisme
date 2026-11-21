@@ -36,7 +36,7 @@ pub struct Deck {
     pub ending: State,
     pub drive: Drive,
     pub tempo: TempoFader,
-    pub sync: Sync,
+    pub sync: SyncState,
     pub sync_key: SyncKey,
     /// Its loops, jumps and pads may move its track: it has one, which no record holds in place.
     pub can_move: bool,
@@ -133,8 +133,8 @@ pub struct TempoFader {
 /// A deck's sync.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "SyncState"))]
-pub enum Sync {
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+pub enum SyncState {
     Off,
     /// Matched once, on a record: its speed is moved by the match.
     Matched,
@@ -164,9 +164,9 @@ pub fn deck(view: &View, deck: usize) -> Deck {
     let mixed_with = view.mixed_with(deck);
     let drive = drive(view, deck);
     let sync = match (status.sync.locked, status.sync.rate_offset != 1.0) {
-        (true, _) => Sync::Locked,
-        (false, true) => Sync::Matched,
-        (false, false) => Sync::Off,
+        (true, _) => SyncState::Locked,
+        (false, true) => SyncState::Matched,
+        (false, false) => SyncState::Off,
     };
     let sync_key = if drive == Drive::Absolute {
         SyncKey::Absolute
@@ -416,9 +416,9 @@ mod tests {
         v.decks[0].vinyl_mode = VinylMode::Absolute;
         assert_eq!(deck(&v, 0).sync_key, SyncKey::Absolute);
         v.status.decks[0].sync.rate_offset = 1.01;
-        assert_eq!(deck(&v, 0).sync, Sync::Matched);
+        assert_eq!(deck(&v, 0).sync, SyncState::Matched);
         v.status.decks[0].sync.locked = true;
-        assert_eq!(deck(&v, 0).sync, Sync::Locked);
+        assert_eq!(deck(&v, 0).sync, SyncState::Locked);
     }
 
     #[test]

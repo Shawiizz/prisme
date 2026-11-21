@@ -3,7 +3,7 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use prisme_analysis::{Key, KeyEstimate, Tempo, TrackAnalysis};
-use prisme_library::browse::{Browser, Column, Pick, Scope, Source};
+use prisme_library::browse::{Browser, Column, List, Pick, Scope};
 use prisme_library::catalogue::Tracks;
 use prisme_library::mix::MixReference;
 use prisme_library::{FileStamp, TrackRecord};
@@ -47,7 +47,7 @@ fn library() -> Browser {
     let mut browser = Browser::default();
     browser.set_roots(vec![PathBuf::from("C:/Music")]);
     browser.load(Tracks::of(records()));
-    browser.show(Source::Prepare, Vec::new());
+    browser.show(List::Prepare, Vec::new());
     browser.set_scope(Scope::Library);
     browser.set_window(0, 60);
     browser

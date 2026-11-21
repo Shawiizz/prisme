@@ -7,7 +7,7 @@ use crate::state::lock;
 use prisme_actions::pads::plays_loop;
 use prisme_control::{Beats, DeckAction};
 use prisme_engine::{Command, LoopStatus};
-use transport::LOOP_BEATS;
+use transport::LOOP_KEY_BEATS;
 
 impl Performing<'_> {
     /// A loop key of `deck` pressed; none for the other keys.
@@ -21,7 +21,7 @@ impl Performing<'_> {
             DeckAction::LoopHalve => send(Command::ScaleLoop { deck, factor: 0.5 }),
             DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
             DeckAction::LoopBeats(Beats(beats)) => self.loop_of(deck, beats),
-            DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
+            DeckAction::Loop => self.toggle_loop(deck, LOOP_KEY_BEATS),
             DeckAction::LoopSize => self.loop_of(deck, lock(&state.decks)[deck].size_beats),
             DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
             DeckAction::ReloopStop => self.reloop_stopped(deck),

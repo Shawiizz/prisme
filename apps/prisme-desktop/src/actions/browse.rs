@@ -18,7 +18,7 @@ use crate::stems_service::{self, Queued, StemsService};
 use prisme_actions::input::Given;
 use prisme_actions::view::View;
 use prisme_control::LibraryAction;
-use prisme_library::browse::{Browser, Column, Entry, Focus, Pick, Shelf, Source, PAGE};
+use prisme_library::browse::{Browser, Column, Entry, Focus, List, Pick, Shelf, PAGE};
 use prisme_library::catalogue::{Track, TrackId, Tracks};
 use prisme_library::mix::{Compare, MixReference, Pitch};
 use prisme_library::{adopt, CrateId, LibraryDb, Search, SessionId, SmartRules, TrackRecord};
@@ -73,7 +73,7 @@ impl Library {
     pub fn view(&self) -> LibraryViewDto {
         let browser = &self.browser;
         let folder = match browser.source() {
-            Source::Folder(path) => Some(FolderViewDto {
+            List::Folder(path) => Some(FolderViewDto {
                 path: path.display().to_string(),
                 root: browser.root_of(path).map(|root| root.display().to_string()),
                 up: browser.folder_above().map(|up| up.display().to_string()),
@@ -306,13 +306,13 @@ pub fn start(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
         error!("the lists of the library not read: {e}");
     }
     let last = state.preferences.read(|p| p.library.last_folder.clone()).map(PathBuf::from);
-    if last.is_none_or(|last| open(state, db, Source::Folder(last)).is_err()) {
-        if let Err(e) = open(state, db, Source::Folder(main.clone())) {
+    if last.is_none_or(|last| open(state, db, List::Folder(last)).is_err()) {
+        if let Err(e) = open(state, db, List::Folder(main.clone())) {
             error!("the music folder not listed: {e}");
             let why = ErrorDto::from(&e);
             state.browse(|l| {
                 l.unread = Some(why);
-                l.browser.show(Source::Folder(main), Vec::new());
+                l.browser.show(List::Folder(main), Vec::new());
             });
         }
     }
@@ -368,9 +368,9 @@ pub fn analysed(state: &AppState, record: TrackRecord) {
 
 /// Shows `source`: the whole list, in its own order if it has one. A folder is the one shown
 /// next time Prisme starts.
-pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
+pub fn open(state: &AppState, db: &LibraryDb, source: List) -> AppResult<()> {
     let read = read(state, db, &source)?;
-    if let Source::Folder(path) = &source {
+    if let List::Folder(path) = &source {
         let last = Some(path.display().to_string());
         if state.preferences.read(|p| p.library.last_folder != last) {
             state.update_preferences(|p| p.library.last_folder = last);
@@ -387,7 +387,7 @@ pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
 pub fn up(state: &AppState, db: &LibraryDb) -> AppResult<()> {
     let above = lock(&state.library).browser.folder_above();
     match above {
-        Some(above) => open(state, db, Source::Folder(above)),
+        Some(above) => open(state, db, List::Folder(above)),
         None => Ok(()),
     }
 }
@@ -407,8 +407,7 @@ fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
 
 /// Files came into the folders `changed` or left them: the folder shown among them read again.
 pub fn files_changed(state: &AppState, db: &LibraryDb, changed: &[PathBuf]) {
-    let shown =
-        matches!(lock(&state.library).browser.source(), Source::Folder(path) if changed.contains(path));
+    let shown = matches!(lock(&state.library).browser.source(), List::Folder(path) if changed.contains(path));
     if shown {
         if let Err(e) = refresh(state, db) {
             error!("the folder shown not listed again: {e}");
@@ -421,10 +420,10 @@ pub fn folders_changed(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
     let main = roots[0].clone();
     let left = state.browse(|l| {
         l.browser.set_roots(roots);
-        matches!(l.browser.source(), Source::Folder(path) if l.browser.root_of(path).is_none())
+        matches!(l.browser.source(), List::Folder(path) if l.browser.root_of(path).is_none())
     });
     if left {
-        if let Err(e) = open(state, db, Source::Folder(main)) {
+        if let Err(e) = open(state, db, List::Folder(main)) {
             error!("the music folder not listed: {e}");
         }
     }
@@ -439,7 +438,7 @@ struct Read {
 }
 
 /// What `source` holds.
-fn read(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<Read> {
+fn read(state: &AppState, db: &LibraryDb, source: &List) -> AppResult<Read> {
     let derived = lock(&state.library).browser.rows_of(source);
     if let Some(entries) = derived {
         let library = lock(&state.library);
@@ -448,7 +447,7 @@ fn read(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<Read> {
         return Ok(Read { rows, ..Read::default() });
     }
     let rows = match source {
-        Source::Folder(path) => {
+        List::Folder(path) => {
             let roots = lock(&state.library).browser.roots().to_vec();
             let listing = folders::listing(path, &roots)?;
             known(state, db, &listing.files);
@@ -456,11 +455,11 @@ fn read(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<Read> {
                 listing.files.into_iter().map(|(file, _)| (file.display().to_string(), None)).collect();
             return Ok(Read { rows, folders: listing.folders });
         }
-        Source::Crate(id) => db.crate_tracks(*id)?.into_iter().map(|e| (e.path, None)).collect(),
-        Source::History(id) => {
+        List::Crate(id) => db.crate_tracks(*id)?.into_iter().map(|e| (e.path, None)).collect(),
+        List::History(id) => {
             db.history_plays(*id)?.into_iter().map(|p| (p.path, Some(p.played_at_ms))).collect()
         }
-        Source::Prepare | Source::Elsewhere | Source::Duplicates => Vec::new(),
+        List::Prepare | List::Elsewhere | List::Duplicates => Vec::new(),
     };
     Ok(Read { rows, ..Read::default() })
 }
@@ -555,7 +554,7 @@ fn crates_changed(state: &AppState, db: &LibraryDb, changed: Option<CrateId>) ->
     let crates = db.crates()?;
     let shown = state.browse(|l| {
         l.browser.set_crates(crates);
-        changed.is_some_and(|id| *l.browser.source() == Source::Crate(id))
+        changed.is_some_and(|id| *l.browser.source() == List::Crate(id))
     });
     if shown {
         refresh(state, db)?;
@@ -585,11 +584,11 @@ pub fn remove_from_list(state: &AppState, db: &LibraryDb, paths: Option<Vec<Stri
     }
     let paths = paths.unwrap_or_else(|| lock(&state.library).browser.paths_of(&entries));
     match source {
-        Source::Prepare => {
+        List::Prepare => {
             db.remove_from_prepare(&as_paths(&paths))?;
             prepare_changed(state, db);
         }
-        Source::Crate(id) => {
+        List::Crate(id) => {
             db.remove_from_crate(id, &as_paths(&paths))?;
             crates_changed(state, db, Some(id))?;
         }
@@ -621,11 +620,11 @@ pub fn remove_from_library(state: &AppState, db: &LibraryDb, paths: Option<Vec<S
     let main = state.browse(|l| {
         l.browser.forget(&paths);
         l.browser.put_cursor(next);
-        let emptied = *l.browser.source() == Source::Elsewhere && l.browser.elsewhere().next().is_none();
+        let emptied = *l.browser.source() == List::Elsewhere && l.browser.elsewhere().next().is_none();
         l.browser.main_root().filter(|_| emptied).cloned()
     });
     if let Some(main) = main {
-        open(state, db, Source::Folder(main))?;
+        open(state, db, List::Folder(main))?;
     }
     Ok(())
 }
@@ -658,7 +657,7 @@ pub fn create_crate(
         None => db.create_crate(name)?,
     };
     crates_changed(state, db, None)?;
-    open(state, db, Source::Crate(id))?;
+    open(state, db, List::Crate(id))?;
     Ok(id)
 }
 
@@ -682,31 +681,31 @@ pub fn change_crate(
 pub fn delete_crate(state: &AppState, db: &LibraryDb, id: CrateId) -> AppResult<()> {
     db.delete_crate(id)?;
     crates_changed(state, db, None)?;
-    leave(state, db, &Source::Crate(id))
+    leave(state, db, &List::Crate(id))
 }
 
 /// Deletes the set `id` from the history; shown, it gives way to the folder shown last.
 pub fn delete_session(state: &AppState, db: &LibraryDb, id: SessionId) -> AppResult<()> {
     db.delete_history_session(id)?;
     lists(state, db)?;
-    leave(state, db, &Source::History(id))
+    leave(state, db, &List::History(id))
 }
 
 /// `source`, if it is shown, gives way to the folder shown last.
-fn leave(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<()> {
+fn leave(state: &AppState, db: &LibraryDb, source: &List) -> AppResult<()> {
     if lock(&state.library).browser.source() != source {
         return Ok(());
     }
     let last = state.preferences.read(|p| p.library.last_folder.clone()).map(PathBuf::from);
     let folder = last.or_else(|| lock(&state.library).browser.main_root().cloned());
-    folder.map_or(Ok(()), |folder| open(state, db, Source::Folder(folder)))
+    folder.map_or(Ok(()), |folder| open(state, db, List::Folder(folder)))
 }
 
 /// A track was played: the history, its play count, the prepare list it left, and the set shown.
 pub fn played(state: &AppState, db: &LibraryDb, path: &Path) -> AppResult<()> {
     reread(state, db, [path]);
     lists(state, db)?;
-    if matches!(lock(&state.library).browser.source(), Source::History(_)) {
+    if matches!(lock(&state.library).browser.source(), List::History(_)) {
         refresh(state, db)?;
     }
     Ok(())
@@ -797,7 +796,7 @@ impl Performing<'_> {
     }
 
     /// Opens the list `which` names.
-    fn open_list(&self, which: impl FnOnce(&mut Browser) -> Source) -> AppResult<()> {
+    fn open_list(&self, which: impl FnOnce(&mut Browser) -> List) -> AppResult<()> {
         let source = self.state.browse(|l| which(&mut l.browser));
         self.in_library(|db| open(self.state, db, source))
     }
@@ -878,7 +877,7 @@ mod tests {
         start(&bench.state, &bench.library, vec![PathBuf::from("C:/Music")]);
         bench.state.browse(|l| {
             let rows = l.browser.entries(["a", "b", "c"].map(|n| (format!("C:/Music/{n}.mp3"), None)));
-            l.browser.show(Source::Folder("C:/Music".into()), rows);
+            l.browser.show(List::Folder("C:/Music".into()), rows);
         });
         bench
     }
@@ -944,7 +943,7 @@ mod tests {
         bench.press("library.prepare", 1.0).unwrap();
         assert_eq!(prepared(&bench), ["C:/Music/a.mp3", "C:/Music/b.mp3"]);
         assert_eq!(lock(&bench.state.library).lists().prepare, 2, "the side panel follows");
-        open(&bench.state, &bench.library, Source::Prepare).unwrap();
+        open(&bench.state, &bench.library, List::Prepare).unwrap();
         pick(&bench, "a", Pick::Only);
         bench.press("library.remove", 1.0).unwrap();
         assert_eq!(prepared(&bench), ["C:/Music/b.mp3"]);
@@ -958,7 +957,7 @@ mod tests {
         let bench = library();
         let paths: Vec<String> = ["a", "b", "c"].map(|n| format!("C:/Music/{n}.mp3")).into();
         add_to_prepare(&bench.state, &bench.library, None, &paths).unwrap();
-        open(&bench.state, &bench.library, Source::Prepare).unwrap();
+        open(&bench.state, &bench.library, List::Prepare).unwrap();
         pick(&bench, "a", Pick::Only);
         remove_from_list(&bench.state, &bench.library, Some(vec!["C:/Music/c.mp3".into()])).unwrap();
         assert_eq!(prepared(&bench), ["C:/Music/a.mp3", "C:/Music/b.mp3"]);
@@ -972,12 +971,12 @@ mod tests {
         let bench = library();
         let warm_up = create_crate(&bench.state, &bench.library, " Warm-up ", None).unwrap();
         add_to_crate(&bench.state, &bench.library, warm_up, &["C:/Music/c.mp3".into()]).unwrap();
-        open(&bench.state, &bench.library, Source::Prepare).unwrap();
+        open(&bench.state, &bench.library, List::Prepare).unwrap();
         bench.press("library.focus", 1.0).unwrap();
         bench.moved("DDJ", "library.browse", Input::Steps { steps: 1.0, step: None }).unwrap();
         bench.press("library.go", 1.0).unwrap();
         let library = lock(&bench.state.library);
-        assert_eq!(*library.browser.source(), Source::Crate(warm_up));
+        assert_eq!(*library.browser.source(), List::Crate(warm_up));
         assert_eq!(library.browser.focus(), Focus::Tracks);
         assert_eq!(library.lists().crates[0].name, "Warm-up", "named without its spaces");
     }
@@ -999,7 +998,7 @@ mod tests {
         let bench = library();
         let paths: Vec<String> = ["a", "b"].map(|n| format!("C:/Music/{n}.mp3")).into();
         add_to_prepare(&bench.state, &bench.library, None, &paths).unwrap();
-        open(&bench.state, &bench.library, Source::Prepare).unwrap();
+        open(&bench.state, &bench.library, List::Prepare).unwrap();
         place_in_prepare(
             &bench.state,
             &bench.library,
@@ -1027,13 +1026,13 @@ mod tests {
     #[test]
     fn only_the_tracks_from_elsewhere_leave_the_library_and_their_list_gives_way_once_empty() {
         let bench = library();
-        open(&bench.state, &bench.library, Source::Elsewhere).unwrap();
+        open(&bench.state, &bench.library, List::Elsewhere).unwrap();
         assert_eq!(titles(&bench), ["Delta"]);
         let paths = vec!["C:/Music/a.mp3".into(), "D:/Downloads/d.mp3".into()];
         remove_from_library(&bench.state, &bench.library, Some(paths)).unwrap();
         assert!(bench.library.get(Path::new("C:/Music/a.mp3")).unwrap().is_some(), "in a music folder: kept");
         assert!(bench.library.get(Path::new("D:/Downloads/d.mp3")).unwrap().is_none());
-        assert_eq!(*lock(&bench.state.library).browser.source(), Source::Folder("C:/Music".into()));
+        assert_eq!(*lock(&bench.state.library).browser.source(), List::Folder("C:/Music".into()));
     }
 
     #[test]

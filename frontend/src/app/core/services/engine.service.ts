@@ -295,13 +295,13 @@ export class EngineService {
 
   /** The key `action` of `deck` pressed and lost (gone from under the pointer): let go without
    * what its release does (SYNC tapped). */
-  letGo(deck: number, action: string) {
+  lose(deck: number, action: string) {
     return this.call('let_go_key', { target: `deck${deck + 1}.${action}`, order: this.order() });
   }
 
   /** The key `action` of `deck` let go, or its press lost (`letGo`). */
   release(deck: number, action: string, letGo: boolean) {
-    return letGo ? this.press(deck, action, false) : this.letGo(deck, action);
+    return letGo ? this.press(deck, action, false) : this.lose(deck, action);
   }
 
   /** The switch `target` (`deck1.keylock`, `mixer.talkover`…) turned on or off. */

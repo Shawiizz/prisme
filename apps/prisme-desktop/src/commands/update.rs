@@ -50,7 +50,7 @@ pub async fn download_update(
 /// first, as when it quits.
 #[tauri::command]
 pub fn install_update(state: State<'_, AppState>, downloaded: State<'_, Downloaded>) -> AppResult<()> {
-    super::new_version::decks_stopped(&state)?;
+    super::new_version::check_decks_stopped(&state)?;
     let (update, bytes) = downloaded
         .0
         .lock()

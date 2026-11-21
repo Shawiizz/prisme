@@ -206,7 +206,7 @@ export class LibraryService {
 
   /** Takes the tracks at `paths` (`null`: those selected) out of the crate or prepare list shown. */
   remove(paths: string[] | null) {
-    return this.attempt(() => this.engine.ordered('library_remove', { paths }));
+    return this.attempt(() => this.engine.ordered('remove_from_list', { paths }));
   }
 
   /** Takes the tracks from elsewhere among `paths` (`null`: those selected) out of the library,
@@ -224,7 +224,7 @@ export class LibraryService {
       confirm: t('Remove'),
       cancel: t('Cancel'),
     });
-    if (yes) await this.attempt(() => this.engine.ordered('remove_tracks', { paths }));
+    if (yes) await this.attempt(() => this.engine.ordered('remove_from_library', { paths }));
   }
 
   /** Colours the tracks at `paths` (`null`: those selected); `null` takes the colour off. */

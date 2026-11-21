@@ -20,6 +20,7 @@ pub mod live;
 pub mod marks;
 pub mod mixer;
 pub mod new_version;
+pub mod pads;
 pub mod perform;
 pub mod preferences;
 pub mod prepare;
@@ -34,7 +35,6 @@ pub mod simulated;
 pub mod stems;
 pub mod targets;
 pub mod tracks;
-pub mod transport;
 #[cfg(desktop)]
 pub mod update;
 

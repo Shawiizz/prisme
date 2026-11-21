@@ -3,7 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
-import { keyHue, musicalKeyName } from '../../../shared/camelot';
+import { keyHue, musicalKeyName } from '../../../shared/musical-key';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';

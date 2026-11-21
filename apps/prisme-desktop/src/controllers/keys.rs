@@ -33,7 +33,7 @@ impl Controllers {
         let routed = self.route(device, event, at_s);
         let relayered = layer() != before;
         match routed {
-            Some(Routed::Learned(_)) => self.show(host.app_state()),
+            Some(Routed::Learnt(_)) => self.show(host.app_state()),
             Some(Routed::Actions(actions)) => {
                 self.act(host, actions, Moved { device: device.into(), at_s, jog_steps_per_turn })
             }
@@ -107,7 +107,7 @@ impl Controllers {
     /// on the controller's clock.
     pub(super) fn route(&self, device: &str, event: Event, at_s: f64) -> Option<Routed> {
         if let Some(learnt) = self.complete_fine(device, event).or_else(|| self.learn_from(device, event)) {
-            return Some(Routed::Learned(Box::new(learnt)));
+            return Some(Routed::Learnt(Box::new(learnt)));
         }
         let mut reader = lock(&self.reader);
         let mappings = lock(&self.mappings);

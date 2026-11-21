@@ -30,7 +30,7 @@ fn folder() -> Browser {
     ]));
     let rows =
         browser.entries(["a.mp3", "b.mp3", "c.mp3", "e.mp3"].map(|name| (format!("C:/Music/{name}"), None)));
-    browser.show(Source::Folder("C:/Music".into()), rows);
+    browser.show(List::Folder("C:/Music".into()), rows);
     browser
 }
 
@@ -93,14 +93,14 @@ fn each_column_sorts_the_tracks_without_a_value_last_and_again_the_other_way() {
 fn a_list_with_an_order_of_its_own_opens_in_it_and_numbers_its_rows() {
     let mut browser = folder();
     let rows = browser.entries(["b", "a", "b"].map(|name| (format!("C:/Music/{name}.mp3"), None)));
-    browser.show(Source::Prepare, rows);
+    browser.show(List::Prepare, rows);
     assert_eq!(browser.sort(), Sort { column: Column::Order, descending: false });
     browser.set_window(0, 10);
     let rows: Vec<_> = browser.window().map(|r| (r.track.title.clone(), r.position)).collect();
     assert_eq!(rows, [("Alone".into(), Some(1)), ("Strobe".into(), Some(2)), ("Alone".into(), Some(3))]);
     assert!(browser.reorderable() && browser.removable());
     let folder = browser.entries([("C:/Music/a.mp3".to_string(), None)]);
-    browser.show(Source::Folder("C:/Music".into()), folder);
+    browser.show(List::Folder("C:/Music".into()), folder);
     assert_eq!(browser.sort().column, Column::Title, "a folder has no order of its own");
     assert!(!browser.removable());
 }
@@ -109,7 +109,7 @@ fn a_list_with_an_order_of_its_own_opens_in_it_and_numbers_its_rows() {
 fn a_track_played_twice_in_a_set_is_two_rows_picked_apart() {
     let mut browser = folder();
     let rows = browser.entries([1, 2].map(|at| ("C:/Music/a.mp3".to_string(), Some(at))));
-    browser.show(Source::History(SessionId(1)), rows);
+    browser.show(List::History(SessionId(1)), rows);
     let second = browser.find("C:/Music/a.mp3", Some(2)).unwrap();
     browser.select(second, Pick::Only);
     assert_eq!(browser.selected(), [second]);
@@ -128,7 +128,7 @@ fn a_cursor_moved_within_the_list_is_told_apart_from_another_list_shown() {
     browser.sort_by(Column::Title, None);
     browser.set_scope(Scope::Library);
     assert_eq!(browser.listed(), listed + 3);
-    browser.show(Source::Prepare, Vec::new());
+    browser.show(List::Prepare, Vec::new());
     assert_eq!(browser.listed(), listed + 4);
 }
 
@@ -182,7 +182,7 @@ fn the_cursor_s_track_is_taken_only_while_its_row_is_shown() {
     assert!(browser.cursor().is_none(), "hidden by the search");
     browser.set_filter("");
     assert_eq!(browser.cursor().map(|t| t.title.as_str()), Some("Café Noir"), "shown again");
-    browser.show(Source::Prepare, Vec::new());
+    browser.show(List::Prepare, Vec::new());
     assert!(browser.cursor().is_none(), "another list shown");
 }
 
@@ -219,8 +219,8 @@ fn the_tracks_under_none_of_the_music_folders_are_from_elsewhere() {
     assert_eq!(names(&browser), ["Dropped", "X"]);
     browser.set_roots(vec!["C:/Music".into(), "E:/Sets".into()]);
     assert_eq!(names(&browser), ["Dropped"]);
-    let rows = browser.rows_of(&Source::Elsewhere).unwrap();
-    browser.show(Source::Elsewhere, rows);
+    let rows = browser.rows_of(&List::Elsewhere).unwrap();
+    browser.show(List::Elsewhere, rows);
     browser.forget(&["D:/Downloads/d.mp3".into()]);
     assert_eq!(browser.count(), 0, "the list follows");
 }
@@ -236,11 +236,11 @@ fn a_smart_crate_picks_its_tracks_from_the_library_and_counts_them() {
     let hand = Crate { id: CrateId(1), name: "Hand".into(), rules: None, track_count: 7 };
     browser.set_crates(vec![hand, smart]);
     assert_eq!(browser.crates().iter().map(|c| c.track_count).collect::<Vec<_>>(), [7, 2]);
-    let rows = browser.rows_of(&Source::Crate(CrateId(2))).unwrap();
-    browser.show(Source::Crate(CrateId(2)), rows);
+    let rows = browser.rows_of(&List::Crate(CrateId(2))).unwrap();
+    browser.show(List::Crate(CrateId(2)), rows);
     assert_eq!(titles(&mut browser), ["Café Noir", "Strobe"]);
     assert!(!browser.removable(), "it picks its own");
-    assert!(browser.rows_of(&Source::Crate(CrateId(1))).is_none(), "the database's");
+    assert!(browser.rows_of(&List::Crate(CrateId(1))).is_none(), "the database's");
     // a track analysed or edited joins the crate shown, and its count, at once
     browser.put(record("C:/Music/b.mp3", tags("Alone", Some("Claptone"), Some("Deep House")), None, None));
     assert_eq!(titles(&mut browser), ["Alone", "Café Noir", "Strobe"]);
@@ -254,8 +254,8 @@ fn a_smart_crate_picks_its_tracks_from_the_library_and_counts_them() {
 #[test]
 fn a_track_edited_into_a_duplicate_shows_among_them_at_once() {
     let mut browser = folder();
-    let rows = browser.rows_of(&Source::Duplicates).unwrap();
-    browser.show(Source::Duplicates, rows);
+    let rows = browser.rows_of(&List::Duplicates).unwrap();
+    browser.show(List::Duplicates, rows);
     assert_eq!(browser.count(), 0);
     let count = |b: &Browser| b.lists_revision();
     let before = count(&browser);
@@ -273,10 +273,10 @@ fn a_controller_points_at_the_lists_held_at_the_ends_and_opens_the_next() {
     assert_eq!((browser.pointed(), browser.focus()), (Shelf::Crate(CrateId(3)), Focus::Lists));
     browser.point(5);
     assert_eq!(browser.pointed(), Shelf::Crate(CrateId(7)));
-    assert_eq!(browser.open_pointed(), Source::Crate(CrateId(7)));
+    assert_eq!(browser.open_pointed(), List::Crate(CrateId(7)));
     assert_eq!(browser.focus(), Focus::Tracks);
-    browser.show(Source::Prepare, Vec::new());
-    assert_eq!(browser.next_list(1), Source::Duplicates, "after the list shown");
+    browser.show(List::Prepare, Vec::new());
+    assert_eq!(browser.next_list(1), List::Duplicates, "after the list shown");
     browser.point(-4);
     assert_eq!(browser.pointed(), Shelf::Prepare);
 }
@@ -292,25 +292,25 @@ fn a_controller_opens_the_lists_of_the_side_panel_in_turn() {
     ]));
     browser.set_crates(vec![Crate { id: CrateId(3), name: "A".into(), rules: None, track_count: 0 }]);
     browser.set_sessions(vec![HistorySession { id: SessionId(9), started_at_ms: 0, play_count: 1 }]);
-    browser.show(Source::Prepare, Vec::new());
-    let opened: Vec<Source> = (0..7)
+    browser.show(List::Prepare, Vec::new());
+    let opened: Vec<List> = (0..7)
         .map(|_| {
             let next = browser.next_list(1);
             browser.show(next.clone(), Vec::new());
             next
         })
         .collect();
-    let folder = |path: &str| Source::Folder(PathBuf::from(path));
+    let folder = |path: &str| List::Folder(PathBuf::from(path));
     assert_eq!(
         opened,
         [
-            Source::Duplicates,
+            List::Duplicates,
             folder("C:/Music"),
             folder("C:/Music/house"),
             folder("C:/Music/Mixxx"),
-            Source::Crate(CrateId(3)),
-            Source::History(SessionId(9)),
-            Source::History(SessionId(9)),
+            List::Crate(CrateId(3)),
+            List::History(SessionId(9)),
+            List::History(SessionId(9)),
         ]
     );
     browser.show(folder("C:/Music/Mixxx/sets"), Vec::new());
@@ -364,10 +364,10 @@ fn titles_in_window(browser: &Browser) -> Vec<String> {
 fn duplicates_and_the_prepare_list_are_made_from_the_library() {
     let mut browser = folder();
     browser.put(record("C:/Music/copy.mp3", tags("Strobe!", Some("Deadmau5"), None), None, None));
-    assert_eq!(browser.rows_of(&Source::Duplicates).unwrap().len(), 2);
+    assert_eq!(browser.rows_of(&List::Duplicates).unwrap().len(), 2);
     browser.set_prepare(&["C:/Music/c.mp3".into(), "C:/Music/a.mp3".into()]);
-    let rows = browser.rows_of(&Source::Prepare).unwrap();
-    browser.show(Source::Prepare, rows);
+    let rows = browser.rows_of(&List::Prepare).unwrap();
+    browser.show(List::Prepare, rows);
     assert_eq!(titles(&mut browser), ["Café Noir", "Strobe"]);
     browser.set_prepare(&["C:/Music/a.mp3".into()]);
     assert_eq!(titles(&mut browser), ["Strobe"], "the list shown follows");

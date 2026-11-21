@@ -1,7 +1,7 @@
 //! The library as it is browsed: its lists, its rows, its folders.
 
 use super::{KeyDto, RowStemsDto};
-use prisme_library::browse::{Column, Focus, Pick, Scope, Source};
+use prisme_library::browse::{Column, Focus, List, Pick, Scope};
 use prisme_library::{CrateId, SessionId};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -19,20 +19,20 @@ pub enum SourceDto {
     History { id: i64 },
 }
 
-impl From<&Source> for SourceDto {
-    fn from(source: &Source) -> Self {
+impl From<&List> for SourceDto {
+    fn from(source: &List) -> Self {
         match source {
-            Source::Folder(path) => Self::Folder { path: path.display().to_string() },
-            Source::Prepare => Self::Prepare,
-            Source::Duplicates => Self::Duplicates,
-            Source::Elsewhere => Self::Elsewhere,
-            Source::Crate(id) => Self::Crate { id: id.0 },
-            Source::History(id) => Self::History { id: id.0 },
+            List::Folder(path) => Self::Folder { path: path.display().to_string() },
+            List::Prepare => Self::Prepare,
+            List::Duplicates => Self::Duplicates,
+            List::Elsewhere => Self::Elsewhere,
+            List::Crate(id) => Self::Crate { id: id.0 },
+            List::History(id) => Self::History { id: id.0 },
         }
     }
 }
 
-impl From<SourceDto> for Source {
+impl From<SourceDto> for List {
     fn from(source: SourceDto) -> Self {
         match source {
             SourceDto::Folder { path } => Self::Folder(path.into()),

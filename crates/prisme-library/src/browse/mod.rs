@@ -27,7 +27,7 @@ pub const PAGE: i64 = 12;
 
 /// The list browsed.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub enum Source {
+pub enum List {
     Folder(PathBuf),
     #[default]
     Prepare,
@@ -39,10 +39,10 @@ pub enum Source {
     History(SessionId),
 }
 
-impl Source {
+impl List {
     /// Whether the list has an order of its own, shown in its rows.
     pub fn ordered(&self) -> bool {
-        matches!(self, Source::History(_) | Source::Prepare | Source::Duplicates)
+        matches!(self, List::History(_) | List::Prepare | List::Duplicates)
     }
 }
 
@@ -85,7 +85,7 @@ pub struct Browser {
     prepare: Vec<TrackId>,
     elsewhere: Elsewhere,
     tonight: HashSet<TrackId>,
-    source: Source,
+    source: List,
     /// The rows of the list browsed, in its own order.
     list: Vec<Entry>,
     scope: Scope,
@@ -165,9 +165,9 @@ impl Browser {
             self.lists_changed();
         }
         let shown_moved = match self.source {
-            Source::Elsewhere => placed,
-            Source::Duplicates => before.song != now.song,
-            Source::Crate(shown) => {
+            List::Elsewhere => placed,
+            List::Duplicates => before.song != now.song,
+            List::Crate(shown) => {
                 let at = self.crates.iter().filter(|c| c.rules.is_some()).position(|c| c.id == shown);
                 at.is_some_and(|at| before.smart[at] != now.smart[at])
             }
@@ -255,7 +255,7 @@ impl Browser {
 
     /// Shows `source`, whose rows are `rows`: the whole list, nothing searched or picked, in
     /// the list's own order if it has one.
-    pub fn show(&mut self, source: Source, rows: Vec<Entry>) {
+    pub fn show(&mut self, source: List, rows: Vec<Entry>) {
         self.source = source;
         self.list = rows;
         self.picked.clear();
@@ -282,7 +282,7 @@ impl Browser {
         self.changed();
     }
 
-    pub fn source(&self) -> &Source {
+    pub fn source(&self) -> &List {
         &self.source
     }
 
@@ -313,15 +313,15 @@ impl Browser {
     pub fn removable(&self) -> bool {
         self.scope == Scope::List
             && match self.source {
-                Source::Prepare => true,
-                Source::Crate(id) => self.crate_rules(id).is_none(),
+                List::Prepare => true,
+                List::Crate(id) => self.crate_rules(id).is_none(),
                 _ => false,
             }
     }
 
     /// Whether the rows may be dragged to another place: the prepare list's, in its order.
     pub fn reorderable(&self) -> bool {
-        self.source == Source::Prepare
+        self.source == List::Prepare
             && self.scope == Scope::List
             && self.sort == Sort { column: Column::Order, descending: false }
     }

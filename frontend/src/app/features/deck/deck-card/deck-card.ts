@@ -12,7 +12,7 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { deckReadouts } from '../../../core/deck-readouts';
 import { DECK_MODES, deckVinyl } from '../../../core/deck-vinyl';
 import { decimal, deckLetter, formatTime } from '../../../shared/time';
-import { musicalKeyName } from '../../../shared/camelot';
+import { musicalKeyName } from '../../../shared/musical-key';
 import { KeyChip } from '../../../shared/key-chip/key-chip';
 import { sameSegments, segments } from '../../../shared/meter';
 import { Cover } from '../../../shared/cover/cover';

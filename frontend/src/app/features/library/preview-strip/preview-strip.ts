@@ -17,7 +17,7 @@ import { readout } from '../../../shared/readout';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { formatClock } from '../../../shared/time';
 import { WaveformOverlay, WaveformPainter } from '../../deck/deck-waveform/waveform-painter';
-import type { Knob as KnobView } from '../../../core/models/backend';
+import type { KnobState } from '../../../core/models/backend';
 
 const NOTHING_OVER: WaveformOverlay = { tempo: null, cues: [], loop: null };
 
@@ -40,7 +40,7 @@ export class PreviewStrip {
 
   protected readonly preview = inject(PreviewService);
   protected readonly mixer = inject(MixerService);
-  protected readonly read = (knob: KnobView) => readout(knob.reads);
+  protected readonly read = (knob: KnobState) => readout(knob.reads);
   private readonly canvas = viewChild.required<ElementRef<HTMLCanvasElement>>('bar');
   private readonly painter = new WaveformPainter();
   private readonly showing = new Showing();

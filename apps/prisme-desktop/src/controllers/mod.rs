@@ -124,7 +124,7 @@ enum Reported {
 
 #[derive(Debug, PartialEq)]
 enum Routed {
-    Learned(Box<Mapping>),
+    Learnt(Box<Mapping>),
     /// What the controller drives, in order.
     Actions(Vec<Action>),
 }
@@ -556,7 +556,7 @@ mod tests {
         // the release of a press made before Learn is not learnt
         assert_eq!(c.route("DDJ", parse(&[0x80, 40, 0]).unwrap(), 0.0), None);
         let learnt = c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0);
-        assert_eq!(learnt, Some(Routed::Learned(Box::new(mapping(PAD, "deck1.play")))));
+        assert_eq!(learnt, Some(Routed::Learnt(Box::new(mapping(PAD, "deck1.play")))));
         assert_eq!(c.route("DDJ", parse(&[0x80, 36, 0]).unwrap(), 0.0), input("deck1.play", 0.0));
         assert_eq!(c.route("DDJ", parse(&[0x90, 36, 127]).unwrap(), 0.0), input("deck1.play", 1.0));
         assert_eq!(c.route("Other", parse(&[0x90, 36, 127]).unwrap(), 0.0), None);
@@ -595,7 +595,7 @@ mod tests {
         let tempo = Control::control_change(0, 0);
         assert_eq!(
             fine,
-            Some(Routed::Learned(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
+            Some(Routed::Learnt(Box::new(with(mapping(tempo, "deck1.pitch"), |b| b.fine = Some(32)))))
         );
         assert_eq!(route(&c, &[0xb0, 0, 64]), None);
         assert_eq!(route(&c, &[0xb0, 32, 64]), direct("deck1.pitch", Input::Value(8256.0 / 16383.0)));
@@ -615,7 +615,7 @@ mod tests {
         let learnt = route(&c, &[0x90, 36, 127]);
         assert_eq!(
             learnt,
-            Some(Routed::Learned(Box::new(with(mapping(PAD, "deck1.hotcue1.delete"), |b| {
+            Some(Routed::Learnt(Box::new(with(mapping(PAD, "deck1.hotcue1.delete"), |b| {
                 b.shift = prisme_control::Shift::Any
             }))))
         );
@@ -1234,7 +1234,7 @@ mod tests {
     ) -> Vec<Routed> {
         match c.read_hid(device, &reports.read(report)) {
             Reported::Events(events) => events.into_iter().filter_map(|e| c.route(device, e, 0.0)).collect(),
-            Reported::Learnt(mapping) => vec![Routed::Learned(mapping)],
+            Reported::Learnt(mapping) => vec![Routed::Learnt(mapping)],
         }
     }
 
@@ -1319,13 +1319,13 @@ mod tests {
             &device,
             ProfileControl { control: slip, target: "deck1.censor".into(), ..Default::default() },
         );
-        assert_eq!(learnt, [Routed::Learned(Box::new(expected))]);
+        assert_eq!(learnt, [Routed::Learnt(Box::new(expected))]);
         driven(&c, &device, &mut reports, &short(&[]));
         assert_eq!(driven(&c, &device, &mut reports, &short(&[(0x0e, 0x02)])), ui(&[("deck1.censor", 1.0)]));
         // an encoder of no profile: the counter's nibble that turned
         c.learn("deck1.size".into());
         let learnt = driven(&c, &device, &mut reports, &long(&[(0x10, 0x30)]));
-        let Some(Routed::Learned(mapping)) = learnt.first() else { panic!("{learnt:?}") };
+        let Some(Routed::Learnt(mapping)) = learnt.first() else { panic!("{learnt:?}") };
         assert_eq!(
             mapping.control,
             Control::Hid(Field { report: 2, byte: 0x10, bit: 4, bits: 4, big_endian: false })

@@ -111,7 +111,7 @@
       <path d="M11 11l4 4" />
     </svg>
     <span>{{ 'Search actions, tracks, settings…' | t }}</span>
-    @if (keyboard.keyOf('general.palette'); as key) {
+    @if (keyboard.firstKey('general.palette'); as key) {
       <kbd class="pr-kbd">{{ key }}</kbd>
     }
   </button>

@@ -1,6 +1,6 @@
 import { showLanguage } from '../core/i18n/i18n';
 import type { MusicalKey } from '../core/models/backend';
-import { musicalKeyName } from './camelot';
+import { musicalKeyName } from './musical-key';
 
 describe('musicalKeyName', () => {
   const key = (note: string, accidental: string, minor: boolean) =>

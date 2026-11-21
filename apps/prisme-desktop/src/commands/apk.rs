@@ -137,7 +137,7 @@ pub enum Handed {
 #[cfg(target_os = "android")]
 #[tauri::command(async)]
 pub fn install_apk(app: AppHandle, url: String) -> AppResult<Handed> {
-    super::new_version::decks_stopped(&app.state::<crate::state::AppState>())?;
+    super::new_version::check_decks_stopped(&app.state::<crate::state::AppState>())?;
     let path = apk_path(&app, &url)?;
     let answer = call("hand the new version to Android", |env, class| {
         let path = JObject::from(env.new_string(path.to_string_lossy())?);

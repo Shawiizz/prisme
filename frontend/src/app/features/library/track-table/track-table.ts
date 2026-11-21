@@ -13,7 +13,7 @@ import {
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { musicalKeyName } from '../../../shared/camelot';
+import { musicalKeyName } from '../../../shared/musical-key';
 import { KeyChip } from '../../../shared/key-chip/key-chip';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
@@ -132,7 +132,11 @@ export class TrackTable {
   );
 
   protected readonly emptyMessage = computed(() =>
-    emptyText(this.library.view(), this.library.filter(), this.keyboard.keyOf('library.prepare')),
+    emptyText(
+      this.library.view(),
+      this.library.filter(),
+      this.keyboard.firstKey('library.prepare'),
+    ),
   );
 
   constructor() {

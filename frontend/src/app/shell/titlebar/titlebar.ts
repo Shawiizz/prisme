@@ -37,7 +37,7 @@ export class Titlebar {
   protected readonly library = inject(LibraryService);
   protected readonly keyboard = inject(KeyboardService);
   protected readonly settingsTitle = computed(() => {
-    const key = this.keyboard.keyOf('general.settings');
+    const key = this.keyboard.firstKey('general.settings');
     return key ? t('Settings ({key})', { key }) : t('Settings');
   });
   protected readonly recordMenu = signal(false);

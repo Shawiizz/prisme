@@ -56,7 +56,7 @@ pub async fn check_update(app: AppHandle) -> AppResult<Option<NewVersionDto>> {
 }
 
 /// Refused while a deck plays: a new version installs once the DJ stopped them all.
-pub fn decks_stopped(state: &AppState) -> AppResult<()> {
+pub fn check_decks_stopped(state: &AppState) -> AppResult<()> {
     if state.is_playing() {
         Err(AppError::DecksPlay)
     } else {
@@ -115,10 +115,10 @@ mod tests {
     #[test]
     fn a_new_version_waits_for_the_decks_to_stop() {
         let bench = crate::actions::bench::Bench::new();
-        assert!(decks_stopped(&bench.state).is_ok());
+        assert!(check_decks_stopped(&bench.state).is_ok());
         bench.load(0, 30.0, Some(120.0));
         bench.press("deck1.play", 1.0).unwrap();
         bench.run(0.1);
-        assert!(matches!(decks_stopped(&bench.state), Err(AppError::DecksPlay)));
+        assert!(matches!(check_decks_stopped(&bench.state), Err(AppError::DecksPlay)));
     }
 }
