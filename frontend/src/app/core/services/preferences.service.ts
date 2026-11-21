@@ -92,13 +92,13 @@ export class PreferencesService {
     });
   }
 
-  /** `setting` changed to `value`: shown once the backend tells it. */
   /** `keys` given to `control` (`null`: Prisme's), taken from the actions that have them if
    * `take`: until then, those they would take are told back, nothing changed. */
   setKeys(control: string, keys: Key[] | null, take: boolean): Promise<TakenKey[]> {
     return invoke<TakenKey[]>('set_keys', { control, keys, take });
   }
 
+  /** `setting` changed to `value`: shown once the backend tells it. */
   set<K extends keyof Settings>(setting: K, value: Settings[K]): Promise<void> {
     return choose(setting, value);
   }
