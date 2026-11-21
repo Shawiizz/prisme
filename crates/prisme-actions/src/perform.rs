@@ -2,10 +2,11 @@
 //! pads and the interface show (a deck's slicer, the cuts held, its roll, its effect focused),
 //! what they keep for themselves alone (its cue played while held, the slices held, its filter
 //! set aside, its tempo tapped, where the faders over a few steps or silent at an end were
-//! given); when the levels last clipped, and when each deck last refused an action its record
-//! holds it from.
+//! given); when the levels last clipped, when each deck last refused an action its record
+//! holds it from, and the settings a controller moved lately.
 
 use crate::input::Faders;
+use crate::moves::Moves;
 use crate::press::Held;
 use crate::record::Refusals;
 use crate::tap::TapTempo;
@@ -45,6 +46,7 @@ pub struct Memory {
     pub faders: Faders,
     pub clips: Clips,
     pub refusals: Refusals,
+    pub moves: Moves,
 }
 
 #[derive(Debug, Default)]

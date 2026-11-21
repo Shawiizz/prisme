@@ -9,6 +9,7 @@ pub mod knobs;
 pub mod lane;
 pub mod light;
 pub mod meter;
+pub mod moves;
 pub mod pads;
 pub mod perform;
 pub mod player;

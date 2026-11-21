@@ -174,7 +174,9 @@ fn a_midi_controller_plays_its_deck_and_lights_it_with_the_interface_asleep() {
     // the size encoder, a step to the right: the size doubles
     jogvision.send(&[0xb0, SIZE, 1]);
     assert_eq!(lock(&bench.state.decks)[0].size_beats, 8.0);
-    assert_eq!(told(bench), Vec::<String>::new(), "nothing for the interface to do");
+    let mut told = told(bench);
+    told.dedup();
+    assert_eq!(told, [DONE_EVENT], "the volume moved, for the interface to show");
 }
 
 /// A Traktor Kontrol S4 MK2, simulated: its reports read by the thread a real one is read by.
@@ -364,5 +366,7 @@ fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_r
     s4.feed(s4.faders.clone());
     s4.key(KEYS, S4_SHIFT, false);
     assert!((lock(&bench.state.decks)[0].pitch - 1.001).abs() < 1e-9);
-    assert_eq!(told(&bench), Vec::<String>::new(), "nothing for the interface to do");
+    let mut told = told(&bench);
+    told.dedup();
+    assert_eq!(told, [DONE_EVENT], "the volume and the tempo moved, for the interface to show");
 }

@@ -10,7 +10,8 @@
 //! actions keep between presses is here, and the view of the application the controllers'
 //! lights and values are read from ([`Actions::view`]). The actions the interface performs (its
 //! windows, the focus of its search), a controller tells it (`ui-action`); those of the library
-//! done, whoever asked, are told it to bring the library into sight ([`DONE_EVENT`]).
+//! done, whoever asked, are told it to bring the library into sight, and the settings a
+//! controller moves, for it to show them where its screen does not ([`DONE_EVENT`]).
 
 pub mod browse;
 mod cues;
@@ -35,8 +36,9 @@ use crate::state::{lock, AppState, MirroredGuard, PadsShown};
 use keys::{Keys, Press};
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{follows, lane, reads_files, takes_selection, Lane};
+use prisme_actions::moves::sets;
 use prisme_actions::perform::{Memory, PerformState};
-use prisme_actions::position::position;
+use prisme_actions::position::{fx_knob, position};
 use prisme_actions::view::View;
 use prisme_control::{DeckAction, GeneralAction, Kind, LibraryAction, Owner, SampleAction, Target, Unknown};
 use prisme_engine::EngineStatus;
@@ -59,7 +61,9 @@ pub use view::{view_of, view_with};
 /// A failure of an action a controller asked for, for the interface to word (an `AppError`).
 pub const FAILED_EVENT: &str = "action-failed";
 /// An action of the library done, or the key showing the library pressed (its target), whoever
-/// asked: the interface brings the library into sight, or leaves it once a track is loaded.
+/// asked: the interface brings the library into sight, or leaves it once a track is loaded. Also
+/// a setting a controller moved (see `prisme_actions::moves`), an effect knob as the knob of the
+/// slot it turned: the interface shows it where its screen does not.
 pub const DONE_EVENT: &str = "action-done";
 /// How long an action of the interface waits for the one sent before it, which may be lost.
 const ORDER_WAIT: Duration = Duration::from_millis(50);
@@ -340,8 +344,12 @@ impl Ends<'_> {
 
 /// Performs `target` driven by `input` as `asked`, here: one that panics fails as any other,
 /// the thread asking (a controller's, the interface's turn) going on. One the interface brings
-/// into sight, done, it is told ([`DONE_EVENT`]).
+/// into sight, done, it is told, and a setting a controller moved ([`DONE_EVENT`]).
 fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
+    let moved = match &asked.source {
+        Source::Controller(by) if sets(target) => host.actions().tells_move(&by.device, target, input),
+        _ => false,
+    };
     let outcome =
         catch_unwind(AssertUnwindSafe(|| host.perform_here(target, input, asked))).unwrap_or_else(|_| {
             error!("{target} failed");
@@ -349,6 +357,8 @@ fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) 
         });
     if outcome.is_ok() && in_sight(target, input) {
         host.tell(DONE_EVENT, target.to_string());
+    } else if outcome.is_ok() && moved {
+        host.tell(DONE_EVENT, moved_as(host.app_state(), target).to_string());
     }
     outcome
 }
@@ -361,6 +371,17 @@ fn in_sight(target: &Target, input: Input) -> bool {
         Input::Steps { steps, .. } => steps != 0.0,
     };
     acts && matches!(target, Target::Library(_) | Target::General(GeneralAction::Library))
+}
+
+/// `target`, a setting moved, as the interface is told it: an effect knob as the knob of the slot
+/// it turned.
+fn moved_as(state: &AppState, target: &Target) -> Target {
+    match *target {
+        Target::Deck(deck, DeckAction::FxKnob(knob)) => {
+            Target::Deck(deck, fx_knob(knob, lock(&state.perform).decks[deck].fx_focus))
+        }
+        _ => target.clone(),
+    }
 }
 
 /// An action sent once the actions it follows are all over.
@@ -722,6 +743,12 @@ impl Actions {
             AppError::RecordHolds { deck } => lock(&self.memory).refusals.tells(deck, self.now_s()),
             _ => true,
         }
+    }
+
+    /// Whether the interface is told that the controller `device` moved the setting `target`
+    /// with `input` (see `Moves`).
+    fn tells_move(&self, device: &str, target: &Target, input: Input) -> bool {
+        lock(&self.memory).moves.tells(device, target, input, self.now_s())
     }
 
     /// Seconds since Prisme started: the clock of the actions no controller times.
@@ -1596,12 +1623,53 @@ mod selection {
         assert!(done("library.next", Input::Value(0.0), ddj()).is_empty(), "let go: nothing done");
         assert_eq!(done("general.library", Input::Value(1.0), ddj()), ["general.library"]);
         assert!(done("general.tempoRange", Input::Value(1.0), ddj()).is_empty(), "not the library's");
-        assert!(
-            done("mixer.crossfader", Input::Value(0.5), ddj()).is_empty(),
-            "the mixer's: in sight on the decks"
-        );
         assert_eq!(done("library.go", Input::Value(1.0), ddj()), ["library.load2"], "as it was sent");
         assert!(done("library.load1", Input::Value(1.0), ddj()).is_empty(), "refused: deck A plays");
+    }
+
+    #[test]
+    fn the_interface_is_told_of_the_settings_a_controller_moves_once_while_they_move() {
+        let bench = Arc::new(Bench::new());
+        let done = |id: &str, input: Input, source: Source| {
+            let target: Target = id.parse().unwrap();
+            bench.actions.perform(&bench, &target, input, source, Answer::Told, &mut InTurn::default());
+            bench.actions.settle();
+            bench.told().into_iter().filter(|(event, _)| event == DONE_EVENT).count()
+        };
+        let ddj = || Source::Controller(Moved { device: "DDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let screen = || Source::Interface { confirmed: false };
+        assert_eq!(done("deck1.eq.low", Input::Value(0.2), screen()), 0, "touched: in sight where it is");
+        assert_eq!(done("deck1.eq.low", Input::Value(0.25), ddj()), 0, "where the knob stands");
+        assert_eq!(done("deck1.eq.low", Input::Value(0.3), ddj()), 1);
+        assert_eq!(done("deck1.eq.low", Input::Value(0.4), ddj()), 0, "told while it moves");
+        assert_eq!(done("deck1.vocals", Input::Value(1.0), ddj()), 1, "another setting at once");
+        assert_eq!(done("deck1.vocals", Input::Value(0.0), ddj()), 0, "let go");
+        assert_eq!(done("deck1.play", Input::Value(1.0), ddj()), 0, "not a setting");
+        std::thread::sleep(Duration::from_millis(260));
+        assert_eq!(done("deck1.eq.low", Input::Value(0.5), ddj()), 1, "moved a while");
+    }
+
+    #[test]
+    fn an_effect_knob_is_told_as_the_knob_of_the_slot_it_turns() {
+        let bench = Arc::new(Bench::new());
+        let moved = |id: &str, value: f32| {
+            let target: Target = id.parse().unwrap();
+            let ddj =
+                Source::Controller(Moved { device: "DDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+            let input = Input::Value(value);
+            bench.actions.perform(&bench, &target, input, ddj, Answer::Told, &mut InTurn::default());
+            bench.actions.settle();
+            bench.told().into_iter().map(|(_, target)| target).collect::<Vec<_>>()
+        };
+        assert!(moved("deck1.fx.knob2", 0.5).is_empty(), "where the knob stands");
+        assert_eq!(
+            moved("deck1.fx.knob2", 0.6),
+            ["deck1.fx2.amount"],
+            "no slot focused: a slot's amount each"
+        );
+        assert!(moved("deck1.fx3.focus", 1.0).is_empty(), "not a setting");
+        std::thread::sleep(Duration::from_millis(260));
+        assert_eq!(moved("deck1.fx.knob2", 0.7), ["deck1.fx3.param2"], "the focused slot's second knob");
     }
 
     /// Two tracks listed in the library, nothing picked.
