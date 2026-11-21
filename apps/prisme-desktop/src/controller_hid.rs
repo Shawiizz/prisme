@@ -7,11 +7,12 @@
 use crate::state::lock;
 use prisme_control::hid::{self, Field, HidDevice, HidInfo, Outputs, Read, Reports};
 use std::collections::BTreeMap;
+use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use tracing::warn;
+use tracing::{error, warn};
 
 /// How long a read waits for a report before the output reports are seen to.
 const READ_WAIT: Duration = Duration::from_millis(4);
@@ -205,7 +206,8 @@ pub struct Link {
 impl Link {
     /// Opens `plugged`, of the model `device` if Prisme knows it, numbering its reports or not;
     /// each report read goes to `received`, with the seconds since it was opened, the reports
-    /// its model asks for first.
+    /// its model asks for first. A report that makes `received` panic is logged and dropped,
+    /// the device read on.
     pub fn open(
         plugged: &Plugged,
         device: Option<&HidDevice>,
@@ -222,6 +224,14 @@ impl Link {
             }),
         });
         let name = plugged.name.clone();
+        let mut received = {
+            let name = name.clone();
+            move |read: Read, at_s: f64| {
+                if catch_unwind(AssertUnwindSafe(|| received(read, at_s))).is_err() {
+                    error!("HID controller {name}: a report failed");
+                }
+            }
+        };
         let asked = device.map(|d| d.inputs.clone()).unwrap_or_default();
         let rewrite = device.is_some_and(|d| d.rewrite);
         let thread = std::thread::Builder::new()
@@ -607,6 +617,29 @@ mod tests {
             drop(link);
             simulated::unplug(simulated);
         }
+    }
+
+    #[test]
+    fn a_report_that_fails_is_dropped_and_the_device_read_on() {
+        let fader = Field { report: 1, byte: 1, bit: 0, bits: 8, big_endian: false };
+        let info = HidInfo { vendor_id: 6092, product_id: 4385, ..HidInfo::default() };
+        let simulated = simulated::plug("F1", info, true, BTreeMap::from([(1, 4)]));
+        let plugged = plugged(|_| None);
+        let name = simulated::name_of(&plugged, simulated).unwrap();
+        let plugged = plugged.iter().find(|p| p.name == name).unwrap();
+        let (sent, values) = std::sync::mpsc::channel();
+        let fields = std::collections::BTreeSet::from([fader]);
+        let link = Link::open(plugged, None, Some(true), move |read, _| {
+            let raw: Vec<u16> = read.events(&fields).iter().map(|e| e.raw).collect();
+            assert_ne!(raw, [13], "a bug");
+            drop(sent.send(raw));
+        })
+        .unwrap();
+        simulated::set(simulated, &[(fader, 13)]).unwrap();
+        simulated::set(simulated, &[(fader, 14)]).unwrap();
+        assert_eq!(soon(|| values.try_recv().ok()), [14]);
+        drop(link);
+        simulated::unplug(simulated);
     }
 
     #[test]

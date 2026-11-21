@@ -13,6 +13,8 @@ use midir::{
 };
 use std::fmt::Display;
 use std::mem::ManuallyDrop;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use tracing::error;
 
 #[cfg(target_os = "android")]
 use crate::android_jni::attached;
@@ -33,10 +35,22 @@ impl Input {
         input: MidiInput,
         port: &MidiInputPort,
         name: &str,
-        mut receive: impl FnMut(u64, &[u8]) + Send + 'static,
+        receive: impl FnMut(u64, &[u8]) + Send + 'static,
     ) -> AppResult<Self> {
+        let mut receive = surviving(receive);
         connecting(|| input.connect(port, name, move |at_us, bytes, _| receive(at_us, bytes), ()))
             .map(|connection| Self(ManuallyDrop::new(connection)))
+    }
+}
+
+/// `receive`, a message that makes it panic logged and dropped: the panic would end the
+/// system's reading thread or the application (a callback of the system's), and midir's close
+/// would panic again on Android, the reading thread found ended.
+fn surviving(mut receive: impl FnMut(u64, &[u8])) -> impl FnMut(u64, &[u8]) {
+    move |at_us, bytes| {
+        if catch_unwind(AssertUnwindSafe(|| receive(at_us, bytes))).is_err() {
+            error!("MIDI message {bytes:02x?} failed");
+        }
     }
 }
 
@@ -79,4 +93,22 @@ impl Drop for Output {
 /// midir waiting up to 5 s for it: never on a page's call or during the start.
 fn connecting<C, E: Display>(connect: impl FnOnce() -> Result<C, E>) -> AppResult<C> {
     attached(connect).map_err(midi_error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_message_that_fails_is_dropped_and_the_next_taken() {
+        let mut taken = Vec::new();
+        let mut receive = surviving(|at_us, bytes: &[u8]| {
+            assert_ne!(bytes, [0x90, 0x3c, 0x7f], "a bug");
+            taken.push(at_us);
+        });
+        receive(1, &[0x90, 0x3c, 0x7f]);
+        receive(2, &[0x80, 0x3c, 0x00]);
+        drop(receive);
+        assert_eq!(taken, [2]);
+    }
 }
