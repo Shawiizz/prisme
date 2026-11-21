@@ -310,10 +310,16 @@ impl Deck {
         }
     }
 
-    /// Internal play: starts or stops at once.
+    /// Internal play: starts or stops at once. A record holding the track in place starts and
+    /// stops it itself: the deck's own play stays off.
     pub(crate) fn set_playing(&mut self, playing: bool) {
-        self.playing = playing;
+        self.playing = playing && self.plays_itself();
         self.motor = Motor::default();
+    }
+
+    /// Whether the deck's own play may be on: not under a record in absolute mode.
+    fn plays_itself(&self) -> bool {
+        self.drive_mode() != DriveMode::Absolute
     }
 
     /// Vinyl control on or off. A record letting go of the deck leaves it playing by itself as
@@ -326,6 +332,7 @@ impl Deck {
         self.vinyl.enabled = enabled;
         self.vinyl.take_back();
         self.sync.reset();
+        self.playing &= self.plays_itself();
         if let_go {
             let moving = self.playhead.is_loaded() && speed.abs() >= vinyl::PLAYING_SPEED;
             self.pitch = rate;
@@ -474,6 +481,7 @@ impl Deck {
             self.vinyl.mode = mode;
             self.vinyl.take_back();
             self.sync.reset();
+            self.playing &= self.plays_itself();
         }
     }
 

@@ -486,3 +486,22 @@ fn a_reversed_deck_follows_the_leader_tempo_without_chasing_its_beats() {
     assert!(rig.deck(1).sync.leader && !d.sync.leader);
     assert_close(d.position_s, before - elapsed * 125.0 / 120.0, 0.02);
 }
+
+#[test]
+fn a_record_in_absolute_mode_starts_and_stops_the_track_itself() {
+    let mut rig = playing_deck(10.0);
+    rig.turntable(0, 12.0, 1.0);
+    rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Absolute });
+    rig.send(Command::SetLeadIn { deck: 0, seconds: Some(0.0) });
+    rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+    rig.run(0.2);
+    assert!(!rig.deck(0).playing, "its own play off as the record takes it");
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.2);
+    let d = rig.deck(0);
+    assert!(!d.playing && d.speed > 0.9, "{d:?}");
+    rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Relative });
+    rig.send(Command::SetPlaying { deck: 0, playing: true });
+    rig.run(0.01);
+    assert!(rig.deck(0).playing, "a relative record leaves it its play");
+}
