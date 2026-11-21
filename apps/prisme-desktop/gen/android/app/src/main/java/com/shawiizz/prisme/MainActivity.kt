@@ -141,11 +141,13 @@ class MainActivity : TauriActivity() {
 
   override fun onResume() {
     super.onResume()
+    shown(true)
     Update.back()
     redraw()
   }
 
   override fun onPause() {
+    shown(false)
     Update.left()
     super.onPause()
   }
@@ -256,6 +258,9 @@ class MainActivity : TauriActivity() {
     questions.removeFirstOrNull()
     questions.firstOrNull()?.let { (question, permissions) -> question.launch(permissions) }
   }
+
+  /** Prisme came into sight or went out of it (`audio_watchdog.rs`). */
+  private external fun shown(shown: Boolean)
 
   /** The DJ let Prisme listen to the inputs (`input_access.rs`): the audio takes them. */
   private external fun inputsAllowed()

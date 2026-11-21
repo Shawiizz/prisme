@@ -123,6 +123,23 @@ pub fn start(app: AppHandle) {
         .expect("cannot start the audio watchdog");
 }
 
+/// `MainActivity.shown`: Prisme came into sight or went out of it. Android may stop calling the
+/// audio of an application out of sight: the watchdog waits for it then, unless a deck plays.
+/// Told by the activity, which Android calls on leaving the screen, unlike the page it freezes.
+#[cfg(target_os = "android")]
+#[no_mangle]
+pub extern "system" fn Java_com_shawiizz_prisme_MainActivity_shown(
+    _env: jni::JNIEnv,
+    _activity: jni::objects::JObject,
+    shown: jni::sys::jboolean,
+) {
+    if let Some(app) = crate::android_jni::app() {
+        app.state::<AppState>()
+            .hidden
+            .store(shown == jni::sys::JNI_FALSE, std::sync::atomic::Ordering::Relaxed);
+    }
+}
+
 /// While the audio runs on other devices than the saved ones, looks for these whenever
 /// the system's devices change (loading the drivers to look is slow, and they must not be
 /// loaded over and over), a few times as an interface takes a moment to come up. True

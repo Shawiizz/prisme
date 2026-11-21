@@ -1,14 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
-import {
-  Component,
-  DestroyRef,
-  computed,
-  effect,
-  inject,
-  signal,
-  untracked,
-  viewChild,
-} from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { closedByBack } from '../../core/back';
 import { BACKEND_NAMES } from '../../core/models/audio';
@@ -113,13 +103,6 @@ export class Phone {
   protected readonly clock = formatClock;
 
   constructor() {
-    // the system may stop calling the audio of an application out of sight: Prisme knows
-    const hidden = () =>
-      invoke('set_hidden', { hidden: document.hidden }).catch((e) =>
-        this.engine.error.set(errorText(e)),
-      );
-    document.addEventListener('visibilitychange', hidden);
-    inject(DestroyRef).onDestroy(() => document.removeEventListener('visibilitychange', hidden));
     // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
       if (this.navigation.settings()) untracked(() => this.show('settings'));

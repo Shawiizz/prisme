@@ -357,7 +357,6 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::audio::latency_channels,
         commands::audio::list_devices,
         commands::audio::measure_latency,
-        commands::audio::set_hidden,
         commands::audio::timecode_formats,
         commands::auto_dj::set_auto_dj_fade,
         commands::controllers::cancel_learning,

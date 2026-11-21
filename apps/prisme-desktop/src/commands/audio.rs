@@ -12,12 +12,6 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State};
 use tracing::{error, warn};
 
-/// The interface went out of sight, or came back.
-#[tauri::command]
-pub fn set_hidden(state: State<'_, AppState>, hidden: bool) {
-    state.hidden.store(hidden, std::sync::atomic::Ordering::Relaxed);
-}
-
 /// Backends this computer offers (ASIO only with an ASIO driver installed).
 #[tauri::command]
 pub fn audio_backends() -> Vec<BackendChoiceDto> {
