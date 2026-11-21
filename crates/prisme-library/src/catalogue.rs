@@ -142,7 +142,7 @@ impl Catalogue {
         Some(id)
     }
 
-    /// The library as the database holds it all, `records`: the tracks it no longer holds left
+    /// The library as the database holds it all, `tracks`: those it no longer holds left
     /// without a record.
     pub fn load(&mut self, tracks: Tracks) {
         let mut known = vec![false; self.tracks.len()];

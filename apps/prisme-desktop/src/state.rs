@@ -695,7 +695,6 @@ impl AppState {
         self.revisions.moved(Section::Settings);
     }
 
-    /// The engine's latest view of `deck`.
     /// The audio running on `session` from now, or stopped (`None`): the one it replaces is
     /// given back, to be closed outside the lock. The interface hears of the decks and the
     /// routing as the device lays them out.
@@ -713,6 +712,7 @@ impl AppState {
         Ok(session.as_mut().ok_or(AppError::AudioNotRunning)?.controller.status())
     }
 
+    /// The engine's latest view of `deck`.
     pub fn deck_status(&self, deck: usize) -> AppResult<DeckStatus> {
         Self::deck_exists(deck)?;
         let mut session = lock(&self.session);
@@ -764,7 +764,8 @@ impl AppState {
         lock(&self.tracks)[deck].as_ref().map(f).ok_or(AppError::NoTrack(deck))
     }
 
-    /// Changes the track loaded on `deck` with `f`: the interface hears of it.
+    /// Changes the track loaded on `deck` with `f`: the interface hears of it. The track is
+    /// looked for before the guard is taken mutably, which would snapshot what it shows.
     pub fn change_track<R>(&self, deck: usize, f: impl FnOnce(&mut LoadedTrack) -> R) -> AppResult<R> {
         Self::deck_exists(deck)?;
         let mut tracks = lock(&self.tracks);
@@ -787,6 +788,7 @@ impl AppState {
         f: impl FnOnce(&mut LoadedTrack) -> R,
     ) -> Option<R> {
         let mut tracks = lock(&self.tracks);
+        // looked for first: taken mutably, the guard would snapshot what it shows
         tracks.get(deck)?.as_ref().filter(|t| t.load_id == load_id)?;
         tracks[deck].as_mut().map(f)
     }

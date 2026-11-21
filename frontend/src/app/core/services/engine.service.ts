@@ -257,7 +257,7 @@ export class EngineService {
   }
 
   /** Has the backend perform action `target` given `value`: a key's 1 pressed and 0 let go, a
-   * fader's position, or an encoder's steps (`steps`), as a controller's control would;
+   * fader's position, or an encoder's steps, as a controller's control would;
    * `confirmed`, the DJ said yes to what it replaces, the track of the library it takes the one
    * the DJ was asked about (`track`), else the one selected. Whether it was done. */
   perform(target: string, value: number, confirmed = false, track: string | null = null) {

@@ -1,6 +1,6 @@
 //! Controllers, MIDI and HID (`controller_hid`). A mapped control's messages, or the fields of
 //! a HID report that changed, drive the application's actions (`actions`), but those the
-//! interface performs yet, which it is told of (`ui-action`). The lights show what the actions
+//! interface keeps (the library's search, its windows), which it is told of (`ui-action`). The lights show what the actions
 //! read of the application (`prisme_actions::light`); they, the values shown on the
 //! controllers, the lights that blink, the levels and the messages some models want again and
 //! again go out at each tick of the backend's clock (`lights`). What is in use and what drives

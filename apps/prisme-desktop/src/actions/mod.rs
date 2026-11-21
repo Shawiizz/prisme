@@ -238,7 +238,7 @@ impl Lanes {
         if let Err(e) = started {
             error!("no worker for the actions of {lane:?}: {e}");
             let dropped = lock(&self.0).queued.remove(&lane);
-            // their ends told with the lock let go: what follows them is sent
+            // dropped once the lock is let go: their ends tell what follows them to go on
             drop(dropped);
         }
     }

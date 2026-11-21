@@ -58,7 +58,7 @@ const SECTIONS: { id: Section; label: Text; limit: number }[] = [
     limit: 8,
   },
 ];
-/** Tracks are looked up once this many characters are typed, after a pause. */
+/** Tracks are looked up once this many characters are typed. */
 const TRACK_QUERY_MIN = 2;
 
 /**
