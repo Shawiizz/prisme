@@ -97,6 +97,21 @@ describe('DeckPads', () => {
     expect(calls).toEqual(['roll1 0 true', 'censor 0 true', 'censor 0 false', 'roll1 0 false']);
   });
 
+  it('mark hot cues on a track its record holds in place, which no loop moves', async () => {
+    const engine = TestBed.inject(EngineService);
+    engine.status.update((s) => ({
+      ...s!,
+      decks: s!.decks.map((d) => ({ ...d, canMove: false })),
+    }));
+    const { fixture, element, mode } = await pads(0);
+    const disabled = () => element.querySelector<HTMLButtonElement>('.pr-pad')!.disabled;
+    expect(disabled()).toBe(false);
+    mode('LOOP');
+    fixture.detectChanges();
+    expect(disabled()).toBe(true);
+    expect(element.querySelector<HTMLButtonElement>('button.slip')!.disabled).toBe(true);
+  });
+
   it('let CENSOR go when its pointer is lost, off the key', async () => {
     const { pointer, element } = await pads(0);
     const key = element.querySelector('button.censor')!;

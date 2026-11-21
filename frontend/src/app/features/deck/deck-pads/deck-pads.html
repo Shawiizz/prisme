@@ -220,6 +220,7 @@
     class="pr-btn slip"
     [class.is-on]="slip()"
     (click)="toggleSlip()"
+    [disabled]="!canMove()"
     [title]="'Loops, rolls and censor carry the track on underneath' | t"
   >
     SLIP

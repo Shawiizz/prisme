@@ -162,10 +162,21 @@ export class DeckPads {
   });
   protected readonly samplerGain = computed(() => this.engine.decks()[this.deck()].samplerGain);
   private readonly samples = computed(() => this.engine.decks()[this.deck()].samples);
-  /** Effects and samples work on any deck; the rest needs a track that can move. */
-  protected readonly padsEnabled = computed(
-    () => this.mode() === 'fx' || this.mode() === 'sampler' || this.canMove(),
-  );
+  /** Effects and samples work on any deck; hot cues and fader cuts on a track, even one its
+   * record holds in place (a hot cue set is not jumped to then); the rest needs a track that can
+   * move. */
+  protected readonly padsEnabled = computed(() => {
+    switch (this.mode()) {
+      case 'fx':
+      case 'sampler':
+        return true;
+      case 'cues':
+      case 'cut':
+        return this.status()?.loaded ?? false;
+      default:
+        return this.canMove();
+    }
+  });
   /** The deck's size: what its jumps go by. */
   protected readonly size = computed(() => this.engine.decks()[this.deck()].sizeBeats);
   protected readonly percent = percent;
