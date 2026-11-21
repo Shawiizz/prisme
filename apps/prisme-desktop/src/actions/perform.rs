@@ -6,7 +6,7 @@ use crate::dto::CrossfaderCurveDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
 use prisme_actions::input::{Given, Input, KEY_STEPS};
-use prisme_actions::pads::{plays_loop, ROLL_BEATS};
+use prisme_actions::pads::ROLL_BEATS;
 use prisme_actions::position::FX_PERIODS;
 use prisme_actions::scales::{
     balance_amount, eq_gain, eq_knob, filter_amount, headphone_gain, live_gain, live_knob, next_tempo_range,
@@ -17,10 +17,10 @@ use prisme_actions::switch::Switch;
 use prisme_actions::view::band_index;
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
-    MixerAction, MixerSwitch, SampleAction, Target, FX_SLOTS,
+    MixerAction, MixerSwitch, Target, FX_SLOTS,
 };
 use prisme_engine::Command;
-use transport::{LOOP_BEATS, PITCH_BEND, SMALL_BEND, TEMPO_STEP};
+use transport::{PITCH_BEND, SMALL_BEND, TEMPO_STEP};
 
 impl Performing<'_> {
     /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light.
@@ -52,18 +52,22 @@ impl Performing<'_> {
             Target::Library(action) if given.pressed() => self.load(action),
             Target::Library(_) => Ok(()),
             Target::General(action) => self.general(action, given),
-            Target::AutoDj(action) => {
-                if let Some(auto_dj) = self.auto_dj().filter(|_| given.pressed()) {
-                    match action {
-                        AutoDjAction::Toggle => auto_dj.toggle(),
-                        AutoDjAction::Fade => auto_dj.fade_now(),
-                        AutoDjAction::Skip => auto_dj.skip(),
-                    }
-                }
-                Ok(())
-            }
+            Target::AutoDj(action) if given.pressed() => self.auto_dj_key(action),
+            Target::AutoDj(_) => Ok(()),
             Target::Shift(_) | Target::Mode { .. } => Err(AppError::NotPerformed(target.to_string())),
         }
+    }
+
+    /// A key of the Auto DJ pressed: nothing before it runs.
+    fn auto_dj_key(&self, action: AutoDjAction) -> AppResult<()> {
+        if let Some(auto_dj) = self.auto_dj() {
+            match action {
+                AutoDjAction::Toggle => auto_dj.toggle(),
+                AutoDjAction::Fade => auto_dj.fade_now(),
+                AutoDjAction::Skip => auto_dj.skip(),
+            }
+        }
+        Ok(())
     }
 
     /// An action of `deck` given `given`, by the kind of control it suits.
@@ -103,36 +107,52 @@ impl Performing<'_> {
 
     /// A key of `deck` pressed or let go: an action while held, else one when pressed.
     fn deck_key(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
+        if let DeckAction::Sample(slot, action) = action {
+            return self.sample_key(deck, slot, action, given);
+        }
+        match self.deck_held(deck, action, given.pressed()) {
+            Some(done) => done,
+            None if given.pressed() => self.deck_pressed(deck, action, given),
+            None => Ok(()),
+        }
+    }
+
+    /// An action of `deck` its key drives while `held`, stopped when it is let go; none for the
+    /// others, done when it is pressed.
+    fn deck_held(&self, deck: usize, action: DeckAction, held: bool) -> Option<AppResult<()>> {
         let state = self.state;
-        let held = given.pressed();
         let send = |command| transport::send(state, deck, command);
         let bend =
             |amount: f64| send(Command::SetPitchBend { deck, amount: if held { amount } else { 0.0 } });
-        match action {
-            DeckAction::Spinback => return send(Command::SpinBack { deck, held }),
-            DeckAction::Censor => return send(Command::Censor { deck, active: held }),
-            DeckAction::ReverseHeld => return send(Command::HoldReverse { deck, held }),
-            DeckAction::SlipHeld => return send(Command::SetSlip { deck, enabled: held }),
-            DeckAction::BendDown => return bend(-PITCH_BEND),
-            DeckAction::BendUp => return bend(PITCH_BEND),
-            DeckAction::BendDownSmall => return bend(-SMALL_BEND),
-            DeckAction::BendUpSmall => return bend(SMALL_BEND),
-            DeckAction::EqKill(band) => return mixer::set_eq_kill(state, deck, band, held),
-            DeckAction::Fx(slot, FxAction::Held) => return fx::set_fx_enabled(state, deck, slot, held),
-            DeckAction::Sample(slot, SampleAction::Held) if held => {
-                return sampler::trigger_sample(state, deck, slot, None)
-            }
-            DeckAction::Sample(slot, SampleAction::Held) => return sampler::stop_sample(state, deck, slot),
-            DeckAction::Cue => return self.cue(deck, held),
-            DeckAction::Roll(roll) => return self.roll(deck, ROLL_BEATS[roll], held),
-            DeckAction::RollBeats(Beats(beats)) => return self.roll(deck, beats, held),
-            DeckAction::Slice(slice) => return self.slice(deck, slice, held),
-            DeckAction::Cut(cut) => return self.cut(deck, cut, held),
-            DeckAction::SearchBack => return self.search(deck, -1.0, held),
-            DeckAction::SearchForward => return self.search(deck, 1.0, held),
-            _ if !held => return Ok(()),
-            _ => {}
+        Some(match action {
+            DeckAction::Spinback => send(Command::SpinBack { deck, held }),
+            DeckAction::Censor => send(Command::Censor { deck, active: held }),
+            DeckAction::ReverseHeld => send(Command::HoldReverse { deck, held }),
+            DeckAction::SlipHeld => send(Command::SetSlip { deck, enabled: held }),
+            DeckAction::BendDown => bend(-PITCH_BEND),
+            DeckAction::BendUp => bend(PITCH_BEND),
+            DeckAction::BendDownSmall => bend(-SMALL_BEND),
+            DeckAction::BendUpSmall => bend(SMALL_BEND),
+            DeckAction::EqKill(band) => mixer::set_eq_kill(state, deck, band, held),
+            DeckAction::Fx(slot, FxAction::Held) => fx::set_fx_enabled(state, deck, slot, held),
+            DeckAction::Cue => self.cue(deck, held),
+            DeckAction::Roll(roll) => self.roll(deck, ROLL_BEATS[roll], held),
+            DeckAction::RollBeats(Beats(beats)) => self.roll(deck, beats, held),
+            DeckAction::Slice(slice) => self.slice(deck, slice, held),
+            DeckAction::Cut(cut) => self.cut(deck, cut, held),
+            DeckAction::SearchBack => self.search(deck, -1.0, held),
+            DeckAction::SearchForward => self.search(deck, 1.0, held),
+            _ => return None,
+        })
+    }
+
+    /// A key of `deck` pressed whose action is done then.
+    fn deck_pressed(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
+        if let Some(done) = self.loop_key(deck, action) {
+            return done;
         }
+        let state = self.state;
+        let send = |command| transport::send(state, deck, command);
         let size = || lock(&state.decks)[deck].size_beats;
         let key = || state.with_track(deck, |t| i32::from(t.key_shift)).unwrap_or(0);
         match action {
@@ -164,20 +184,6 @@ impl Performing<'_> {
             DeckAction::KeySync => self.sync_key(deck),
             DeckAction::Stem(part) => deck::toggle_stem(state, deck, part),
             DeckAction::Brake => send(Command::Brake { deck }),
-            DeckAction::LoopIn => send(Command::LoopIn { deck }),
-            DeckAction::LoopOut => send(Command::LoopOut { deck }),
-            DeckAction::Reloop => send(Command::Reloop { deck }),
-            DeckAction::LoopHalve => send(Command::ScaleLoop { deck, factor: 0.5 }),
-            DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
-            DeckAction::LoopBeats(Beats(beats)) => self.loop_of(deck, beats),
-            DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
-            DeckAction::LoopSize => self.loop_of(deck, size()),
-            DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
-            DeckAction::ReloopStop => self.reloop_stopped(deck),
-            DeckAction::LoopInGoto => self.to_loop_edge(deck, false),
-            DeckAction::LoopOutGoto => self.to_loop_edge(deck, true),
-            DeckAction::LoopMoveBack => self.move_loop(deck, -1),
-            DeckAction::LoopMoveForward => self.move_loop(deck, 1),
             DeckAction::JumpBeats(Beats(beats)) => self.jump(deck, beats),
             DeckAction::JumpBack => self.jump(deck, -size()),
             DeckAction::JumpForward => self.jump(deck, size()),
@@ -196,18 +202,6 @@ impl Performing<'_> {
             DeckAction::KeyTo(semitones) => deck::key_to(state, deck, semitones),
             DeckAction::HeadphonesSolo => mixer::solo_cue(state, deck),
             DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side),
-            DeckAction::Sample(slot, SampleAction::Trigger) => {
-                sampler::trigger_sample(state, deck, slot, None)
-            }
-            // as hard as the pad was hit
-            DeckAction::Sample(slot, SampleAction::Velocity) => match given {
-                Given::Value(velocity) => sampler::trigger_sample(state, deck, slot, Some(velocity)),
-                Given::Steps(_) => Ok(()),
-            },
-            DeckAction::Sample(slot, SampleAction::Stop) => sampler::stop_sample(state, deck, slot),
-            DeckAction::Sample(slot, SampleAction::Load) => self.load_sample(deck, slot),
-            DeckAction::Sample(slot, SampleAction::Eject) => sampler::clear_sample(state, deck, slot),
-            DeckAction::Sample(slot, SampleAction::Smart) => self.smart_sample(deck, slot),
             DeckAction::Eject => self.eject(deck),
             DeckAction::GridHere
             | DeckAction::GridEarlier
@@ -314,24 +308,6 @@ impl Performing<'_> {
     /// So many beats ahead, or back below zero.
     fn jump(&self, deck: usize, beats: f64) -> AppResult<()> {
         transport::beat_jump(self.state, self.auto_dj().as_deref(), deck, beats)
-    }
-
-    /// A loop of `beats` where `deck` plays, or out of the loop it plays.
-    fn toggle_loop(&self, deck: usize, beats: f64) -> AppResult<()> {
-        let looping = self.state.deck_status(deck).is_ok_and(|status| status.looping.active);
-        let command = if looping { Command::ExitLoop { deck } } else { Command::BeatLoop { deck, beats } };
-        transport::send(self.state, deck, command)
-    }
-
-    /// A loop of `beats` where `deck` plays, or out of it if it plays that loop.
-    fn loop_of(&self, deck: usize, beats: f64) -> AppResult<()> {
-        let status = self.state.deck_status(deck)?;
-        let command = if plays_loop(&status.looping, beats) {
-            Command::ExitLoop { deck }
-        } else {
-            Command::BeatLoop { deck, beats }
-        };
-        transport::send(self.state, deck, command)
     }
 
     /// The tempo of `deck` moved by so many steps from where it is, and kept: on the step, so

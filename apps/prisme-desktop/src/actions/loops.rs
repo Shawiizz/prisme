@@ -1,11 +1,56 @@
-//! A deck's loop stored: played again from its start with the deck stopped, its edges gone to,
-//! moved by beats of the track's grid.
+//! A deck's loops: set and left by its keys, the loop stored played again from its start with
+//! the deck stopped, its edges gone to, moved by beats of the track's grid.
 
 use super::{transport, Performing};
 use crate::error::AppResult;
-use prisme_engine::LoopStatus;
+use crate::state::lock;
+use prisme_actions::pads::plays_loop;
+use prisme_control::{Beats, DeckAction};
+use prisme_engine::{Command, LoopStatus};
+use transport::LOOP_BEATS;
 
 impl Performing<'_> {
+    /// A loop key of `deck` pressed; none for the other keys.
+    pub(super) fn loop_key(&self, deck: usize, action: DeckAction) -> Option<AppResult<()>> {
+        let state = self.state;
+        let send = |command| transport::send(state, deck, command);
+        Some(match action {
+            DeckAction::LoopIn => send(Command::LoopIn { deck }),
+            DeckAction::LoopOut => send(Command::LoopOut { deck }),
+            DeckAction::Reloop => send(Command::Reloop { deck }),
+            DeckAction::LoopHalve => send(Command::ScaleLoop { deck, factor: 0.5 }),
+            DeckAction::LoopDouble => send(Command::ScaleLoop { deck, factor: 2.0 }),
+            DeckAction::LoopBeats(Beats(beats)) => self.loop_of(deck, beats),
+            DeckAction::Loop => self.toggle_loop(deck, LOOP_BEATS),
+            DeckAction::LoopSize => self.loop_of(deck, lock(&state.decks)[deck].size_beats),
+            DeckAction::LoopClear => transport::set_loop(state, deck, None, None, false),
+            DeckAction::ReloopStop => self.reloop_stopped(deck),
+            DeckAction::LoopInGoto => self.to_loop_edge(deck, false),
+            DeckAction::LoopOutGoto => self.to_loop_edge(deck, true),
+            DeckAction::LoopMoveBack => self.move_loop(deck, -1),
+            DeckAction::LoopMoveForward => self.move_loop(deck, 1),
+            _ => return None,
+        })
+    }
+
+    /// A loop of `beats` where `deck` plays, or out of the loop it plays.
+    fn toggle_loop(&self, deck: usize, beats: f64) -> AppResult<()> {
+        let looping = self.state.deck_status(deck).is_ok_and(|status| status.looping.active);
+        let command = if looping { Command::ExitLoop { deck } } else { Command::BeatLoop { deck, beats } };
+        transport::send(self.state, deck, command)
+    }
+
+    /// A loop of `beats` where `deck` plays, or out of it if it plays that loop.
+    fn loop_of(&self, deck: usize, beats: f64) -> AppResult<()> {
+        let status = self.state.deck_status(deck)?;
+        let command = if plays_loop(&status.looping, beats) {
+            Command::ExitLoop { deck }
+        } else {
+            Command::BeatLoop { deck, beats }
+        };
+        transport::send(self.state, deck, command)
+    }
+
     /// The loop of `deck`, if one is stored.
     fn stored_loop(&self, deck: usize) -> Option<LoopStatus> {
         let looping = self.state.deck_status(deck).ok()?.looping;

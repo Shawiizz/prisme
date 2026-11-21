@@ -1,10 +1,68 @@
-//! A deck's sampler: its sounds played and stopped (see `crate::sampler`).
+//! A deck's sampler: its sounds played and stopped (see `crate::sampler`), and its keys.
 
+use super::Performing;
 use crate::error::{AppError, AppResult};
 use crate::sampler;
 use crate::state::{lock, AppState};
+use prisme_actions::input::Given;
+use prisme_control::SampleAction;
 use prisme_engine::{Command, SAMPLE_SLOTS};
 use std::path::PathBuf;
+
+impl Performing<'_> {
+    /// A key of `slot` of `deck`'s sampler pressed, or let go (only `Held` acts then).
+    pub(super) fn sample_key(
+        &self,
+        deck: usize,
+        slot: usize,
+        action: SampleAction,
+        given: Given,
+    ) -> AppResult<()> {
+        let state = self.state;
+        match action {
+            SampleAction::Held if given.pressed() => trigger_sample(state, deck, slot, None),
+            SampleAction::Held => stop_sample(state, deck, slot),
+            _ if !given.pressed() => Ok(()),
+            SampleAction::Trigger => trigger_sample(state, deck, slot, None),
+            // as hard as the pad was hit
+            SampleAction::Velocity => match given {
+                Given::Value(velocity) => trigger_sample(state, deck, slot, Some(velocity)),
+                Given::Steps(_) => Ok(()),
+            },
+            SampleAction::Stop => stop_sample(state, deck, slot),
+            SampleAction::Load => self.load_sample(deck, slot),
+            SampleAction::Eject => clear_sample(state, deck, slot),
+            SampleAction::Smart => self.smart_sample(deck, slot),
+        }
+    }
+
+    /// The sound of the selected track put in `slot` of `deck`'s sampler.
+    fn load_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
+        match self.track() {
+            Some(path) => load_sample(self.state, deck, slot, path.to_owned()),
+            None => Ok(()),
+        }
+    }
+
+    /// A pad of the sampler: its sound stopped while it plays, played while it waits. On an
+    /// empty slot it is sent as a load (`Actions::sent_as`): one emptied since does nothing,
+    /// never opening a file on the thread that sent it.
+    fn smart_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
+        let state = self.state;
+        if plays(state, deck, slot) {
+            stop_sample(state, deck, slot)
+        } else if lock(&state.samplers)[deck][slot].is_some() {
+            trigger_sample(state, deck, slot, None)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+/// Whether the sound of `slot` of `deck`'s sampler plays.
+fn plays(state: &AppState, deck: usize, slot: usize) -> bool {
+    state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0)
+}
 
 pub fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
     AppState::deck_exists(deck)?;
@@ -71,8 +129,7 @@ pub fn set_sampler_gain(state: &AppState, deck: usize, gain: f32) -> AppResult<(
 
 /// The sound of `slot` stopped if it plays, else taken off its pad.
 pub fn take_off(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {
-    let playing = state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0);
-    if playing {
+    if plays(state, deck, slot) {
         stop_sample(state, deck, slot)
     } else {
         clear_sample(state, deck, slot)

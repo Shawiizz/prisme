@@ -3,11 +3,10 @@
 //! was sent, or the one the interface named ([`load_track`]). The track of a deck that plays
 //! leaves it once the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
 
-use super::{deck, sampler, take_over, Actions, Answer, Order, Performing, Source};
+use super::{deck, take_over, Actions, Answer, Order, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
-use crate::state::lock;
 use crate::track_loading;
 use prisme_actions::input::Given;
 use prisme_actions::view::plays;
@@ -79,28 +78,6 @@ impl Performing<'_> {
         self.state.put_track(&turn, None, [Command::Eject { deck }]).map(drop)
     }
 
-    /// The sound of the selected track put in `slot` of `deck`'s sampler.
-    pub(super) fn load_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
-        match self.track() {
-            Some(path) => sampler::load_sample(self.state, deck, slot, path.to_owned()),
-            None => Ok(()),
-        }
-    }
-
-    /// A pad of the sampler: its sound stopped while it plays, played while it waits. On an
-    /// empty slot it is sent as a load (`Actions::sent_as`): one emptied since does nothing,
-    /// never opening a file on the thread that sent it.
-    pub(super) fn smart_sample(&self, deck: usize, slot: usize) -> AppResult<()> {
-        let state = self.state;
-        if state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0) {
-            sampler::stop_sample(state, deck, slot)
-        } else if lock(&state.samplers)[deck][slot].is_some() {
-            sampler::trigger_sample(state, deck, slot, None)
-        } else {
-            Ok(())
-        }
-    }
-
     /// The selected track put on `deck`, played once there if `play`; the Auto DJ lets the deck
     /// go. Nothing before the library is open.
     fn load_selected(&self, target: &Target, deck: usize, play: bool) -> AppResult<()> {
@@ -163,7 +140,7 @@ impl Performing<'_> {
 mod tests {
     use super::*;
     use crate::actions::bench::Bench;
-    use crate::state::{AppState, LoadedTrack};
+    use crate::state::{lock, AppState, LoadedTrack};
     use prisme_actions::input::Input;
 
     fn confirmed(bench: &Bench, id: &str) -> AppResult<()> {
