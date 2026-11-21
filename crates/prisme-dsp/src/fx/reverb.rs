@@ -102,9 +102,9 @@ impl Reverb {
     }
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let feedback = ROOM.0 + (ROOM.1 - ROOM.0) * p.amount;
-        let damping = DAMPING * 2.0 * p.param2;
-        for frame in stereo.chunks_exact_mut(2) {
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let feedback = ROOM.0 + (ROOM.1 - ROOM.0) * knobs.amount;
+            let damping = DAMPING * 2.0 * knobs.param2;
             let input = (frame[0] + frame[1]) * INPUT_GAIN;
             frame[0] = self.channels[0].process(input, feedback, damping) * OUTPUT_GAIN;
             frame[1] = self.channels[1].process(input, feedback, damping) * OUTPUT_GAIN;

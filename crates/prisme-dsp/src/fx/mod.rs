@@ -66,13 +66,20 @@ const GLIDE_S: f32 = 0.02;
 /// Below this level the tail of a switched-off effect is over.
 const SILENT: f32 = 1e-4;
 
-/// What an effect needs for one block.
-pub(crate) struct Params {
+/// The knobs of an effect at a frame: they glide, a turn heard without a click.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct Knobs {
     /// The effect's main knob, 0..1.
     pub amount: f32,
     /// The effect's second knob (tone, resonance, width...), 0..1: in the middle, the effect
     /// as it sounds without one.
     pub param2: f32,
+}
+
+/// What an effect needs for one block.
+pub(crate) struct Params<'a> {
+    /// The knobs at each frame of the block.
+    pub knobs: &'a [Knobs],
     /// The effect's period: delay, modulation cycle, gate length (seconds).
     pub period_s: f32,
     /// Position within the beat at the start of the block, when known.
@@ -91,14 +98,15 @@ pub struct FxSlot {
     /// How much of the signal goes to the effect: fades in and out as the slot sounds or not.
     send: Smoothed,
     mix: Smoothed,
-    amount: f32,
-    param2: f32,
+    amount: Smoothed,
+    param2: Smoothed,
     beats: f32,
     /// Something is still coming out of the effect.
     sounding: bool,
     /// Frames a sent effect has been silent for: a delay is silent between its repeats.
     quiet_frames: usize,
     sends: Vec<f32>,
+    knobs: Vec<Knobs>,
     wet: Vec<f32>,
     echo: Echo,
     ping_pong: PingPong,
@@ -119,12 +127,13 @@ impl FxSlot {
             bypassed: false,
             send: Smoothed::new(0.0, GLIDE_S, sample_rate),
             mix: Smoothed::new(0.5, GLIDE_S, sample_rate),
-            amount: 0.5,
-            param2: PARAM2_DEFAULT,
+            amount: Smoothed::new(0.5, GLIDE_S, sample_rate),
+            param2: Smoothed::new(PARAM2_DEFAULT, GLIDE_S, sample_rate),
             beats: 1.0,
             sounding: false,
             quiet_frames: 0,
             sends: vec![0.0; max_block_frames],
+            knobs: vec![Knobs::default(); max_block_frames],
             wet: vec![0.0; max_block_frames * 2],
             echo: Echo::new(sample_rate),
             ping_pong: PingPong::new(sample_rate),
@@ -178,13 +187,13 @@ impl FxSlot {
 
     /// The effect's main knob (feedback, depth...), 0..1.
     pub fn set_amount(&mut self, amount: f32) {
-        self.amount = amount.clamp(0.0, 1.0);
+        self.amount.set(amount.clamp(0.0, 1.0));
     }
 
     /// The effect's second knob (tone, damping, width, depth, resonance, length, downsampling:
     /// see each effect), 0..1.
     pub fn set_param2(&mut self, param2: f32) {
-        self.param2 = param2.clamp(0.0, 1.0);
+        self.param2.set(param2.clamp(0.0, 1.0));
     }
 
     /// The effect's period in beats, [``MIN_BEATS``]..[``MAX_BEATS``].
@@ -200,16 +209,18 @@ impl FxSlot {
         let frames = stereo.len() / 2;
         let sent = self.kind.is_sent();
         let sends = &mut self.sends[..frames];
+        let knobs = &mut self.knobs[..frames];
         let wet = &mut self.wet[..stereo.len()];
-        for ((send, w), dry) in sends.iter_mut().zip(wet.chunks_exact_mut(2)).zip(stereo.chunks_exact(2)) {
+        let frames_in = sends.iter_mut().zip(knobs.iter_mut()).zip(wet.chunks_exact_mut(2));
+        for (((send, knobs), w), dry) in frames_in.zip(stereo.chunks_exact(2)) {
             *send = self.send.tick();
+            *knobs = Knobs { amount: self.amount.tick(), param2: self.param2.tick() };
             let input = if sent { *send } else { 1.0 };
             w[0] = dry[0] * input;
             w[1] = dry[1] * input;
         }
         let params = Params {
-            amount: self.amount,
-            param2: self.param2,
+            knobs,
             period_s: self.beats * beat.seconds,
             phase: beat.phase,
             beat_s: beat.seconds,
@@ -416,15 +427,15 @@ mod tests {
         EffectKind::Bitcrusher,
     ];
 
-    fn sine() -> Vec<f32> {
-        (0..RATE as usize).map(|i| (i as f32 * 0.02).sin() * 0.5).collect()
+    fn sine(seconds: f32) -> Vec<f32> {
+        (0..(seconds * RATE) as usize).map(|i| (i as f32 * 0.02).sin() * 0.5).collect()
     }
 
     #[test]
     fn every_effect_runs() {
         for kind in KINDS {
             let mut fx = slot(kind);
-            let input = sine();
+            let input = sine(1.0);
             let out = run(&mut fx, &input);
             assert!(out.iter().all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?}");
             assert!(out.iter().zip(&input).any(|(o, i)| (o - i).abs() > 1e-3), "{kind:?} does something");
@@ -452,6 +463,46 @@ mod tests {
             assert!(high.iter().chain(&low).all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?}");
             let apart = low.iter().zip(&high).map(|(l, h)| (l - h).abs()).fold(0.0, f32::max);
             assert!(apart > 0.01, "{kind:?}: {apart}");
+        }
+    }
+
+    /// The sharpest bend from one sample to the next (second difference) of `left`.
+    fn sharpest(left: impl Iterator<Item = f32>) -> f32 {
+        let left: Vec<f32> = left.collect();
+        left.windows(3).fold(0.0, |m, w| m.max((w[2] - 2.0 * w[1] + w[0]).abs()))
+    }
+
+    /// The sharpest bend, past the first half second, of a sine through `kind` (two seconds,
+    /// for the repeats of an echo's repeats) with a knob (`set`) turned fast by an encoder: a step of 0.04 every block of 64 frames, back and
+    /// forth, or left in the middle.
+    fn sharpest_bend(kind: EffectKind, set: fn(&mut FxSlot, f32), turned: bool) -> f32 {
+        let mut fx = slot(kind);
+        let mut stereo: Vec<f32> = sine(2.0).iter().flat_map(|&v| [v, v]).collect();
+        let (mut knob, mut step) = (0.5, 0.04);
+        for block in stereo.chunks_mut(128) {
+            if turned {
+                knob += step;
+                if !(0.1..=0.9).contains(&knob) {
+                    step = -step;
+                }
+            }
+            set(&mut fx, knob);
+            fx.process(block, Beat::DEFAULT);
+        }
+        sharpest(stereo.chunks_exact(2).skip(RATE as usize / 2).map(|f| f[0]))
+    }
+
+    #[test]
+    fn a_knob_turned_fast_glides_without_a_click() {
+        // the sharpest a sound bends without a click: the sine's own, or the effect's
+        let sine = sharpest(sine(1.0).into_iter());
+        for kind in KINDS {
+            for (name, set) in
+                [("amount", FxSlot::set_amount as fn(&mut FxSlot, f32)), ("param2", FxSlot::set_param2)]
+            {
+                let (still, turned) = (sharpest_bend(kind, set, false), sharpest_bend(kind, set, true));
+                assert!(turned < 5.0 * still.max(sine), "{kind:?} {name}: {turned} against {still}");
+            }
         }
     }
 
@@ -483,14 +534,14 @@ mod tests {
             }
             stereo.chunks_exact(2).map(|f| f[0]).collect::<Vec<f32>>()
         };
-        process(&mut chain, &sine()[..(0.25 * RATE) as usize]);
+        process(&mut chain, &sine(1.0)[..(0.25 * RATE) as usize]);
 
         chain.set_enabled(false);
         assert!(!chain.enabled());
         let tail = process(&mut chain, &vec![0.0; (0.6 * RATE) as usize]);
         assert!(tail.iter().any(|v| v.abs() > 0.01), "the echo rings out");
         process(&mut chain, &vec![0.0; 10 * RATE as usize]);
-        let input = sine();
+        let input = sine(1.0);
         assert_eq!(process(&mut chain, &input), input, "nothing sounds once the tails are over");
         assert!(chain.slots.iter().take(2).all(|s| s.enabled), "the slots stay on");
 

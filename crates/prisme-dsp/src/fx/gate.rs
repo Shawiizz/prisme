@@ -27,11 +27,10 @@ impl Gate {
                 self.phase = (beat_phase / beats_per_period).fract();
             }
         }
-        let open = p.param2.clamp(OPEN.0, OPEN.1);
-        let closed = 1.0 - p.amount;
         let edge = 1.0 / (EDGE_S * p.sample_rate).max(1.0);
-        for frame in stereo.chunks_exact_mut(2) {
-            let target = if self.phase < open { 1.0 } else { closed };
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let open = knobs.param2.clamp(OPEN.0, OPEN.1);
+            let target = if self.phase < open { 1.0 } else { 1.0 - knobs.amount };
             self.gain += (target - self.gain).clamp(-edge, edge);
             frame[0] *= self.gain;
             frame[1] *= self.gain;
@@ -53,10 +52,10 @@ pub(crate) struct Bitcrusher {
 
 impl Bitcrusher {
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let levels = 2f32.powf(BITS.0 + (BITS.1 - BITS.0) * p.amount);
-        let hold = 1.0 + (MAX_HOLD - 1.0) * p.amount * 2.0 * p.param2;
-        for frame in stereo.chunks_exact_mut(2) {
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
             if self.count <= 0.0 {
+                let levels = (BITS.0 + (BITS.1 - BITS.0) * knobs.amount).exp2();
+                let hold = 1.0 + (MAX_HOLD - 1.0) * knobs.amount * 2.0 * knobs.param2;
                 self.held = [(frame[0] * levels).round() / levels, (frame[1] * levels).round() / levels];
                 self.count += hold;
             }

@@ -34,10 +34,10 @@ impl Echo {
     }
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let feedback = p.amount * MAX_FEEDBACK;
-        let pass = tape_pass(p);
         set_delay(&mut self.delay, p, self.buffer.capacity());
-        for frame in stereo.chunks_exact_mut(2) {
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let feedback = knobs.amount * MAX_FEEDBACK;
+            let pass = tape_pass(knobs.param2);
             // read before writing: the newest frame in the buffer is already one frame old
             let delayed = self.buffer.read(self.delay.tick() - 1.0);
             for (tone, d) in self.tone.iter_mut().zip(delayed) {
@@ -72,10 +72,10 @@ impl PingPong {
     }
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let feedback = p.amount * MAX_FEEDBACK;
-        let pass = tape_pass(p);
         set_delay(&mut self.delay, p, self.buffer.capacity());
-        for frame in stereo.chunks_exact_mut(2) {
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let feedback = knobs.amount * MAX_FEEDBACK;
+            let pass = tape_pass(knobs.param2);
             // read before writing: the newest frame in the buffer is already one frame old
             let delayed = self.buffer.read(self.delay.tick() - 1.0);
             for (tone, d) in self.tone.iter_mut().zip(delayed) {
@@ -90,9 +90,9 @@ impl PingPong {
     }
 }
 
-/// How much of each repeat goes through the tape's low-pass.
-fn tape_pass(p: &Params) -> f32 {
-    1.0 - TAPE * 2.0 * (1.0 - p.param2)
+/// How much of each repeat goes through the tape's low-pass, at the tone `param2`.
+fn tape_pass(param2: f32) -> f32 {
+    1.0 - TAPE * 2.0 * (1.0 - param2)
 }
 
 fn set_delay(delay: &mut Smoothed, p: &Params, capacity: usize) {

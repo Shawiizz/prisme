@@ -48,10 +48,9 @@ impl Flanger {
     }
 
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let feedback = p.amount * FLANGER_FEEDBACK;
-        let width = 2.0 * p.param2;
-        for frame in stereo.chunks_exact_mut(2) {
-            let sweep = self.lfo.tick(p) * width;
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let feedback = knobs.amount * FLANGER_FEEDBACK;
+            let sweep = self.lfo.tick(p) * 2.0 * knobs.param2;
             let ms = FLANGER_DELAY_MS.0 + (FLANGER_DELAY_MS.1 - FLANGER_DELAY_MS.0) * sweep;
             let delayed = self.buffer.read(ms / 1_000.0 * p.sample_rate);
             self.buffer.push([frame[0] + self.last[0] * feedback, frame[1] + self.last[1] * feedback]);
@@ -77,10 +76,9 @@ pub(crate) struct Phaser {
 
 impl Phaser {
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let feedback = p.amount * PHASER_FEEDBACK;
-        let depth = 0.5 + p.param2;
-        for frame in stereo.chunks_exact_mut(2) {
-            let sweep = self.lfo.tick(p) * depth;
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let feedback = knobs.amount * PHASER_FEEDBACK;
+            let sweep = self.lfo.tick(p) * (0.5 + knobs.param2);
             let hz = PHASER_HZ.0 * (PHASER_HZ.1 / PHASER_HZ.0).powf(sweep);
             let t = (PI * hz / p.sample_rate).tan();
             let a = (t - 1.0) / (t + 1.0);
@@ -112,10 +110,9 @@ pub(crate) struct AutoFilter {
 impl AutoFilter {
     /// A resonant low-pass sweeping down from the top; the amount is how far down.
     pub fn process(&mut self, stereo: &mut [f32], p: &Params) {
-        let depth = 0.2 + 0.8 * p.amount;
-        let q = FILTER_Q * (0.25 + 1.5 * p.param2);
-        for frame in stereo.chunks_exact_mut(2) {
-            let sweep = 1.0 - depth * self.lfo.tick(p);
+        for (frame, knobs) in stereo.chunks_exact_mut(2).zip(p.knobs) {
+            let sweep = 1.0 - (0.2 + 0.8 * knobs.amount) * self.lfo.tick(p);
+            let q = FILTER_Q * (0.25 + 1.5 * knobs.param2);
             let hz = FILTER_HZ.0 * (FILTER_HZ.1 / FILTER_HZ.0).powf(sweep);
             let c = Coefficients::new(hz, q, p.sample_rate);
             for (sample, channel) in frame.iter_mut().zip(&mut self.channels) {
