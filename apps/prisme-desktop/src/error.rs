@@ -208,6 +208,8 @@ fn audio_code(e: &AudioError) -> (&'static str, Value) {
         AudioError::SampleRateMismatch { input, output } => {
             ("sampleRateMismatch", json!({ "input": input, "output": output }))
         }
+        AudioError::UsbAsked(card) => ("usbAsked", json!({ "card": card })),
+        AudioError::UsbRefused(card) => ("usbRefused", json!({ "card": card })),
         _ => ("audio", json!({})),
     }
 }
@@ -256,6 +258,14 @@ mod tests {
                 "code": "deviceNotFound",
                 "params": { "device": "UMC404HD" },
                 "message": "audio device not found: UMC404HD",
+            })
+        );
+        assert_eq!(
+            json(AppError::Audio(AudioError::UsbRefused("UMC404HD 192k".into()))),
+            json!({
+                "code": "usbRefused",
+                "params": { "card": "UMC404HD 192k" },
+                "message": "USB card: UMC404HD 192k was not allowed",
             })
         );
         assert_eq!(json(AppError::Other("lost".into()))["message"], "lost");

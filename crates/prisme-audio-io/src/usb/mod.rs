@@ -4,6 +4,8 @@
 //! system opens the card and hands its file over ([`UsbHost`]); Prisme streams it.
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+pub mod asks;
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 mod descriptors;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod driver;
@@ -31,9 +33,14 @@ pub struct UsbCard {
 }
 
 /// What the system does for the cards, each known by its [`UsbCard::id`]: says which are
-/// plugged in, opens one (asking the user when it must, which may take a while), gives it back.
+/// plugged in, whether Prisme may open one, asks the user to let it (the answer coming later
+/// through [`asks::answered`]), opens one it may, gives it back.
 pub trait UsbHost: Send + Sync {
     fn cards(&self) -> Vec<UsbCard>;
+    fn allowed(&self, _id: &str) -> bool {
+        true
+    }
+    fn ask(&self, _id: &str) {}
     fn open(&self, id: &str) -> Option<OpenedCard>;
     fn close(&self, id: &str);
 }
@@ -133,7 +140,7 @@ pub(crate) use running::{start, Running};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod running {
     use super::driver::{Driver, Options, MAX_URBS};
-    use super::{descriptors, find, host, remember, SAMPLE_RATE};
+    use super::{asks, cards, descriptors, host, pick, remember, SAMPLE_RATE};
     use crate::stream::{Renderer, RunningStream, StreamFormat, StreamSettings, StreamStats, Streams};
     use crate::{AudioCallback, AudioError};
     use std::sync::Arc;
@@ -158,16 +165,19 @@ mod running {
         }
     }
 
-    /// Opens the card of `settings` (its output device, else the first plugged in), with its
-    /// inputs if an input is asked for, and streams it through the callback.
+    /// Opens the card of `settings` (its output device, else the first plugged in), once the
+    /// system lets Prisme ([`asks`]), with its inputs if an input is asked for, and streams it
+    /// through the callback.
     pub(crate) fn start<C: AudioCallback>(
         settings: &StreamSettings,
         make_callback: impl FnOnce(StreamFormat) -> C,
     ) -> Result<RunningStream, AudioError> {
         let host = host().ok_or(AudioError::BackendUnavailable(crate::Backend::Usb))?;
         let wanted = settings.output_device.as_deref();
-        let card =
-            find(wanted).ok_or_else(|| AudioError::DeviceNotFound(wanted.unwrap_or_default().into()))?;
+        let plugged = cards();
+        let card = pick(plugged.clone(), wanted)
+            .ok_or_else(|| AudioError::DeviceNotFound(wanted.unwrap_or_default().into()))?;
+        asks::may_open(host, &card, &plugged)?;
         let name = card.name;
         let opened =
             host.open(&card.id).ok_or_else(|| AudioError::Usb(format!("{name} could not be opened")))?;

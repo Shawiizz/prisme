@@ -16,7 +16,7 @@ pub use devices::{
     DeviceKind,
 };
 pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
-pub use usb::{set_usb_host, OpenedCard, UsbCard, UsbHost};
+pub use usb::{asks as usb_asks, set_usb_host, OpenedCard, UsbCard, UsbHost};
 
 /// Called on the audio thread once per period. Must be real-time safe.
 pub trait AudioCallback: Send + 'static {
@@ -40,6 +40,11 @@ pub enum AudioError {
     SampleRateMismatch { input: u32, output: u32 },
     #[error("USB card: {0}")]
     Usb(String),
+    /// The user is asked to let Prisme open the card: [`usb_asks`].
+    #[error("USB card: {0} waits to be allowed")]
+    UsbAsked(String),
+    #[error("USB card: {0} was not allowed")]
+    UsbRefused(String),
     #[error(transparent)]
     Backend(#[from] cpal::Error),
 }

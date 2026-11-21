@@ -93,7 +93,7 @@ pub fn start<C: AudioCallback>(
     settings: &StreamSettings,
     mut make_callback: impl FnMut(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
-    // a USB card loads no driver, and its opening may wait for the user: the lock is not held
+    // a USB card loads no driver: the lock is not held
     if settings.backend == Backend::Usb {
         #[cfg(any(target_os = "linux", target_os = "android"))]
         return crate::usb::start(settings, make_callback);

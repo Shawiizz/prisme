@@ -6,9 +6,9 @@ use crate::dto::{
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState, Section};
-use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
+use prisme_audio_io::{latency, usb_asks, AudioError, Backend, DeviceKind};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager, State};
 use tracing::{error, warn};
 
@@ -137,8 +137,12 @@ pub async fn apply_audio_settings(
     .await
 }
 
+/// How long the settings wait for the DJ to let Prisme open the USB card chosen.
+const ANSWER: Duration = Duration::from_secs(120);
+
 /// Restarts the audio with `settings` if they changed or it does not run, and keeps them for
-/// the next start.
+/// the next start. A USB card chosen is asked for again, even refused, and the DJ's answer
+/// awaited.
 fn apply(state: &AppState, settings: AudioSettings) -> AppResult<()> {
     let saved = state.preferences.read(|p| p.audio.clone());
     let running = lock(&state.session).is_some();
@@ -147,13 +151,26 @@ fn apply(state: &AppState, settings: AudioSettings) -> AppResult<()> {
     }
     // kept as they start: no other start comes between
     let _starting = lock(&state.audio_start);
-    match start(state, &settings) {
-        // devices missing since the start stay chosen, the defaults playing meanwhile
-        Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
-            start(state, &settings.on_default_devices())?
+    usb_asks::ask_again();
+    state.moved(Section::Audio);
+    let deadline = Instant::now() + ANSWER;
+    loop {
+        let answers = usb_asks::answers();
+        match start(state, &settings) {
+            Err(AppError::Audio(AudioError::UsbAsked(_))) if Instant::now() < deadline => {
+                usb_asks::wait_for_answer(answers, deadline.saturating_duration_since(Instant::now()));
+            }
+            // devices missing since the start stay chosen, the defaults playing meanwhile
+            Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
+                start(state, &settings.on_default_devices())?;
+                break;
+            }
+            started => {
+                started?;
+                break;
+            }
         }
-        started => started?,
-    };
+    }
     state.update_preferences(|p| p.audio = settings);
     state.moved(Section::Audio);
     Ok(())
@@ -282,7 +299,12 @@ fn restart<T>(
         state.simulate_turntable(simulated);
     }
     let timecodes = lock(&state.decks).map(|d| d.timecode);
-    let mut session = audio_host::start(settings, state.decks_in_use(), timecodes)?;
+    let asked = usb_asks::asked();
+    let started = audio_host::start(settings, state.decks_in_use(), timecodes);
+    if usb_asks::asked() != asked {
+        state.moved(Section::Audio);
+    }
+    let mut session = started?;
     state.share_turntable_records(&session.info);
     state.restore(&mut session, &places);
     let info = session.info.clone();

@@ -157,6 +157,10 @@ export type AudioState = {
    * The audio running, if it does.
    */
   info: AudioInfo | null;
+  /**
+   * The USB card the DJ is asked to let Prisme open, or refused it.
+   */
+  asked: CardAsked | null;
 };
 
 /**
@@ -227,6 +231,11 @@ export type BoothChoice = { first: number; taken: boolean };
  * A period of the audio: so many frames, so long at the device's rate.
  */
 export type BufferSize = { frames: number; ms: number };
+
+/**
+ * A USB card the DJ is asked to let Prisme open (Android asks), or refused it.
+ */
+export type CardAsked = { card: string; refused: boolean };
 
 /**
  * A sound card just plugged in, offered to the DJ with the settings that use it.

@@ -2,7 +2,7 @@
 
 use crate::audio_watchdog::card_name;
 use crate::state::{lock, AppState};
-use prisme_audio_io::{Backend, StreamStats};
+use prisme_audio_io::{usb_asks, Backend, StreamStats};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::atomic::Ordering;
@@ -307,6 +307,16 @@ pub struct AudioStateDto {
     pub settings: AudioSettings,
     /// The audio running, if it does.
     pub info: Option<AudioInfoDto>,
+    /// The USB card the DJ is asked to let Prisme open, or refused it.
+    pub asked: Option<CardAskedDto>,
+}
+
+/// A USB card the DJ is asked to let Prisme open (Android asks), or refused it.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "CardAsked"))]
+pub struct CardAskedDto {
+    pub card: String,
+    pub refused: bool,
 }
 
 impl AudioStateDto {
@@ -317,7 +327,8 @@ impl AudioStateDto {
                 .then(|| settings.output_device.clone().unwrap_or_default());
             AudioInfo { missing, ..s.info.clone() }.into()
         });
-        Self { settings, info }
+        let asked = usb_asks::asked().map(|a| CardAskedDto { card: a.card, refused: a.refused });
+        Self { settings, info, asked }
     }
 }
 

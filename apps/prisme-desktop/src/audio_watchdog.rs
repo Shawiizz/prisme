@@ -3,7 +3,8 @@
 //! moves it to the saved devices once they appear (the audio started on the default ones
 //! because the interface was off), follows Windows' default output when it plays on it,
 //! starts it when devices appear if there was none, and on the saved devices once the DJ lets
-//! Prisme listen to their inputs. A sound card plugged in meanwhile is offered to the DJ.
+//! Prisme listen to their inputs or open their USB card. A sound card plugged in meanwhile is
+//! offered to the DJ.
 
 use crate::audio_host::devices_available;
 use crate::commands::audio::{restart_saved_audio, start_audio_instead_of, start_audio_unless_running};
@@ -13,7 +14,7 @@ use crate::dto::CardOffer;
 use crate::input_access;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{
-    base_device_name, default_output_name, list_devices, system_devices, Backend, DeviceKind,
+    base_device_name, default_output_name, list_devices, system_devices, usb_asks, Backend, DeviceKind,
 };
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -50,8 +51,15 @@ pub fn start(app: AppHandle) {
             let mut default_output = default_output_name();
             // the system's devices at the last look, while the audio runs
             let mut plugged: Option<Vec<String>> = None;
+            let mut answers = usb_asks::answers();
             loop {
-                std::thread::sleep(CHECK);
+                let seen = answers;
+                answers = usb_asks::wait_for_answer(seen, CHECK);
+                // a USB card let open (or refused): the saved devices are looked for again now
+                let answered = answers != seen;
+                if answered {
+                    devices = None;
+                }
                 if input_access::newly_allowed() {
                     take_the_inputs(&state);
                     last_periods = None;
@@ -66,7 +74,7 @@ pub fn start(app: AppHandle) {
                         silent = true;
                         devices = None;
                     }
-                    if last_look.elapsed() >= RETRY {
+                    if answered || last_look.elapsed() >= RETRY {
                         last_look = Instant::now();
                         start_when_devices_change(&state, &mut devices);
                     }
@@ -79,7 +87,7 @@ pub fn start(app: AppHandle) {
                     last_periods = None;
                     continue;
                 }
-                if last_look.elapsed() >= RETRY {
+                if answered || last_look.elapsed() >= RETRY {
                     last_look = Instant::now();
                     let saved =
                         AudioSettings { simulate: settings.simulate, ..state.preferences.get().audio };
@@ -279,15 +287,14 @@ fn take_the_inputs(state: &AppState) {
 }
 
 /// Tries `settings` again until their device is back, unless other settings start the audio
-/// meanwhile (the user picked other devices).
+/// meanwhile (the user picked other devices): at once when the DJ answers for a USB card, which
+/// Android asks for again once plugged in again.
 fn recover(state: &AppState, settings: &AudioSettings) {
-    let waits = std::iter::once(Duration::ZERO)
-        .chain(std::iter::repeat_n(QUICK_RETRY, QUICK_RETRIES))
-        .chain(std::iter::repeat(RETRY));
+    let mut waits = std::iter::repeat_n(QUICK_RETRY, QUICK_RETRIES).chain(std::iter::repeat(RETRY));
     // each reason told once: the device may stay away for hours
     let mut told = String::new();
-    for wait in waits {
-        std::thread::sleep(wait);
+    loop {
+        let answers = usb_asks::answers();
         match start_audio_unless_running(state, settings) {
             Ok(Some(_)) => {
                 info!("audio device back");
@@ -303,6 +310,7 @@ fn recover(state: &AppState, settings: &AudioSettings) {
                 }
             }
         }
+        usb_asks::wait_for_answer(answers, waits.next().unwrap_or(RETRY));
     }
 }
 
