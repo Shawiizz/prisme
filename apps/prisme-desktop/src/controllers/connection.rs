@@ -34,7 +34,7 @@ impl Controllers {
 
     /// Opens the controllers in use that are plugged in, and those of a model Prisme knows,
     /// unless the DJ turned them off.
-    pub fn open_at_start(&self, app: &AppHandle) {
+    fn open_at_start(&self, app: &AppHandle) {
         for device in self.setup.read(|s| s.enabled.clone()) {
             if let Err(e) = self.open(app, &device) {
                 warn!("controller {device} not opened: {e}");
@@ -50,11 +50,14 @@ impl Controllers {
         self.show(&app.state::<AppState>());
     }
 
-    /// Keeps the controllers in use open: one unplugged (a USB cable pulled, a hub that
-    /// resets) is closed, and opened again as soon as it is back. One plugged in for the first
-    /// time is opened if Prisme knows its model, else offered (see [`Self::plug_in`]).
+    /// Opens the controllers at start, then keeps those in use open: one unplugged (a USB cable
+    /// pulled, a hub that resets) is closed, and opened again as soon as it is back. One plugged
+    /// in for the first time is opened if Prisme knows its model, else offered (see
+    /// [`Self::plug_in`]). On a thread of its own: Android hands a MIDI port over on the
+    /// window's thread, which must not wait for it.
     pub fn watch(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
+            app.state::<Controllers>().open_at_start(&app);
             let mut missing: Vec<String> = Vec::new();
             // the ports of the last look; those there at start were seen to then
             let mut seen: Option<Vec<String>> = None;

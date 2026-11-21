@@ -1,5 +1,7 @@
 //! Controllers, MIDI and HID (see `controllers`): what the interface shows of them comes with
-//! its section (`ControllersStateDto`), shown again after each command that changes it.
+//! its section (`ControllersStateDto`), shown again after each command that changes it. Those
+//! that may open a MIDI port run off the window's thread: Android hands a port over on that
+//! thread, which would wait on itself.
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;
@@ -19,19 +21,19 @@ fn changing<R>(app: &AppHandle, change: impl FnOnce(&Controllers) -> R) -> R {
 }
 
 /// Looks for the controllers plugged in now (they are looked for twice a second besides).
-#[tauri::command]
+#[tauri::command(async)]
 pub fn look_for_controllers(state: State<'_, AppState>, controllers: State<'_, Controllers>) {
     controllers.look(&state);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_controller_enabled(app: AppHandle, name: String, enabled: bool) -> AppResult<()> {
     changing(&app, |c| c.set_enabled(&app, &name, enabled))
 }
 
 /// Drives the controller `name` by `file`, one of the profiles offered for it (a variant of its
 /// model's), from now on.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn choose_controller_profile(app: AppHandle, name: String, file: String) -> AppResult<()> {
     changing(&app, |c| c.choose_profile(&app, &name, &file))
 }
@@ -80,7 +82,7 @@ pub fn midi_outputs() -> AppResult<Vec<String>> {
 }
 
 /// Sends the MIDI clock to `name` (`None`: nowhere); kept for the next start.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn set_midi_clock_output(app: AppHandle, name: Option<String>) -> AppResult<()> {
     app.state::<MidiClock>().set_output(name.as_deref())?;
     changing(&app, |c| c.remember_clock_output(name));

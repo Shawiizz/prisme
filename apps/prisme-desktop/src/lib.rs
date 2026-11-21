@@ -308,11 +308,9 @@ fn start_services(app: &tauri::App, library: &Arc<LibraryService>) {
     app.state::<auto_dj::AutoDj>().tell();
     auto_dj::AutoDj::start(app.handle().clone());
     sampler::load_saved(app.handle().clone());
-    let controllers = app.state::<Controllers>();
-    controllers.open_at_start(app.handle());
-    Controllers::watch(app.handle().clone());
-    app.manage(MidiClock::new(controllers.setup().clock_output));
+    app.manage(MidiClock::new(app.state::<Controllers>().setup().clock_output));
     MidiClock::start(app.handle().clone());
+    Controllers::watch(app.handle().clone());
     clock::start(app.handle().clone());
     app.state::<TagWriter>().wake();
     #[cfg(target_os = "android")]
