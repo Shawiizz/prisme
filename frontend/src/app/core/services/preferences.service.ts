@@ -45,7 +45,7 @@ export async function loadPreferences(): Promise<void> {
 /** What the page's storage kept under `key`, given to the backend by `give` unless it says
  * `false` (not wanted), then forgotten: whether it was given. Kept for the next start when the
  * backend could not take it, the interface starting all the same. */
-export async function takeOver(
+async function takeOver(
   key: string,
   give: (saved: string) => false | Promise<void>,
 ): Promise<boolean> {

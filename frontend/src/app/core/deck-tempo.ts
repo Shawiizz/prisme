@@ -50,11 +50,9 @@ export function deckTempo(deck: Signal<number>) {
     syncState,
     rate,
     held,
-    range,
     rangePercent,
     position,
     pitch,
-    target,
     targetAt,
     toMatch,
   };

@@ -6,7 +6,7 @@ import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
 import { segments } from '../../../shared/meter';
-import { percent, readout } from '../../../shared/readout';
+import { readout } from '../../../shared/readout';
 import type { Knob as KnobView, LiveSource } from '../../../core/models/backend';
 
 const METER_SEGMENTS = 12;
@@ -283,7 +283,6 @@ export class MixerControls {
   private readonly engine = inject(EngineService);
   protected readonly PHONE = PHONE;
   protected readonly read = (knob: KnobView) => readout(knob.reads);
-  protected readonly percent = percent;
 
   /** The live sources plugged in, on inputs the turntables leave free. */
   protected readonly lives = computed(() =>

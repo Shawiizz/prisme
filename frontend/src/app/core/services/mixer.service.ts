@@ -11,7 +11,6 @@ import type {
   LiveState,
   MixerKnobs,
   MixMode,
-  RecordSource,
   RoutingState,
   StripKnobs,
 } from '../models/backend';
@@ -56,10 +55,6 @@ export class MixerService {
   /** While the microphone is on, the music ducks by `talkoverDepthDb`. */
   readonly talkover = computed(() => this.told().talkover);
   readonly talkoverDepthDb = computed(() => this.told().talkoverDepthDb);
-  /** What was recorded last: a recording started without asking takes it again. */
-  readonly recordSource = computed<RecordSource | null>(() => this.told().recordSource, {
-    equal: same,
-  });
   /** The software mixer is in use. */
   readonly internal = computed(() => this.routed().internal);
   /** External mode asked for, but the device has too few outputs (it needs this many): the

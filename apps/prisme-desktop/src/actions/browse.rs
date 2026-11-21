@@ -90,7 +90,6 @@ impl Library {
             filter: browser.filter().to_owned(),
             sort: SortDto { column: sort.column.into(), descending: sort.descending },
             ordered: browser.source().ordered(),
-            removable: browser.removable(),
             reorderable: browser.reorderable(),
             count: browser.count(),
             cursor: browser.cursor_index(),

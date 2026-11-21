@@ -61,7 +61,7 @@ describe('ControllersSettings', () => {
     mockIPC((command, args) => {
       if (command === 'choose_controller_profile') chosen.push(args);
       if (command === 'list_targets') return TARGETS;
-      if (['midi_outputs', 'controller_light_targets'].includes(command)) return [];
+      if (command === 'midi_outputs') return [];
       return undefined;
     });
     const profiles = { profiles: [], counts: { all: 0, updated: 0, own: 0 }, replacing: [] };

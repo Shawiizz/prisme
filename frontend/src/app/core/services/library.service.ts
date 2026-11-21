@@ -82,8 +82,6 @@ export class LibraryService {
   readonly listed = computed(() => this.view()?.listed ?? 0);
   /** Whether the list has an order of its own (shown in a `#` column). */
   readonly ordered = computed(() => this.view()?.ordered ?? false);
-  /** Whether the selection can be taken out of the list shown. */
-  readonly removable = computed(() => this.view()?.removable ?? false);
   /** Whether the rows can be dragged to another place: the prepare list in its order. */
   readonly reorderable = computed(() => this.view()?.reorderable ?? false);
   /** The deck the tracks are compared with: compatible keys, pitch to match. */

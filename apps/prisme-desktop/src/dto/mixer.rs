@@ -219,8 +219,6 @@ pub struct MixerStateDto {
     pub limiter: bool,
     pub talkover: bool,
     pub talkover_depth_db: f32,
-    /// What was recorded last.
-    pub record_source: Option<RecordSourceDto>,
     /// The last recording ended.
     pub last_recording: Option<RecordingDto>,
 }
@@ -237,7 +235,6 @@ impl MixerStateDto {
             limiter: mixer.limiter,
             talkover: mixer.talkover,
             talkover_depth_db: mixer.talkover_depth_db,
-            record_source: mixer.record_source,
             last_recording: lock(&state.recorded).clone(),
         }
     }

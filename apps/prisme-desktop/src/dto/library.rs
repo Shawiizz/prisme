@@ -128,8 +128,6 @@ pub struct LibraryViewDto {
     pub sort: SortDto,
     /// The list has an order of its own, shown in its rows.
     pub ordered: bool,
-    /// Its rows can be taken out of it.
-    pub removable: bool,
     /// Its rows can be dragged to another place.
     pub reorderable: bool,
     /// How many rows are shown.

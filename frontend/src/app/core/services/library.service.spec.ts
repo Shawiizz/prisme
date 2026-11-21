@@ -13,7 +13,6 @@ const view = (seq: number, filter: string): LibraryView => ({
   filter,
   sort: { column: 'order', descending: false },
   ordered: true,
-  removable: true,
   reorderable: true,
   count: 0,
   cursor: null,

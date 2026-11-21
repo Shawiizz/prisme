@@ -1,7 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { EngineService } from './engine.service';
 import { sameItems } from '../same';
-import type { EffectKind, FxChain, FxSettings } from '../models/backend';
+import type { EffectKind } from '../models/backend';
 
 /** The id of an action of a slot of a deck's effect chain: `deck1.fx…` for the first,
  * `deck1.fx2…` and `deck1.fx3…` for the next. */
@@ -27,14 +27,6 @@ export class FxService {
     () => this.engine.told().perform.map((d) => d.fxShown),
     { equal: sameItems },
   );
-
-  chain(deck: number): FxChain {
-    return this.engine.decks()[deck].fx;
-  }
-
-  settings(deck: number, slot: number): FxSettings {
-    return this.chain(deck).slots[slot];
-  }
 
   /** The slot the pads and knobs of the screen act on. */
   chosen(deck: number): number {

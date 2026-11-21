@@ -29,10 +29,6 @@ export class SamplerService {
     return this.engine.perform(sampleId(deck, slot), 1);
   }
 
-  stop(deck: number, slot: number) {
-    return this.engine.perform(sampleId(deck, slot, '.stop'), 1);
-  }
-
   /** The sound of `slot` stopped if it plays, else taken off its pad. */
   takeOff(deck: number, slot: number) {
     return this.engine.call('take_sample_off', { deck, slot });

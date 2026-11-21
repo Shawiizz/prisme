@@ -1260,10 +1260,6 @@ export type LibraryView = {
    */
   ordered: boolean;
   /**
-   * Its rows can be taken out of it.
-   */
-  removable: boolean;
-  /**
    * Its rows can be dragged to another place.
    */
   reorderable: boolean;
@@ -1464,10 +1460,6 @@ export type MixerState = {
   limiter: boolean;
   talkover: boolean;
   talkoverDepthDb: number;
-  /**
-   * What was recorded last.
-   */
-  recordSource: RecordSource | null;
   /**
    * The last recording ended.
    */

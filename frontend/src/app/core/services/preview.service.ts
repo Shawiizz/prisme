@@ -23,8 +23,6 @@ export class PreviewService {
   readonly track = computed(() => this.engine.told().preview.track, { equal: same });
   private readonly trackId = computed(() => this.track()?.id ?? null);
   readonly waveform = signal<Waveform | null>(null);
-  /** The track asked for while its file opens. */
-  readonly opening = computed(() => this.engine.told().preview.opening);
   /** Where the preview plays, once the engine reports it. */
   readonly status = computed(() => {
     const status = this.engine.status()?.preview ?? null;
@@ -50,11 +48,6 @@ export class PreviewService {
     await listen<number>('preview-update', ({ payload: id }) => {
       if (id === this.trackId()) void this.fetchWaveform(id);
     });
-  }
-
-  /** Whether `path` is previewed, or about to be. */
-  previewing(path: string): boolean {
-    return this.track()?.path === path || this.opening() === path;
   }
 
   /** Previews `path` in place of the track previewed, or stops it if it is the one previewed. */

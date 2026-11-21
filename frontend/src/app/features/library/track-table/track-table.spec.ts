@@ -9,7 +9,6 @@ const view = (cursor: number, cursorMoves: number, listed = 1): LibraryView => (
   filter: '',
   sort: { column: 'order', descending: false },
   ordered: true,
-  removable: true,
   reorderable: true,
   count: 40,
   cursor,

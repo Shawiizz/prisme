@@ -73,11 +73,11 @@ export class Phone {
    * the first one its driver finds. */
   protected readonly missing = computed(() => this.settings.info()?.missing ?? null);
 
-  /** The hands are elsewhere: on a controller in use, or on the records that drive a deck. */
+  /** The hands are elsewhere: on a controller open, or on the records that drive a deck. */
   private readonly preferences = inject(PreferencesService);
   private readonly hardware = computed(
     () =>
-      this.controllers.controllers().some((c) => c.enabled && c.plugged) ||
+      this.controllers.canLearn() ||
       this.engine.deckIndexes().some((d) => this.engine.decks()[d].vinylEnabled),
   );
   /** What the DJ chose instead, with the key at the top. */
