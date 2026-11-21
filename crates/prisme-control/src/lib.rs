@@ -9,23 +9,26 @@
 pub mod hid;
 mod id;
 mod label;
+mod labels;
 mod light;
 mod listed;
 mod mapping;
 mod message;
 mod pickup;
 mod profile;
+mod reader;
 mod schema;
 mod source;
 mod target;
 
 pub use id::{Id, SourceId, TargetId};
 pub use label::{Label, Param};
+pub use labels::beats_text;
 pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
-pub use listed::{beats_text, listed_targets, CUT_BEATS, ROLL_BEATS};
+pub use listed::{listed_targets, CUT_BEATS, ROLL_BEATS};
 pub use mapping::{
-    Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Seen, Shift, Shifts,
-    ShownRoom, StepCarry, When, SHIFT,
+    Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Shift, Shifts, ShownRoom,
+    When, SHIFT,
 };
 pub use message::{parse, Control, Event, Midi};
 pub use pickup::Pickup;
@@ -33,6 +36,7 @@ pub use profile::{
     Display, DisplayPart, InitMessage, KeepAlive, LaterMessage, Meter, MeterLed, MeterOn, ModeGroup,
     ModeSelect, Output, Profile, ProfileLight, JOG_STEPS_PER_TURN, PROFILE_FORMAT,
 };
+pub use reader::{Reader, Seen, StepCarry};
 pub use schema::{profile_schema, ListedTarget, SCHEMA_URL};
 pub use source::{Measure, Source};
 pub use target::{
