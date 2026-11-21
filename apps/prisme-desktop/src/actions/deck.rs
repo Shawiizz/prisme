@@ -434,7 +434,7 @@ mod tests {
     }
 
     /// The ratio the tempo of deck A was set to by its fader moved to `value` by `device`.
-    fn pitch(bench: &mut Bench, device: &str, value: f32) -> Option<f64> {
+    fn pitch(bench: &Bench, device: &str, value: f32) -> Option<f64> {
         bench.moved(device, "deck1.pitch", Input::Value(value)).unwrap();
         bench.sent().into_iter().find_map(|c| match c {
             Command::SetPitch { deck: 0, ratio } => Some(ratio),
@@ -444,24 +444,24 @@ mod tests {
 
     #[test]
     fn a_tempo_fader_picks_the_tempo_up_before_moving_it() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         // the screen left the tempo at +4 %: the fader at -8 % does not jump it there
         set_pitch(&bench.state, 0, 1.04).unwrap();
         bench.sent();
-        assert_eq!(pitch(&mut bench, "DDJ", 0.0), None);
-        assert_eq!(pitch(&mut bench, "DDJ", 0.5), None);
-        let picked = pitch(&mut bench, "DDJ", 0.8).unwrap();
+        assert_eq!(pitch(&bench, "DDJ", 0.0), None);
+        assert_eq!(pitch(&bench, "DDJ", 0.5), None);
+        let picked = pitch(&bench, "DDJ", 0.8).unwrap();
         assert!((picked - 1.048).abs() < 1e-6);
-        assert!((pitch(&mut bench, "DDJ", 1.0).unwrap() - 1.08).abs() < 1e-6);
+        assert!((pitch(&bench, "DDJ", 1.0).unwrap() - 1.08).abs() < 1e-6);
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6, "kept");
     }
 
     #[test]
     fn two_controllers_on_one_deck_each_pick_its_tempo_up_and_the_interface_sets_it() {
-        let mut bench = Bench::new();
-        assert!(pitch(&mut bench, "DDJ", 0.5).is_some());
-        assert_eq!(pitch(&mut bench, "CDJ", 0.9), None, "its fader is elsewhere");
-        assert!(pitch(&mut bench, "DDJ", 0.55).is_some());
+        let bench = Bench::new();
+        assert!(pitch(&bench, "DDJ", 0.5).is_some());
+        assert_eq!(pitch(&bench, "CDJ", 0.9), None, "its fader is elsewhere");
+        assert!(pitch(&bench, "DDJ", 0.55).is_some());
         bench.perform("deck1.pitch", Input::Value(1.0), Source::Interface { confirmed: false }).unwrap();
         assert!((lock(&bench.state.decks)[0].pitch - 1.08).abs() < 1e-6);
     }
@@ -581,7 +581,7 @@ mod tests {
     }
 
     /// A track on `deck` in `camelot` (a key of the wheel), playing or not.
-    fn keyed(bench: &mut Bench, deck: usize, camelot: &str, playing: bool) {
+    fn keyed(bench: &Bench, deck: usize, camelot: &str, playing: bool) {
         bench.load(deck, 60.0, Some(120.0));
         let key = prisme_analysis::Key::from_camelot(camelot).unwrap();
         lock(&bench.state.tracks)[deck].as_mut().unwrap().detected.key =
@@ -594,9 +594,9 @@ mod tests {
 
     #[test]
     fn the_key_is_brought_to_mix_with_the_deck_heard_beside_it() {
-        let mut bench = Bench::new();
-        keyed(&mut bench, 0, "8A", false);
-        keyed(&mut bench, 1, "10A", true);
+        let bench = Bench::new();
+        keyed(&bench, 0, "8A", false);
+        keyed(&bench, 1, "10A", true);
         press(&bench, "deck1.key.sync");
         let shift = bench.state.with_track(0, |t| t.key_shift).unwrap();
         let heard = prisme_analysis::Key::from_camelot("8A").unwrap().transposed(i32::from(shift));

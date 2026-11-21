@@ -703,24 +703,26 @@ mod tests {
         let c = controllers();
         c.save(|s| *s = setup);
         assert_eq!(c.route("DDJ-SB2", parse(&[0x90, 0x0b, 127]).unwrap(), 0.0), None);
-        let saved = serde_json::to_string(&c.setup()).unwrap();
+        let unmapped = |c: &Controllers| serde_json::to_value(c.setup()).unwrap()["unmapped"].clone();
+        assert_eq!(unmapped(&c), serde_json::json!(["deck1.play"]));
         c.forget("DDJ-SB2", "deck1.cue");
-        assert!(saved.contains(r#""unmapped":["deck1.play"]"#));
-        assert!(serde_json::to_string(&c.setup())
-            .unwrap()
-            .contains(r#"{"device":"DDJ-SB2","target":"deck1.cue"}"#));
+        let forgotten = serde_json::json!(["deck1.play", { "device": "DDJ-SB2", "target": "deck1.cue" }]);
+        assert_eq!(unmapped(&c), forgotten);
     }
 
     #[test]
     fn a_profiled_encoder_read_another_way_becomes_the_djs() {
         let c = sb2();
-        let jog = |m: &Mapping| m.device == "DDJ-SB2" && m.target == "deck1.jog";
+        let jogs = |mappings: &[Mapping]| -> Vec<Encoding> {
+            let jog = |m: &&Mapping| m.device == "DDJ-SB2" && m.target == "deck1.jog";
+            mappings.iter().filter(jog).map(|m| m.encoding).collect()
+        };
         assert!(c.setup().mappings.all().is_empty());
+        let profiled = jogs(c.mappings().all()).len();
+        assert!(profiled > 0);
         c.set_encoding("DDJ-SB2", "deck1.jog", Encoding::Relative);
-        let learnt = c.setup().mappings;
-        assert!(!learnt.all().is_empty());
-        assert!(learnt.all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
-        assert!(c.mappings().all().iter().filter(|m| jog(m)).all(|m| m.encoding == Encoding::Relative));
+        assert_eq!(jogs(c.setup().mappings.all()), vec![Encoding::Relative; profiled], "learnt");
+        assert_eq!(jogs(c.mappings().all()), vec![Encoding::Relative; profiled], "in use");
     }
 
     #[test]
@@ -941,22 +943,14 @@ mod tests {
     }
 
     #[test]
-    fn the_interface_is_told_of_none_of_the_actions_performed_here() {
+    fn the_interface_is_told_only_the_actions_it_keeps() {
         let listed = Target::all().iter().map(Target::to_string).collect::<Vec<_>>();
         let measured =
             ["deck1.jump.-8", "deck2.loop.0.5", "deck3.roll.1", "deck4.key.+2", "deck1.sample3.velocity"];
         let ids = listed.iter().map(String::as_str).chain(measured);
-        let mut here = 0;
-        for id in ids {
-            match Action::of(&id.into(), 1.0, false, None) {
-                Action::Ui(id, _) => assert_ne!(id.target().map(Target::owner), Some(Owner::Rust), "{id}"),
-                Action::Rust(target, _) => {
-                    assert_eq!(target.owner(), Owner::Rust, "{id}");
-                    here += 1;
-                }
-            }
-        }
-        assert!(here >= 4 * 4, "the jogs and the tempo faders of the four decks at least");
+        let told: Vec<&str> =
+            ids.filter(|&id| matches!(Action::of(&id.into(), 1.0, false, None), Action::Ui(..))).collect();
+        assert_eq!(told, ["shift", "library.search", "general.help", "general.palette", "general.settings"]);
     }
 
     #[test]

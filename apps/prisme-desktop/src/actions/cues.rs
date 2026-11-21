@@ -169,7 +169,7 @@ mod tests {
     }
 
     /// `id` pressed then let go, the engine run after each.
-    fn press(bench: &mut Bench, id: &str) {
+    fn press(bench: &Bench, id: &str) {
         bench.press(id, 1.0).unwrap();
         bench.run(0.01);
         bench.press(id, 0.0).unwrap();
@@ -196,31 +196,31 @@ mod tests {
 
     #[test]
     fn the_cue_held_on_the_cue_point_and_play_pressed_plays_on_once_the_cue_is_let_go() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         bench.press("deck1.cue", 1.0).unwrap();
         bench.run(0.2);
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.play");
         bench.press("deck1.cue", 0.0).unwrap();
         bench.run(0.2);
         let status = bench.status(0);
         assert!(status.playing && status.position_s > 0.3);
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.play");
         assert!(!bench.status(0).playing, "PLAY pauses it then");
     }
 
     #[test]
     fn the_cue_pressed_playing_goes_back_to_the_cue_point_stopped_elsewhere_sets_it_there() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, Some(120.0));
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.play");
         bench.run(1.2);
-        press(&mut bench, "deck1.cue");
+        press(&bench, "deck1.cue");
         let status = bench.status(0);
         assert!(!status.playing && status.position_s == 0.0);
         bench.state.update_preferences(|p| p.dj.quantize = true);
         bench.at(0, 1.3);
-        press(&mut bench, "deck1.cue");
+        press(&bench, "deck1.cue");
         assert_eq!(main_cue(&bench, 0), Some(1.5), "on the nearest beat");
         assert_eq!(bench.status(0).position_s, 1.5);
         bench.press("deck1.cue", 1.0).unwrap();
@@ -230,60 +230,60 @@ mod tests {
 
     #[test]
     fn the_cue_set_while_playing_plays_on_and_stopped_puts_the_track_on_it() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, Some(120.0));
         bench.state.update_preferences(|p| p.dj.quantize = true);
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.play");
         bench.run(1.2);
-        press(&mut bench, "deck1.cue.set");
+        press(&bench, "deck1.cue.set");
         let status = bench.status(0);
         assert_eq!(main_cue(&bench, 0), Some(1.0));
         assert!(status.playing && status.position_s > 1.2, "no jump in the music");
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.play");
         bench.at(0, 2.2);
-        press(&mut bench, "deck1.cue.set");
+        press(&bench, "deck1.cue.set");
         assert_eq!(main_cue(&bench, 0), Some(2.0));
         assert_eq!(bench.status(0).position_s, 2.0);
     }
 
     #[test]
     fn the_keys_to_the_cue_the_start_and_the_end() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(1, 60.0, None);
         lock(&bench.state.tracks)[1]
             .as_mut()
             .unwrap()
             .put_cue(prisme_library::Cue::point(CueSlot::Main, 10.0));
-        press(&mut bench, "deck2.cue.play");
+        press(&bench, "deck2.cue.play");
         assert!(bench.status(1).playing && close(bench.status(1).position_s, 10.0));
-        press(&mut bench, "deck2.cue.goto");
+        press(&bench, "deck2.cue.goto");
         assert!(bench.status(1).playing, "as it was");
-        press(&mut bench, "deck2.cue.stop");
+        press(&bench, "deck2.cue.stop");
         assert!(!bench.status(1).playing && bench.status(1).position_s == 10.0);
-        press(&mut bench, "deck2.start.play");
+        press(&bench, "deck2.start.play");
         assert!(bench.status(1).playing && close(bench.status(1).position_s, 0.0));
-        press(&mut bench, "deck2.start.keep");
+        press(&bench, "deck2.start.keep");
         assert!(bench.status(1).playing);
-        press(&mut bench, "deck2.start");
+        press(&bench, "deck2.start");
         assert!(!bench.status(1).playing && bench.status(1).position_s == 0.0);
-        press(&mut bench, "deck2.end");
+        press(&bench, "deck2.end");
         assert_eq!(bench.status(1).position_s, 60.0);
     }
 
     #[test]
     fn a_hot_cue_on_an_empty_slot_is_set_and_the_next_press_jumps_there() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         bench.at(0, 30.0);
-        press(&mut bench, "deck1.hotcue3");
+        press(&bench, "deck1.hotcue3");
         let set = bench.state.with_track(0, |t| t.cue(CueSlot::Hot(2)).map(|c| c.position_s)).unwrap();
         assert_eq!(set, Some(30.0));
         bench.actions.settle();
         assert_eq!(bench.library.cues(std::path::Path::new("deck0.flac")).unwrap().len(), 1, "kept");
         bench.at(0, 0.0);
-        press(&mut bench, "deck1.hotcue3");
+        press(&bench, "deck1.hotcue3");
         assert_eq!(bench.status(0).position_s, 30.0);
-        press(&mut bench, "deck1.hotcue3.delete");
+        press(&bench, "deck1.hotcue3.delete");
         assert!(bench.state.with_track(0, |t| t.cues.is_empty()).unwrap());
         bench.actions.settle();
         assert!(bench.library.cues(std::path::Path::new("deck0.flac")).unwrap().is_empty());
@@ -291,37 +291,37 @@ mod tests {
 
     #[test]
     fn a_hot_cue_set_while_a_loop_plays_keeps_it_and_plays_it_again() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, Some(120.0));
-        press(&mut bench, "deck1.loop.4");
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.loop.4");
+        press(&bench, "deck1.play");
         bench.run(0.5);
-        press(&mut bench, "deck1.hotcue1");
+        press(&bench, "deck1.hotcue1");
         let cue = bench.state.with_track(0, |t| t.cue(CueSlot::Hot(0)).cloned()).unwrap().unwrap();
         assert_eq!((cue.position_s, cue.loop_length_s), (0.0, Some(2.0)));
-        press(&mut bench, "deck1.loop");
+        press(&bench, "deck1.loop");
         assert!(!bench.status(0).looping.active);
-        press(&mut bench, "deck1.hotcue1");
+        press(&bench, "deck1.hotcue1");
         assert!(bench.status(0).looping.active);
     }
 
     #[test]
     fn a_hot_cue_changes_on_every_deck_playing_the_file() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, None);
         let double = lock(&bench.state.tracks)[0].as_ref().unwrap().double();
         lock(&bench.state.tracks)[1] = Some(double);
-        press(&mut bench, "deck1.hotcue2");
+        press(&bench, "deck1.hotcue2");
         assert!(bench.state.with_track(1, |t| t.cue(CueSlot::Hot(1)).is_some()).unwrap());
-        press(&mut bench, "deck2.hotcue2.delete");
+        press(&bench, "deck2.hotcue2.delete");
         assert!(bench.state.with_track(0, |t| t.cues.is_empty()).unwrap());
     }
 
     #[test]
     fn the_cue_keys_of_a_deck_with_no_track_do_nothing() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         for id in ["deck1.cue", "deck1.play", "deck1.cue.set", "deck1.hotcue1", "deck1.end"] {
-            press(&mut bench, id);
+            press(&bench, id);
         }
         assert!(!bench.status(0).playing);
     }

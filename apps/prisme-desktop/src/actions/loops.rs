@@ -93,7 +93,7 @@ mod tests {
     use prisme_actions::input::Input;
     use prisme_engine::LoopRegion;
 
-    fn press(bench: &mut Bench, id: &str) {
+    fn press(bench: &Bench, id: &str) {
         bench.press(id, 1.0).unwrap();
         bench.press(id, 0.0).unwrap();
         bench.run(0.01);
@@ -105,49 +105,49 @@ mod tests {
 
     /// A deck at 120 BPM playing a loop of four beats from the start, its tempo fader at +10 %.
     fn looping() -> Bench {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(0, 60.0, Some(120.0));
         crate::actions::deck::set_pitch(&bench.state, 0, 1.1).unwrap();
-        press(&mut bench, "deck1.loop.4");
-        press(&mut bench, "deck1.play");
+        press(&bench, "deck1.loop.4");
+        press(&bench, "deck1.play");
         bench.run(0.5);
         bench
     }
 
     #[test]
     fn a_loop_moves_by_the_beats_of_the_tracks_grid_whatever_its_tempo() {
-        let mut bench = looping();
-        press(&mut bench, "deck1.loop.move.forward");
+        let bench = looping();
+        press(&bench, "deck1.loop.move.forward");
         assert_eq!(region(&bench, 0), Some((0.5, 2.5)));
         bench.moved("DDJ", "deck1.loop.move", Input::Steps { steps: -3.0, step: None }).unwrap();
         bench.run(0.01);
         assert_eq!(region(&bench, 0), Some((-1.0, 1.0)));
-        press(&mut bench, "deck1.loop.move.back");
+        press(&bench, "deck1.loop.move.back");
         assert!(bench.status(0).looping.active, "playing as it was");
     }
 
     #[test]
     fn the_loop_played_again_stopped_and_its_edges_gone_to() {
-        let mut bench = looping();
-        press(&mut bench, "deck1.loop");
+        let bench = looping();
+        press(&bench, "deck1.loop");
         assert!(!bench.status(0).looping.active);
-        press(&mut bench, "deck1.loop.out.goto");
+        press(&bench, "deck1.loop.out.goto");
         assert!((bench.status(0).position_s - 2.0).abs() < 0.05, "playing on from there");
-        press(&mut bench, "deck1.reloop.stop");
+        press(&bench, "deck1.reloop.stop");
         let status = bench.status(0);
         assert!(status.looping.active && !status.playing);
         assert_eq!(status.position_s, 0.0);
         bench.at(0, 10.0);
-        press(&mut bench, "deck1.loop.in.goto");
+        press(&bench, "deck1.loop.in.goto");
         assert_eq!(bench.status(0).position_s, 0.0);
     }
 
     #[test]
     fn the_loop_keys_of_a_deck_with_no_loop_do_nothing() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.load(1, 60.0, Some(120.0));
         for id in ["deck2.reloop.stop", "deck2.loop.in.goto", "deck2.loop.move.forward"] {
-            press(&mut bench, id);
+            press(&bench, id);
         }
         assert!(bench.sent().is_empty());
         assert_eq!(region(&bench, 1), None);

@@ -16,7 +16,7 @@ use prisme_session::JsonFile;
 use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Controllers with `device` in use, as Prisme keeps them.
 fn controllers(device: &str) -> Arc<Controllers> {
@@ -265,15 +265,25 @@ impl S4 {
         self.feed(self.faders.clone());
     }
 
-    /// The bytes from `byte` of output report `report` as the device was last written them,
-    /// what the lights show now written (its thread writes them every few milliseconds).
-    fn shown(&mut self, report: u8, byte: usize, length: usize) -> Vec<u8> {
+    /// Whether the bytes from `byte` of output report `report` come to be `expected` as the
+    /// device is written what the lights show now (its thread writes them within a few
+    /// milliseconds), a second at most; else what they were.
+    fn shows(&mut self, report: u8, byte: usize, expected: &[u8]) -> Result<(), Option<Vec<u8>>> {
         self.controllers.tick(&self.bench.view(), None, 0.0);
-        std::thread::sleep(Duration::from_millis(50));
-        for written in simulated::written(self.id) {
-            self.written.insert(written[0], written);
+        let until = Instant::now() + Duration::from_secs(1);
+        loop {
+            for written in simulated::written(self.id) {
+                self.written.insert(written[0], written);
+            }
+            let shown = self.written.get(&report).map(|w| &w[byte..byte + expected.len()]);
+            if shown == Some(expected) {
+                return Ok(());
+            }
+            if Instant::now() >= until {
+                return Err(shown.map(<[u8]>::to_vec));
+            }
+            std::thread::sleep(Duration::from_millis(2));
         }
-        self.written[&report][byte..byte + length].to_vec()
     }
 }
 
@@ -306,7 +316,7 @@ const HOT_CUE_1_LED: usize = 0x01;
 fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_reports() {
     let mut s4 = S4::plugged();
     let bench = s4.bench.clone();
-    assert_eq!(s4.shown(LIGHTS, PLAY_LED, 1), [9], "play dim");
+    assert_eq!(s4.shows(LIGHTS, PLAY_LED, &[9]), Ok(()), "play dim");
 
     let track = track("hid");
     bench.select(&track.0);
@@ -315,14 +325,14 @@ fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_r
 
     s4.press(KEYS, S4_PLAY);
     assert!(playing(&bench));
-    assert_eq!(s4.shown(LIGHTS, PLAY_LED, 1), [127], "play lit");
+    assert_eq!(s4.shows(LIGHTS, PLAY_LED, &[127]), Ok(()), "play lit");
 
     // a hot cue set, then jumped to; its pad lit in the hot cue's colour
     bench.run(0.5);
     let set_at = position(&bench);
-    assert_eq!(s4.shown(LIGHTS, HOT_CUE_1_LED, 3), [8, 1, 1], "an empty pad dim");
+    assert_eq!(s4.shows(LIGHTS, HOT_CUE_1_LED, &[8, 1, 1]), Ok(()), "an empty pad dim");
     s4.press(KEYS, S4_HOT_CUE_1);
-    assert_eq!(s4.shown(LIGHTS, HOT_CUE_1_LED, 3), [127, 41, 32], "a set pad lit in its colour");
+    assert_eq!(s4.shows(LIGHTS, HOT_CUE_1_LED, &[127, 41, 32]), Ok(()), "a set pad lit in its colour");
     bench.run(0.5);
     s4.press(KEYS, S4_HOT_CUE_1);
     assert!((position(&bench) - set_at).abs() < 0.05, "back on the hot cue: {}", position(&bench));
@@ -334,7 +344,7 @@ fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_r
 
     s4.press(KEYS, S4_CUE);
     assert!(!playing(&bench));
-    assert_eq!(s4.shown(LIGHTS, PLAY_LED, 1), [9], "play dim again");
+    assert_eq!(s4.shows(LIGHTS, PLAY_LED, &[9]), Ok(()), "play dim again");
 
     // the volume fader, at its bottom, far from the setting the screen gave: it takes it once it
     // crosses it

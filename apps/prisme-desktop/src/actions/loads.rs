@@ -138,7 +138,7 @@ mod tests {
     }
 
     /// A track of a minute playing on deck A.
-    fn playing(bench: &mut Bench) {
+    fn playing(bench: &Bench) {
         bench.load(0, 60.0, Some(120.0));
         bench.press("deck1.play", 1.0).unwrap();
         bench.run(0.05);
@@ -146,8 +146,8 @@ mod tests {
 
     #[test]
     fn the_track_of_a_deck_that_plays_leaves_it_once_the_dj_says_so() {
-        let mut bench = Bench::new();
-        playing(&mut bench);
+        let bench = Bench::new();
+        playing(&bench);
         let asked = bench.press("deck1.eject", 1.0);
         assert!(
             matches!(&asked, Err(AppError::ConfirmReplace { target, deck: 0, eject: true, track: None }) if target == "deck1.eject"),
@@ -161,8 +161,8 @@ mod tests {
 
     #[test]
     fn a_load_asks_about_the_track_pressed_and_loads_it_once_the_dj_says_so() {
-        let mut bench = Bench::new();
-        playing(&mut bench);
+        let bench = Bench::new();
+        playing(&bench);
         let (pressed, browsed) =
             (crate::actions::bench::track("pressed"), crate::actions::bench::track("browsed"));
         bench.select(&pressed.0);
@@ -183,9 +183,9 @@ mod tests {
 
     #[test]
     fn the_track_of_a_deck_that_plays_stays_there_if_the_dj_chose_so() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.state.update_preferences(|p| p.dj.protect_playing = true);
-        playing(&mut bench);
+        playing(&bench);
         bench.load(1, 60.0, None);
         select(&bench, Some("next.flac"));
         assert!(matches!(
@@ -210,8 +210,8 @@ mod tests {
 
     #[test]
     fn nothing_is_loaded_without_a_track_selected_nor_on_a_deck_not_in_use() {
-        let mut bench = Bench::new();
-        playing(&mut bench);
+        let bench = Bench::new();
+        playing(&bench);
         select(&bench, None);
         for id in ["library.load1", "library.load1.play", "library.load", "deck1.sample1.load"] {
             bench.press(id, 1.0).unwrap();
@@ -235,10 +235,10 @@ mod tests {
 
     #[test]
     fn a_double_puts_the_track_of_the_deck_beside_where_it_is() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         bench.press("library.double1", 1.0).unwrap();
         assert_eq!(loaded(&bench.state), [false, false], "nothing to double");
-        playing(&mut bench);
+        playing(&bench);
         bench.sent();
         bench.press("library.double2", 1.0).unwrap();
         let load_id = |deck: usize| lock(&bench.state.tracks)[deck].as_ref().map(|t: &LoadedTrack| t.load_id);

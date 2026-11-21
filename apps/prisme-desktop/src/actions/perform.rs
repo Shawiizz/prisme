@@ -429,7 +429,7 @@ mod tests {
     use prisme_engine::{Command, LoopRegion};
 
     /// What pressing then letting go of `id` sends the engine.
-    fn pressed(bench: &mut Bench, id: &str) -> Vec<Command> {
+    fn pressed(bench: &Bench, id: &str) -> Vec<Command> {
         bench.press(id, 1.0).unwrap();
         bench.press(id, 0.0).unwrap();
         bench.sent()
@@ -437,31 +437,31 @@ mod tests {
 
     #[test]
     fn the_library_key_lays_the_library_over_the_window_and_back() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         let before = bench.state.revision();
-        pressed(&mut bench, "general.library");
+        pressed(&bench, "general.library");
         assert!(lock(&bench.state.perform).library_only);
         assert_eq!(bench.state.moved_since(before), [crate::state::Section::Perform]);
-        pressed(&mut bench, "general.library");
+        pressed(&bench, "general.library");
         assert!(!lock(&bench.state.perform).library_only);
     }
 
     #[test]
     fn a_key_sends_its_deck_its_command_once_when_pressed() {
-        let mut bench = Bench::new();
-        assert!(matches!(pressed(&mut bench, "deck2.brake")[..], [Command::Brake { deck: 1 }]));
-        assert!(matches!(pressed(&mut bench, "deck1.loop.in")[..], [Command::LoopIn { deck: 0 }]));
-        assert!(matches!(pressed(&mut bench, "deck1.loop.out")[..], [Command::LoopOut { deck: 0 }]));
-        assert!(matches!(pressed(&mut bench, "deck2.reloop")[..], [Command::Reloop { deck: 1 }]));
-        let halved = pressed(&mut bench, "deck1.loop.halve");
+        let bench = Bench::new();
+        assert!(matches!(pressed(&bench, "deck2.brake")[..], [Command::Brake { deck: 1 }]));
+        assert!(matches!(pressed(&bench, "deck1.loop.in")[..], [Command::LoopIn { deck: 0 }]));
+        assert!(matches!(pressed(&bench, "deck1.loop.out")[..], [Command::LoopOut { deck: 0 }]));
+        assert!(matches!(pressed(&bench, "deck2.reloop")[..], [Command::Reloop { deck: 1 }]));
+        let halved = pressed(&bench, "deck1.loop.halve");
         assert!(matches!(halved[..], [Command::ScaleLoop { deck: 0, factor }] if factor == 0.5));
-        let doubled = pressed(&mut bench, "deck1.loop.double");
+        let doubled = pressed(&bench, "deck1.loop.double");
         assert!(matches!(doubled[..], [Command::ScaleLoop { deck: 0, factor }] if factor == 2.0));
-        let looped = pressed(&mut bench, "deck2.loop.0.5");
+        let looped = pressed(&bench, "deck2.loop.0.5");
         assert!(matches!(looped[..], [Command::BeatLoop { deck: 1, beats }] if beats == 0.5));
-        let jumped = pressed(&mut bench, "deck1.jump.-8");
+        let jumped = pressed(&bench, "deck1.jump.-8");
         assert!(matches!(jumped[..], [Command::BeatJump { deck: 0, beats }] if beats == -8.0));
-        let cleared = pressed(&mut bench, "deck1.loop.clear");
+        let cleared = pressed(&bench, "deck1.loop.clear");
         assert!(matches!(cleared[..], [Command::SetLoop { deck: 0, region: None, active: false }]));
         let soft = 20.0 / 127.0;
         bench.press("deck1.sample3", soft).unwrap();
@@ -477,32 +477,31 @@ mod tests {
 
     #[test]
     fn a_held_key_acts_while_held() {
-        let mut bench = Bench::new();
-        let held = |bench: &mut Bench, id| pressed(bench, id);
+        let bench = Bench::new();
         assert!(matches!(
-            held(&mut bench, "deck2.spinback")[..],
+            pressed(&bench, "deck2.spinback")[..],
             [Command::SpinBack { deck: 1, held: true }, Command::SpinBack { deck: 1, held: false }]
         ));
         assert!(matches!(
-            held(&mut bench, "deck1.censor")[..],
+            pressed(&bench, "deck1.censor")[..],
             [Command::Censor { active: true, .. }, Command::Censor { active: false, .. }]
         ));
         assert!(matches!(
-            held(&mut bench, "deck1.reverse.held")[..],
+            pressed(&bench, "deck1.reverse.held")[..],
             [Command::HoldReverse { held: true, .. }, Command::HoldReverse { held: false, .. }]
         ));
         assert!(matches!(
-            held(&mut bench, "deck1.slip.held")[..],
+            pressed(&bench, "deck1.slip.held")[..],
             [Command::SetSlip { enabled: true, .. }, Command::SetSlip { enabled: false, .. }]
         ));
         assert!(matches!(
-            held(&mut bench, "deck2.sample16.held")[..],
+            pressed(&bench, "deck2.sample16.held")[..],
             [Command::TriggerSample { deck: 1, slot: 15, .. }, Command::StopSample { deck: 1, slot: 15 }]
         ));
         let bends: Vec<f64> =
             ["deck1.bend.up", "deck1.bend.down", "deck1.bend.up.small", "deck1.bend.down.small"]
                 .into_iter()
-                .flat_map(|id| held(&mut bench, id))
+                .flat_map(|id| pressed(&bench, id))
                 .filter_map(|c| match c {
                     Command::SetPitchBend { deck: 0, amount } => Some(amount),
                     _ => None,
@@ -565,7 +564,7 @@ mod tests {
     }
 
     #[test]
-    fn a_loop_cleared_is_forgotten_by_the_engine() {
+    fn a_loop_stored_without_playing_it_reaches_the_engine_inactive() {
         let bench = Bench::new();
         crate::actions::transport::set_loop(&bench.state, 0, Some(1.0), Some(3.0), false).unwrap();
         let stored = bench.sent();
@@ -604,7 +603,6 @@ mod tests {
                 assert!(!matches!(outcome, Err(AppError::NotPerformed(_))), "{id}");
             }
         }
-        bench.sent();
     }
 }
 
@@ -711,7 +709,6 @@ mod faders {
         turn(&bench, "mixer.crossfaderCurve", &knob(0.3));
         bench.press("deck1.tap", 1.0).unwrap();
         bench.press("deck1.tap", 0.0).unwrap();
-        let _ = bench.state.with_track(0, |t| t.key_shift);
         assert_eq!(bench.state.moved_since(revision), []);
     }
 

@@ -117,7 +117,7 @@ mod tests {
     }
 
     /// The slices the engine was told to play since last asked, by their start.
-    fn slices(bench: &mut Bench) -> Vec<Option<f64>> {
+    fn slices(bench: &Bench) -> Vec<Option<f64>> {
         bench
             .sent()
             .into_iter()
@@ -130,7 +130,7 @@ mod tests {
 
     #[test]
     fn two_slices_held_the_last_plays_and_letting_it_go_plays_the_first() {
-        let mut bench = Bench::new();
+        let bench = Bench::new();
         // 120 BPM: a beat of half a second, a bar of two
         bench.load(0, 60.0, Some(120.0));
         bench.at(0, 5.3);
@@ -139,7 +139,7 @@ mod tests {
         hold(&bench, "deck1.slice5", true);
         hold(&bench, "deck1.slice5", false);
         hold(&bench, "deck1.slice2", false);
-        assert_eq!(slices(&mut bench), [Some(4.5), Some(6.0), Some(4.5), None]);
+        assert_eq!(slices(&bench), [Some(4.5), Some(6.0), Some(4.5), None]);
     }
 
     #[test]
