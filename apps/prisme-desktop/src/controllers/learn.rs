@@ -3,7 +3,7 @@
 use super::{Controllers, Learning, Unmapped, FINE_HALF_WITHIN};
 use crate::state::lock;
 use prisme_control::hid::Learnt;
-use prisme_control::{Control, Encoding, Event, Kind, Mapping, Modes, ProfileControl, Shifts, Target, SHIFT};
+use prisme_control::{Control, Encoding, Event, Kind, Mapping, Modes, ProfileControl, Shifts, Target};
 use std::time::Instant;
 
 impl Controllers {
@@ -29,7 +29,7 @@ impl Controllers {
         let reader = lock(&self.reader);
         let shift = lock(&self.mappings)
             .find(device, Event { raw: 127, ..event }, &Shifts::default(), &Modes::new())
-            .is_some_and(|m| m.target == SHIFT);
+            .is_some_and(|m| m.target.target() == Some(&Target::Shift(None)));
         let released = event.control.is_key() && event.raw == 0;
         let Learning { target, learnt } = lock(&self.learning).take_if(|_| !released && !shift)?;
         let binding = ProfileControl {
