@@ -167,6 +167,13 @@ export class DeckWaveform {
 
   press(event: PointerEvent, view: Drag['view']) {
     if (!this.track() || event.button !== 0 || this.drag) return;
+    // a record holding the deck in place keeps the track where it is: the backend says so
+    if (!this.engine.deckStatus(this.deck())?.canMove) {
+      const at =
+        view === 'overview' ? this.overviewTime(event) : this.engine.livePosition(this.deck());
+      this.engine.seek(this.deck(), at ?? 0);
+      return;
+    }
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     let startS = this.engine.livePosition(this.deck()) ?? 0;
     if (view === 'overview') {

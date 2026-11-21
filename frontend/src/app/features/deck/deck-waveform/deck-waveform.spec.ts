@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { EngineService } from '../../../core/services/engine.service';
-import type { DeckSettings, TrackInfo } from '../../../core/models/backend';
+import type { DeckSettings, EngineStatus, TrackInfo } from '../../../core/models/backend';
 
 describe('DeckWaveform', () => {
   /** What the canvases' observer, made once as the module loads, is told of their sizes. */
@@ -27,13 +27,17 @@ describe('DeckWaveform', () => {
     vi.unstubAllGlobals();
   });
 
-  /** The waveform of deck 0 with a track on decks 0 and 1, the hands sent as `deck at`. */
-  async function shown() {
+  /** The waveform of deck 0 with a track on decks 0 and 1, which can move or are held in place
+   * by their records, the hands sent as `deck at` and the seeks as `deck seek at`. */
+  async function shown(canMove = true) {
     const { DeckWaveform } = await import('./deck-waveform');
     mockIPC(() => undefined);
     const engine = TestBed.inject(EngineService);
     const hands: string[] = [];
-    vi.spyOn(engine, 'seek').mockResolvedValue(true);
+    engine.status.set({ decks: [0, 1].map(() => ({ canMove })) } as unknown as EngineStatus);
+    vi.spyOn(engine, 'seek').mockImplementation(
+      async (deck, at) => hands.push(`${deck} seek ${at}`) > 0,
+    );
     vi.spyOn(engine, 'hand').mockImplementation(
       async (deck, at) => hands.push(`${deck} ${at}`) > 0,
     );
@@ -54,9 +58,22 @@ describe('DeckWaveform', () => {
     const { fixture, hands } = await shown();
     const overview = (fixture.nativeElement as HTMLElement).querySelector('.overview')!;
     overview.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, button: 0 }));
-    expect(hands.length).toBe(1);
+    expect(hands.length).toBe(2);
     return { fixture, hands };
   }
+
+  it('asks the place pressed alone, and takes no hand, on a track its record holds', async () => {
+    Element.prototype.setPointerCapture = () => undefined;
+    const { fixture, hands } = await shown(false);
+    const element = fixture.nativeElement as HTMLElement;
+    for (const view of ['.overview', '.zoom']) {
+      const press = new PointerEvent('pointerdown', { pointerId: 1, button: 0 });
+      element.querySelector(view)!.dispatchEvent(press);
+    }
+    fixture.destroy();
+    expect(hands.length).toBe(2);
+    expect(hands.every((h) => h.startsWith('0 seek'))).toBe(true);
+  });
 
   it('takes the hand off the record when it goes, a press still held', async () => {
     const { fixture, hands } = await pressed();
