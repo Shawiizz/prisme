@@ -1,5 +1,5 @@
 use crate::dto::SeparationDto;
-use crate::state::{lock, AppState};
+use crate::state::AppState;
 use prisme_engine::Stem;
 use tauri::ipc::{Channel, Response};
 use tauri::State;
@@ -9,11 +9,7 @@ use tauri::State;
 /// once another track was loaded.
 #[tauri::command]
 pub fn watch_waveform(state: State<'_, AppState>, deck: usize, load_id: u64, channel: Channel) {
-    let waveform = lock(&state.tracks).get(deck).and_then(|t| {
-        let t = t.as_ref().filter(|t| t.load_id == load_id)?;
-        Some(t.waveform.same())
-    });
-    if let Some(waveform) = waveform {
+    if let Some(waveform) = state.with_loaded(deck, load_id, |t| t.waveform.same()) {
         waveform.watch(channel);
     }
 }
