@@ -11,6 +11,7 @@ import { errorText, isBackendError } from '../errors';
 import type {
   ControlChanges,
   DeckSettings,
+  DeckStatus,
   EngineStatus,
   StemPart,
   TrackInfo,
@@ -60,6 +61,12 @@ export class EngineService {
   private sent = 0;
 
   readonly audioRunning = computed(() => this.status()?.audioRunning ?? false);
+
+  /** The status of `deck` at the last frame told: none before the first, nor for a deck not
+   * in use. */
+  deckStatus(deck: number): DeckStatus | null {
+    return this.status()?.decks[deck] ?? null;
+  }
 
   constructor() {
     // what failed while the audio was away is behind once it runs again

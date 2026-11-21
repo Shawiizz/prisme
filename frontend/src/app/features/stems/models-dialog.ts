@@ -1,7 +1,7 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { StemsService } from '../../core/services/stems.service';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { percent } from '../../shared/readout';
+import { megabytes, percent } from '../../shared/readout';
 import { Dismiss, overlay } from '../../shared/overlay';
 
 /**
@@ -51,7 +51,5 @@ export class ModelsDialog {
   }
 
   /** `456 MB` left for a choice, `null` once it is installed. */
-  protected megabytes(bytes: number | null): number | null {
-    return bytes === null ? null : Math.round(bytes / 1e6);
-  }
+  protected readonly megabytes = megabytes;
 }

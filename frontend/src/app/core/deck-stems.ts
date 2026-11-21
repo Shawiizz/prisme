@@ -27,7 +27,7 @@ export function deckStems(deck: Signal<number>) {
    * shows them: a knob each, its name muting it at its level, greyed where the deck plays a
    * part not separated yet. */
   const knobs = computed(() =>
-    (engine.status()?.decks[deck()]?.stems ?? []).map((knob) => {
+    (engine.deckStatus(deck())?.stems ?? []).map((knob) => {
       const { label, name } = PARTS[knob.part];
       const named = name();
       const title = t('{part}: turn for the level, click the name to mute', { part: named });
@@ -36,7 +36,7 @@ export function deckStems(deck: Signal<number>) {
   );
   /** How far the track's separation is, while it is being separated, or the download of
    * the models it waits for. */
-  const separating = computed(() => engine.status()?.decks[deck()]?.separating ?? null);
+  const separating = computed(() => engine.deckStatus(deck())?.separating ?? null);
   /** Without a model, the separation offers to download them. */
   const canSeparate = computed(() => !!track() && separating() === null);
   /** A separation stopped short: its stems play where they are there, and it can be done

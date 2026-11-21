@@ -11,7 +11,7 @@ import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { BACKEND_NAMES } from '../../core/models/audio';
 import { formatClock } from '../../shared/time';
-import { segments } from '../../shared/meter';
+import { meterSegments } from '../../shared/meter';
 import { percent } from '../../shared/readout';
 import { MAC } from '../../core/keyboard/shortcuts';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
@@ -51,7 +51,7 @@ export class Titlebar {
         })
       : t('Record the mix (WAV and tracklist in Documents/Prisme Recordings)');
   });
-  protected readonly level = computed(() => segments(this.engine.status()?.meters.main, 16));
+  protected readonly level = meterSegments(() => this.engine.status()?.meters.main, 16);
 
   constructor() {
     overlay(this.recordMenu, () => this.recordMenu.set(false));

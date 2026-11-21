@@ -273,7 +273,7 @@ export class DeckWaveform {
     drag.lastX = event.clientX;
     if (seconds === 0) return;
     // a stopped track moves by what the edge turns; a playing one is only pushed or held back
-    if (!this.engine.status()?.decks[this.deck()]?.playing) {
+    if (!this.engine.deckStatus(this.deck())?.playing) {
       const from = drag.shownS ?? this.engine.livePosition(this.deck()) ?? 0;
       drag.shownS = Math.min(Math.max(from + seconds, 0), this.track()?.durationS ?? 0);
     }
@@ -289,7 +289,7 @@ export class DeckWaveform {
   /** Seconds of the track shown in the scrolling view: ZOOM_SPAN_S of real time, so that
    * beatmatched decks show their beats at the same spacing. */
   private zoomSpan(): number {
-    return ZOOM_SPAN_S * (this.engine.status()?.decks[this.deck()]?.rate ?? 1);
+    return ZOOM_SPAN_S * (this.engine.deckStatus(this.deck())?.rate ?? 1);
   }
 
   private draw() {
@@ -311,7 +311,7 @@ export class DeckWaveform {
       return;
     }
     const position = this.drag?.shownS ?? this.engine.livePosition(this.deck()) ?? 0;
-    const loop = this.engine.status()?.decks[this.deck()]?.looping ?? null;
+    const loop = this.engine.deckStatus(this.deck())?.looping ?? null;
     const span = this.zoomSpan();
     const waveform = this.engine.waveforms()[this.deck()];
     this.showing

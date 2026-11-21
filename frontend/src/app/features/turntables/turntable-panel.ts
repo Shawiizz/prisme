@@ -54,9 +54,7 @@ export class TurntablePanel {
   protected readonly recordLeadIn = computed(() =>
     String(Math.round(this.settings().recordLeadInS * 10) / 10),
   );
-  protected readonly vinyl = computed(
-    () => this.engine.status()?.decks[this.deck()]?.vinyl ?? null,
-  );
+  protected readonly vinyl = computed(() => this.engine.deckStatus(this.deck())?.vinyl ?? null);
   protected readonly signalText = computed(() => SIGNAL_TEXT[this.vinyl()?.signal ?? 'none']());
   protected readonly levelPercent = computed(() => (this.vinyl()?.level ?? 0) * 100);
   protected readonly speed = computed(() => formatSpeed(this.vinyl()?.recordSpeed ?? 0));

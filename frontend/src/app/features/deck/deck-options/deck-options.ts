@@ -191,7 +191,7 @@ export class DeckOptions {
   protected readonly ranges = computed(() => this.preferences.choices().tempoRanges);
   protected readonly range = computed(() => this.engine.decks()[this.deck()].tempoRange);
   protected readonly settings = computed(() => this.engine.decks()[this.deck()]);
-  private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
+  private readonly status = computed(() => this.engine.deckStatus(this.deck()));
   protected readonly reversed = computed(() => this.status()?.reverse ?? false);
   protected readonly loaded = computed(() => this.status()?.loaded ?? false);
   /** The motor moves a track that plays by itself: a record drives its own. */

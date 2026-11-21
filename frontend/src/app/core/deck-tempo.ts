@@ -19,7 +19,7 @@ const STILL: TempoFader = {
  */
 export function deckTempo(deck: Signal<number>) {
   const engine = inject(EngineService);
-  const status = computed(() => engine.status()?.decks[deck()] ?? null);
+  const status = computed(() => engine.deckStatus(deck()));
   const settings = computed(() => engine.decks()[deck()]);
   const vinyl = computed(() => settings().vinylEnabled);
   const syncState = computed<SyncState>(() => status()?.sync.state ?? 'off');

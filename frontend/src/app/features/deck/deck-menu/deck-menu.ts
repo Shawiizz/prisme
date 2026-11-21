@@ -98,7 +98,7 @@ export class DeckMenu {
   protected readonly engine = inject(EngineService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
   protected readonly reversed = computed(
-    () => this.engine.status()?.decks[this.deck()]?.reverse ?? false,
+    () => this.engine.deckStatus(this.deck())?.reverse ?? false,
   );
   protected readonly muted = computed(() => this.engine.decks()[this.deck()].mute);
 

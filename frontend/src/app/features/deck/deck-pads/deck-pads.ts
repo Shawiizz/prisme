@@ -108,7 +108,7 @@ export class DeckPads {
     if (mode === 'jump') return 'jump';
     return mode === 'fx' || mode === 'sampler' ? mode : 'slip';
   });
-  private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
+  private readonly status = computed(() => this.engine.deckStatus(this.deck()));
 
   /** Loops and jumps need a track, which a record in absolute mode keeps in place. */
   protected readonly canMove = computed(() => this.status()?.canMove ?? false);

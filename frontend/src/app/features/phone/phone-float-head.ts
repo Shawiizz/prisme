@@ -48,6 +48,6 @@ export class PhoneFloatHead {
   private readonly engine = inject(EngineService);
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly playing = computed(
-    () => this.engine.status()?.decks[this.deck()]?.playing ?? false,
+    () => this.engine.deckStatus(this.deck())?.playing ?? false,
   );
 }

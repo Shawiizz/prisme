@@ -4,7 +4,7 @@ import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
 import { t } from '../i18n/i18n';
 import { deckLetter } from '../../shared/time';
-import { errorText } from '../errors';
+import { attempt } from '../errors';
 
 /**
  * The Auto DJ: plays the prepare list on decks A and B, each track mixed into the next with
@@ -81,11 +81,7 @@ export class AutoDjService {
     return this.call('set_auto_dj_fade', { beats: null, seconds });
   }
 
-  private async call(command: string, args: Record<string, unknown> = {}) {
-    try {
-      await invoke(command, args);
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  private call(command: string, args: Record<string, unknown> = {}) {
+    return attempt(this.engine.error, () => invoke(command, args));
   }
 }

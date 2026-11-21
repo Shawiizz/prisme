@@ -59,9 +59,7 @@
                   <span class="pr-num bpm">{{ decimal(bpm, 1) }}</span>
                 }
                 @if (track.key; as k) {
-                  <span class="pr-key" [class.pr-key--maj]="!k.minor" [style.--h]="hue(k)">{{
-                    k.camelot
-                  }}</span>
+                  <app-key-chip [key]="k" />
                 }
                 @for (deck of engine.deckIndexes(); track deck) {
                   <button

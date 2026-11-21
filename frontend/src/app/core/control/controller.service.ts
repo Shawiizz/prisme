@@ -5,9 +5,9 @@ import { listen } from '@tauri-apps/api/event';
 import { StepEncoding } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
-import { errorText } from '../errors';
+import { attempt } from '../errors';
 import { t } from '../i18n/i18n';
-import { NoticeService } from '../../shared/notice/notice';
+import { Notice, NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
 import type { Controller, ControllerMapping, Opened, PluggedIn, UiAction } from '../models/backend';
 
@@ -42,9 +42,9 @@ export class ControllerService {
     );
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
     // plugged back in, or let go by the program that held it: it plays, its lights off
-    await listen<Opened>('controller-opened', ({ payload: { model } }) => {
-      this.notices.show({ text: t('{model} connected', { model }), detail: t('Ready to play') });
-    });
+    await listen<Opened>('controller-opened', ({ payload: { model } }) =>
+      this.showConnected(model),
+    );
     await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
     const waiting = await invoke<string[]>('waiting_controllers');
     if (waiting.length) this.showWaiting(waiting.join(', '));
@@ -58,11 +58,9 @@ export class ControllerService {
       return;
     }
     if (kind === 'opened') {
-      this.notices.show({
-        text: t('{model} connected', { model }),
-        detail: t('Ready to play'),
-        actions: [{ label: t('Do not use it'), run: () => this.setEnabled(device, false) }],
-      });
+      this.showConnected(model, [
+        { label: t('Do not use it'), run: () => this.setEnabled(device, false) },
+      ]);
       return;
     }
     this.notices.show({
@@ -81,6 +79,15 @@ export class ControllerService {
           run: () => this.run(() => invoke('decline_controller', { name: device })),
         },
       ],
+    });
+  }
+
+  /** `model` plays, opened; a new one may be let go at once (`actions`). */
+  private showConnected(model: string, actions?: Notice['actions']) {
+    this.notices.show({
+      text: t('{model} connected', { model }),
+      detail: t('Ready to play'),
+      actions,
     });
   }
 
@@ -163,11 +170,7 @@ export class ControllerService {
     return this.run(() => invoke('forget_control', { device, target }));
   }
 
-  private async run(action: () => Promise<unknown>) {
-    try {
-      await action();
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  private run(action: () => Promise<unknown>) {
+    return attempt(this.engine.error, action);
   }
 }

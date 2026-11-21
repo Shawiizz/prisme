@@ -21,3 +21,8 @@ export function readout(reads: Readout): string {
 export function percent(share: number): string {
   return `${Math.round(share * 100)} %`;
 }
+
+/** Bytes in megabytes, rounded: what is left to download. */
+export function megabytes(bytes: number | null): number | null {
+  return bytes === null ? null : Math.round(bytes / 1e6);
+}

@@ -36,6 +36,7 @@ import { SettingsSearch } from './settings-search';
 import { SettingControl, SettingRow } from './setting-row';
 import { SettingsIcon } from './settings-icon';
 import { decimal } from '../../shared/time';
+import { megabytes, percent } from '../../shared/readout';
 import { errorText } from '../../core/errors';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Serial } from '../../shared/serial';
@@ -340,14 +341,8 @@ export class SettingsDialog implements OnInit {
     }
   }
 
-  /** `0.42` → `42 %` */
-  percent(fraction: number): string {
-    return `${Math.round(fraction * 100)} %`;
-  }
-
-  megabytes(bytes: number): number {
-    return Math.round(bytes / 1e6);
-  }
+  protected readonly percent = percent;
+  protected readonly megabytes = megabytes;
 
   setBooth(value: string) {
     this.mixer.setBooth(value === '' ? null : Number(value));

@@ -16,7 +16,7 @@ import { NavigationService } from '../../core/services/navigation.service';
 import { EngineService } from '../../core/services/engine.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { keyHue } from '../../shared/camelot';
+import { KeyChip } from '../../shared/key-chip/key-chip';
 import { decimal, deckLetter } from '../../shared/time';
 import { PHONE } from '../../core/platform';
 import { Dismiss, overlay } from '../../shared/overlay';
@@ -70,7 +70,7 @@ const TRACK_QUERY_MIN = 2;
   selector: 'app-command-palette',
   templateUrl: './command-palette.html',
   styleUrl: './command-palette.scss',
-  imports: [TPipe, Dismiss],
+  imports: [TPipe, Dismiss, KeyChip],
 })
 export class CommandPalette {
   private readonly navigation = inject(NavigationService);
@@ -88,7 +88,6 @@ export class CommandPalette {
 
   protected readonly PHONE = PHONE;
   protected readonly letter = deckLetter;
-  protected readonly hue = keyHue;
   protected readonly decimal = decimal;
 
   /** The pages of the settings: what the palette offers before anything is typed. */

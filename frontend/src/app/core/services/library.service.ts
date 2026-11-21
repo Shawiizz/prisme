@@ -4,7 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { EngineService } from './engine.service';
 import { ExportService, ListRef } from './export.service';
 import { HistoryService } from './history.service';
-import { errorText } from '../errors';
+import { attempt, errorText } from '../errors';
 import { folderName } from '../folders';
 import { t } from '../i18n/i18n';
 import { ConfirmService } from '../../shared/confirm/confirm';
@@ -349,14 +349,7 @@ export class LibraryService {
   }
 
   /** Runs `action`, its failure shown: whether it went through. */
-  private async attempt(action: () => Promise<unknown>): Promise<boolean> {
-    try {
-      await action();
-      this.error.set(null);
-      return true;
-    } catch (e) {
-      this.error.set(errorText(e));
-      return false;
-    }
+  private attempt(action: () => Promise<unknown>): Promise<boolean> {
+    return attempt(this.error, action);
   }
 }

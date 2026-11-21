@@ -21,11 +21,12 @@ export function formatRemaining(seconds: number): string {
   return '−' + formatTime(seconds);
 }
 
-/** 1.034 -> "+3.40 %" */
-export function formatPitch(ratio: number): string {
+/** 1.034 -> "+3.40 %", to `digits` decimals. */
+export function formatPitch(ratio: number, digits = 2): string {
   // round first so 0.99996 reads "+0.00 %", not "−0.00 %"
-  const pct = Math.round((ratio - 1) * 10000) / 100 || 0;
-  return `${pct >= 0 ? '+' : '−'}${decimal(Math.abs(pct), 2)} %`;
+  const scale = 10 ** digits;
+  const pct = Math.round((ratio - 1) * 100 * scale) / scale || 0;
+  return `${pct >= 0 ? '+' : '−'}${decimal(Math.abs(pct), digits)} %`;
 }
 
 /** -1.068 -> "−1.068×" (1 = normal speed, negative = backwards). */

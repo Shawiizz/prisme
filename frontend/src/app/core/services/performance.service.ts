@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { EngineService } from './engine.service';
-import { errorText } from '../errors';
+import { attempt, errorText } from '../errors';
 import type { Cue, PadPageNames } from '../models/backend';
 
 /** Performance actions on a deck: hot cues, the pads of a page (loops, rolls, beat jumps, the
@@ -94,11 +94,7 @@ export class PerformanceService {
   }
 
   /** Puts the slicer of `deck` on the bar the track is in (under a loop, where it would be). */
-  async anchorSlicer(deck: number) {
-    try {
-      await invoke('anchor_slicer', { deck });
-    } catch (e) {
-      this.engine.error.set(errorText(e));
-    }
+  anchorSlicer(deck: number) {
+    return attempt(this.engine.error, () => invoke('anchor_slicer', { deck }));
   }
 }

@@ -4,7 +4,7 @@ import { listen } from '@tauri-apps/api/event';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
-import { errorText } from '../errors';
+import { attempt } from '../errors';
 import { PHONE } from '../platform';
 import { NoticeService } from '../../shared/notice/notice';
 import { recordingNotice } from '../recording-notice';
@@ -76,8 +76,8 @@ export class RecordingService {
             {
               label: t('Show in folder'),
               run: () =>
-                invoke('show_recording', { path: recording.path }).catch((e) =>
-                  this.engine.error.set(errorText(e)),
+                attempt(this.engine.error, () =>
+                  invoke('show_recording', { path: recording.path }),
                 ),
             },
           ],

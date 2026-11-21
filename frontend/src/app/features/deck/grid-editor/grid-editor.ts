@@ -49,7 +49,7 @@ export class GridEditor {
     const s = this.keyShift();
     return s > 0 ? `+${s}` : s < 0 ? `−${-s}` : '0';
   });
-  private readonly status = computed(() => this.engine.status()?.decks[this.deck()] ?? null);
+  private readonly status = computed(() => this.engine.deckStatus(this.deck()));
   /** Both keys known: the deck's can be matched to the one heard beside it (`key.sync`). */
   protected readonly keysKnown = computed(() => this.status()?.canSyncKey ?? false);
   /** Both decks playing on a grid: the grid can move onto the other deck's beats. */

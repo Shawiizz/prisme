@@ -137,14 +137,7 @@
           @case ('key') {
             <span>
               @if (t.key; as k) {
-                <span
-                  class="pr-key"
-                  [class.pr-key--maj]="!k.minor"
-                  [class.pr-key--fill]="t.fits"
-                  [style.--h]="hue(k)"
-                  [title]="keyName(k)"
-                  >{{ k.camelot }}</span
-                >
+                <app-key-chip [fill]="t.fits" [key]="k" [title]="keyName(k)" />
               }
             </span>
           }

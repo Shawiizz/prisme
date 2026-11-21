@@ -6,7 +6,7 @@ import { decimal } from '../../shared/time';
 import { EngineService } from './engine.service';
 import { NoticeService } from '../../shared/notice/notice';
 import { t } from '../i18n/i18n';
-import { errorText } from '../errors';
+import { attempt } from '../errors';
 import type {
   AudioBackend,
   AudioDevice,
@@ -68,12 +68,11 @@ export class SettingsService {
       actions: [
         {
           label: t('Use'),
-          run: () => this.apply(settings).catch((e) => this.engine.error.set(errorText(e))),
+          run: () => attempt(this.engine.error, () => this.apply(settings)),
         },
         {
           label: t('Ignore'),
-          run: () =>
-            invoke('decline_card', { name }).catch((e) => this.engine.error.set(errorText(e))),
+          run: () => attempt(this.engine.error, () => invoke('decline_card', { name })),
         },
       ],
     });

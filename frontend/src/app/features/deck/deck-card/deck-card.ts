@@ -12,7 +12,8 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { deckReadouts } from '../../../core/deck-readouts';
 import { DECK_MODES, deckVinyl } from '../../../core/deck-vinyl';
 import { decimal, deckLetter, formatTime } from '../../../shared/time';
-import { keyHue, musicalKeyName } from '../../../shared/camelot';
+import { musicalKeyName } from '../../../shared/camelot';
+import { KeyChip } from '../../../shared/key-chip/key-chip';
 import { sameSegments, segments } from '../../../shared/meter';
 import { Cover } from '../../../shared/cover/cover';
 import { DeckMenu } from '../deck-menu/deck-menu';
@@ -32,7 +33,7 @@ const SEND_SEGMENTS = 10;
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
   host: { '[class.compact]': 'compact()', '(contextmenu)': 'menu().openAt($event)' },
-  imports: [Cover, DeckMenu, GridEditor, TPipe],
+  imports: [Cover, DeckMenu, GridEditor, KeyChip, TPipe],
 })
 export class DeckCard {
   readonly deck = input.required<number>();
@@ -86,6 +87,5 @@ export class DeckCard {
   protected readonly keyShifted = computed(
     () => this.key()?.camelot !== this.track()?.key?.camelot,
   );
-  protected readonly hue = keyHue;
   protected readonly keyName = musicalKeyName;
 }

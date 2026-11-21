@@ -13,10 +13,12 @@ import {
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
-import { keyHue, musicalKeyName } from '../../../shared/camelot';
+import { musicalKeyName } from '../../../shared/camelot';
+import { KeyChip } from '../../../shared/key-chip/key-chip';
 import { Cover } from '../../../shared/cover/cover';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
-import { decimal, deckLetter } from '../../../shared/time';
+import { decimal, deckLetter, formatPitch } from '../../../shared/time';
+import { percent } from '../../../shared/readout';
 import { StemsService } from '../../../core/services/stems.service';
 import { PreviewService } from '../../../core/services/preview.service';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
@@ -52,7 +54,7 @@ export function cursorMoved(before: LibraryView | null, now: LibraryView | null)
   selector: 'app-track-table',
   templateUrl: './track-table.html',
   styleUrl: './track-table.scss',
-  imports: [Cover, TrackMenu, TPipe, Dismiss],
+  imports: [Cover, KeyChip, TrackMenu, TPipe, Dismiss],
 })
 export class TrackTable {
   protected readonly library = inject(LibraryService);
@@ -87,7 +89,6 @@ export class TrackTable {
   protected readonly allColumns = COLUMNS;
   protected readonly letter = deckLetter;
   protected readonly decimal = decimal;
-  protected readonly hue = keyHue;
   protected readonly keyName = musicalKeyName;
   protected readonly hexColor = hexColor;
   protected readonly parentOf = parentOf;
@@ -196,7 +197,7 @@ export class TrackTable {
 
   /** `+2.4 %`, `−0.5 %` */
   pitchText(percent: number): string {
-    return `${percent >= 0 ? '+' : '−'}${decimal(Math.abs(percent), 1)} %`;
+    return formatPitch(1 + percent / 100, 1);
   }
 
   /** What the preview key of a row does, or why it cannot. */
@@ -207,10 +208,7 @@ export class TrackTable {
       : t('No headphones of their own to preview in: choose their outputs in the settings');
   }
 
-  /** `0.42` → `42 %` */
-  percent(fraction: number): string {
-    return `${Math.round(fraction * 100)} %`;
-  }
+  protected readonly percent = percent;
 
   /** A set can hold the same track twice: its rows are told apart by play time. */
   rowKey(row: LibraryRow): string {

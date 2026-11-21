@@ -45,10 +45,10 @@ export const DECK_MODES: readonly { id: DeckMode; label: string; title: Text }[]
  */
 export function deckVinyl(deck: Signal<number>) {
   const engine = inject(EngineService);
-  const vinyl = computed(() => engine.status()?.decks[deck()]?.vinyl ?? null, { equal: same });
+  const vinyl = computed(() => engine.deckStatus(deck())?.vinyl ?? null, { equal: same });
   const settings = computed(() => engine.decks()[deck()]);
   /** After the end of the record the deck plays on by itself until handed back. */
-  const mode = computed<DeckMode>(() => engine.status()?.decks[deck()]?.mode ?? 'int');
+  const mode = computed<DeckMode>(() => engine.deckStatus(deck())?.mode ?? 'int');
   /** Records can be chosen to drive it. */
   const offered = computed(() => settings().records);
   /** The timecode as its light tells it; `null` while the deck plays by itself. */

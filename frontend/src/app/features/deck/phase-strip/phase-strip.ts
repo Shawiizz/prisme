@@ -110,7 +110,7 @@ export class PhaseStrip {
   }
 
   private rate(deck: number): number {
-    return this.engine.status()?.decks[deck]?.rate ?? 1;
+    return this.engine.deckStatus(deck)?.rate ?? 1;
   }
 
   /** The beats of `deck` around its playhead, between `top` and `bottom`. */

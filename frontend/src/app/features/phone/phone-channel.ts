@@ -4,7 +4,7 @@ import { MixerService } from '../../core/services/mixer.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { CueButton } from '../../shared/cue-button/cue-button';
 import { Fader } from '../../shared/fader/fader';
-import { sameSegments, segments } from '../../shared/meter';
+import { meterSegments } from '../../shared/meter';
 import { deckLetter } from '../../shared/time';
 import { ChannelStrip } from '../mixer/channel-strip/channel-strip';
 
@@ -56,8 +56,8 @@ export class PhoneChannel {
   protected readonly marks = MARKS;
   protected readonly letter = computed(() => deckLetter(this.deck()));
   protected readonly volume = computed(() => this.engine.decks()[this.deck()].volume);
-  protected readonly level = computed(
-    () => segments(this.engine.status()?.meters.decks[this.deck()], METER_SEGMENTS),
-    { equal: sameSegments },
+  protected readonly level = meterSegments(
+    () => this.engine.status()?.meters.decks[this.deck()],
+    METER_SEGMENTS,
   );
 }

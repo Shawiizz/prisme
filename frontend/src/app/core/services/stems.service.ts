@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { EngineService } from './engine.service';
-import { errorText } from '../errors';
+import { attempt, errorText } from '../errors';
 import type { ModelId, Separated, StemsState } from '../models/backend';
 
 /**
@@ -54,14 +54,7 @@ export class StemsService {
     return this.call('cancel_separation', {});
   }
 
-  private async call(command: string, args: Record<string, unknown>): Promise<boolean> {
-    try {
-      this.error.set(null);
-      await invoke(command, args);
-      return true;
-    } catch (e) {
-      this.error.set(errorText(e));
-      return false;
-    }
+  private call(command: string, args: Record<string, unknown>): Promise<boolean> {
+    return attempt(this.error, () => invoke(command, args));
   }
 }

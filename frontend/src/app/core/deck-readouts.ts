@@ -11,7 +11,7 @@ import { same } from './same';
 export function deckReadouts(deck: Signal<number>) {
   const engine = inject(EngineService);
   const track = computed(() => engine.tracks()[deck()]);
-  const status = computed(() => engine.status()?.decks[deck()] ?? null);
+  const status = computed(() => engine.deckStatus(deck()));
   const remaining = computed(() => {
     const s = status()?.remainingS ?? null;
     return s === null ? '—' : formatRemaining(s);

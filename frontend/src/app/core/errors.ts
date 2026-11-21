@@ -1,3 +1,4 @@
+import { WritableSignal } from '@angular/core';
 import { deckLetter } from '../shared/time';
 import { Params, t } from './i18n/i18n';
 import type { BackendError } from './models/backend';
@@ -72,6 +73,22 @@ const TEXTS: Record<string, (p: Params) => string> = {
 export function errorText(error: unknown): string {
   if (!isBackendError(error)) return String(error);
   return TEXTS[error.code]?.(error.params) ?? error.message;
+}
+
+/** Does `work`, a call to the backend: `error` says why it failed, until one succeeds. Whether
+ * it succeeded. */
+export async function attempt(
+  error: WritableSignal<string | null>,
+  work: () => Promise<unknown>,
+): Promise<boolean> {
+  try {
+    await work();
+    error.set(null);
+    return true;
+  } catch (e) {
+    error.set(errorText(e));
+    return false;
+  }
 }
 
 export function isBackendError(error: unknown): error is BackendError {

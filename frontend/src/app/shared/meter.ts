@@ -1,3 +1,4 @@
+import { Signal, computed } from '@angular/core';
 import type { MeterLevel } from '../core/models/backend';
 
 /** A segment of a level meter (`.pr-meter`): off, lit, hot or clipping. */
@@ -16,6 +17,14 @@ export function segments(meter: MeterLevel | undefined, count: number): Segment[
     const lit = (!!meter && meter.level > 0 && meter.level >= at) || i === held;
     return lit ? (at >= HOT ? 'is-hot' : 'is-lit') : '';
   });
+}
+
+/** The `count` segments of the meter `meter` reads, drawn again only when one changed. */
+export function meterSegments(
+  meter: () => MeterLevel | undefined,
+  count: number,
+): Signal<Segment[]> {
+  return computed(() => segments(meter(), count), { equal: sameSegments });
 }
 
 /** Whether two meters show the same segments: a meter is drawn again only when one changed. */
