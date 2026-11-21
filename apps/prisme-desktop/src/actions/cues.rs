@@ -72,7 +72,7 @@ impl Performing<'_> {
             return Ok(());
         }
         let cue_s = self.set_main_cue(deck, status.position_s)?;
-        if status.playing {
+        if cue::playing(&status) {
             Ok(())
         } else {
             self.seek(deck, cue_s)
