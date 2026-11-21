@@ -56,22 +56,12 @@ pub fn stop_recording(state: &AppState) -> Option<RecordingDto> {
 }
 
 /// What a recording started without asking takes (from a controller, the command palette):
-/// the source recorded `last` if it is still `offered` and, for inputs, no turntable comes in
-/// there (they are among the `free` ones), else the software mixer's master if it is offered;
-/// none otherwise, rather than inputs that may be silent or carry a record's timecode.
-fn preferred_source(
-    offered: &[RecordSourceDto],
-    last: Option<RecordSourceDto>,
-    free: &[usize],
-) -> Option<RecordSourceDto> {
-    let kept = last.filter(|&last| {
-        offered.contains(&last)
-            && match last {
-                RecordSourceDto::Master => true,
-                RecordSourceDto::Input { first } => free.contains(&first),
-            }
-    });
-    kept.or_else(|| offered.iter().copied().find(|&s| s == RecordSourceDto::Master))
+/// the source recorded `last` if it is still offered and no turntable comes in there, else the
+/// software mixer's master if it is offered; none otherwise, rather than inputs that may be
+/// silent or carry a record's timecode.
+fn preferred_source(options: &[RecordOptionDto], last: Option<RecordSourceDto>) -> Option<RecordSourceDto> {
+    let kept = last.filter(|&last| options.iter().any(|o| o.source == last && !o.turntable));
+    kept.or_else(|| options.iter().map(|o| o.source).find(|&s| s == RecordSourceDto::Master))
 }
 
 /// What can be recorded on the device of `info` with the software mixer mixing or not
@@ -90,20 +80,11 @@ pub fn record_options(internal: bool, info: Option<&AudioInfo>) -> Vec<RecordOpt
 /// What a recording started without asking takes on the running device (see
 /// [`preferred_source`]): its master if the software mixer mixes, else one of its input pairs.
 fn preferred_on(state: &AppState) -> Option<RecordSourceDto> {
-    let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+    let info = state.running_info();
     let mixer = state.preferences.read(|p| p.mixer);
     let mode = info.as_ref().map_or(mixer.mode, |info| state.routing(info).mode.into());
     let options = record_options(mode == MixModeDto::Internal, info.as_ref());
-    let offered: Vec<RecordSourceDto> = options.iter().map(|o| o.source).collect();
-    let free: Vec<usize> = options
-        .iter()
-        .filter(|o| !o.turntable)
-        .filter_map(|o| match o.source {
-            RecordSourceDto::Input { first } => Some(first),
-            RecordSourceDto::Master => None,
-        })
-        .collect();
-    preferred_source(&offered, mixer.record_source, &free)
+    preferred_source(&options, mixer.record_source)
 }
 
 impl Performing<'_> {
@@ -132,22 +113,31 @@ mod tests {
         RecordSourceDto::Input { first }
     }
 
+    /// Those of `sources` offered, a turntable coming in on all but the `free` inputs.
+    fn offered(sources: &[RecordSourceDto], free: &[usize]) -> Vec<RecordOptionDto> {
+        let turntable = |source| matches!(source, RecordSourceDto::Input { first } if !free.contains(&first));
+        sources.iter().map(|&source| RecordOptionDto { source, turntable: turntable(source) }).collect()
+    }
+
     #[test]
     fn a_recording_started_without_asking_takes_the_master_when_nothing_was_recorded() {
-        assert_eq!(preferred_source(&[MASTER, pair(0)], None, &[0, 1]), Some(MASTER));
+        assert_eq!(preferred_source(&offered(&[MASTER, pair(0)], &[0, 1]), None), Some(MASTER));
     }
 
     #[test]
     fn it_takes_again_the_inputs_recorded_last_while_no_turntable_comes_in_there() {
-        assert_eq!(preferred_source(&[MASTER, pair(0), pair(4)], Some(pair(4)), &[4, 5]), Some(pair(4)));
-        assert_eq!(preferred_source(&[MASTER, pair(0)], Some(pair(0)), &[]), Some(MASTER));
+        assert_eq!(
+            preferred_source(&offered(&[MASTER, pair(0), pair(4)], &[4, 5]), Some(pair(4))),
+            Some(pair(4))
+        );
+        assert_eq!(preferred_source(&offered(&[MASTER, pair(0)], &[]), Some(pair(0))), Some(MASTER));
     }
 
     #[test]
     fn it_records_nothing_with_an_external_mixer_until_its_inputs_are_chosen() {
-        assert_eq!(preferred_source(&[pair(0), pair(2)], None, &[]), None);
-        assert_eq!(preferred_source(&[pair(0), pair(2)], Some(MASTER), &[]), None);
-        assert_eq!(preferred_source(&[pair(0)], Some(pair(6)), &[6, 7]), None);
+        assert_eq!(preferred_source(&offered(&[pair(0), pair(2)], &[]), None), None);
+        assert_eq!(preferred_source(&offered(&[pair(0), pair(2)], &[]), Some(MASTER)), None);
+        assert_eq!(preferred_source(&offered(&[pair(0)], &[6, 7]), Some(pair(6))), None);
     }
 
     #[test]
