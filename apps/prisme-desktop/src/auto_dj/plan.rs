@@ -119,7 +119,7 @@ pub fn matched_rate(bpm: f64, own_bpm: f64) -> Option<f64> {
     if !(bpm > 0.0 && own_bpm > 0.0) {
         return None;
     }
-    let octave = (own_bpm / bpm).log2().round().exp2();
+    let octave = prisme_analysis::tempo::octave_ratio(own_bpm, bpm);
     let rate = octave * bpm / own_bpm;
     ((rate - 1.0).abs() <= MAX_TEMPO_CHANGE).then_some(rate)
 }
