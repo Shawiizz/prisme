@@ -20,9 +20,7 @@ pub fn app() -> Option<&'static AppHandle> {
 }
 
 /// Runs `f` with the application's context, in a frame of its own for the references it makes;
-/// `None`, the failure logged as what could not be done, if anything went wrong. An exception
-/// thrown meanwhile is told and cleared: left pending, it would bring the next call of this
-/// thread down.
+/// `None`, the failure logged as what could not be done, if anything went wrong.
 pub fn call<T>(what: &str, f: impl FnOnce(&mut JNIEnv, &JObject) -> jni::errors::Result<T>) -> Option<T> {
     let android = ndk_context::android_context();
     // SAFETY: the virtual machine and the context are those the application runs in, which
@@ -38,10 +36,7 @@ pub fn call<T>(what: &str, f: impl FnOnce(&mut JNIEnv, &JObject) -> jni::errors:
     };
     let mut env = vm.attach_current_thread().inspect_err(|e| warn!("could not {what}: {e}")).ok()?;
     let result = env.with_local_frame(16, |env| f(env, &context));
-    if env.exception_check().unwrap_or(false) {
-        let _ = env.exception_describe();
-        let _ = env.exception_clear();
-    }
+    clear_exception(&mut env, what);
     result.inspect_err(|e| warn!("could not {what}: {e}")).ok()
 }
 
@@ -52,7 +47,11 @@ pub fn attached<T>(f: impl FnOnce() -> T) -> T {
     // SAFETY: the virtual machine is the one the application runs in, which keeps it alive.
     match unsafe { JavaVM::from_raw(android.vm().cast()) } {
         Ok(vm) => match vm.attach_current_thread() {
-            Ok(_attached) => f(),
+            Ok(mut env) => {
+                let result = f();
+                clear_exception(&mut env, "call the system");
+                result
+            }
             Err(e) => {
                 warn!("thread not attached to the virtual machine: {e}");
                 f()
@@ -62,6 +61,16 @@ pub fn attached<T>(f: impl FnOnce() -> T) -> T {
             warn!("no virtual machine to attach the thread to: {e}");
             f()
         }
+    }
+}
+
+/// Tells and clears an exception thrown while trying to do `what`: left pending, it would bring
+/// the next call of this thread down, and the application with it once the thread is detached.
+fn clear_exception(env: &mut JNIEnv, what: &str) {
+    if env.exception_check().unwrap_or(false) {
+        warn!("Java exception while trying to {what}");
+        let _ = env.exception_describe();
+        let _ = env.exception_clear();
     }
 }
 
