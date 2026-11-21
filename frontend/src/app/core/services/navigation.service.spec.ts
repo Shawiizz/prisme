@@ -61,4 +61,15 @@ describe('NavigationService', () => {
     navigation.done('library.load1');
     expect(navigation.libraryWanted()).toEqual({ sight: 'done' });
   });
+
+  it('tells anew each action done that is not the library’s, for its setting to be shown', () => {
+    const navigation = TestBed.inject(NavigationService);
+    navigation.done('library.next');
+    expect(navigation.moved()).toBeNull();
+    navigation.done('deck1.vocals');
+    const first = navigation.moved();
+    navigation.done('deck1.vocals');
+    expect(navigation.moved()).toEqual({ id: 'deck1.vocals' });
+    expect(navigation.moved()).not.toBe(first);
+  });
 });

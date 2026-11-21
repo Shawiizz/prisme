@@ -54,6 +54,7 @@ describe('Phone', () => {
       routing: { recordOptions: [] },
       controllers: { canLearn: false },
       preferences: { ui: { phoneTouch: true } },
+      mixer: { knobs: { crossfader: { at: 0.5, home: 0.5 } } },
     };
     TestBed.inject(EngineService).controls.set(told as unknown as ControlState);
     navigation = TestBed.inject(NavigationService);

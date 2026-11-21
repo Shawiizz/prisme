@@ -15,6 +15,7 @@ import { GridEditor } from '../deck/grid-editor/grid-editor';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Sheet } from '../../shared/sheet';
 import { PhoneTempo } from './phone-tempo';
+import { inSight } from './phone-sight';
 import type { Band, DeckMode } from '../../core/models/backend';
 
 const DRIVERS: readonly { id: DeckMode; label: Text }[] = [
@@ -86,6 +87,11 @@ export class PhoneDeckPanel {
       () => this.sheet().close(),
     );
     closedByBack(this.editing, () => this.editing.set(false));
+    inSight(() => ({
+      kind: 'panel',
+      deck: this.deck(),
+      mixer: this.mixer.internal() && !this.table(),
+    }));
   }
 
   protected eqKnob(band: Band): number {

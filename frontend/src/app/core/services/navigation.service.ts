@@ -49,6 +49,9 @@ export class NavigationService {
   /** What was asked of the library in sight last, each time anew: a phone shows its screen,
    * or the one it was brought over. */
   readonly libraryWanted = signal<{ sight: LibrarySight } | null>(null);
+  /** The action a controller or a key did last, each time anew: a phone shows the setting it
+   * moves where its screen does not. */
+  readonly moved = signal<{ id: string } | null>(null);
   /** The main screen is covered: its keyboard shortcuts wait. */
   readonly covered = computed(() => this.settings() !== null || this.palette());
 
@@ -76,10 +79,12 @@ export class NavigationService {
     this.libraryWanted.set({ sight: 'show' });
   }
 
-  /** The action `id` was done: the library brought into sight or left as it asks
-   * (`librarySight`). */
+  /** The action `id` was done (the backend tells those of the library, whoever asked, and the
+   * settings a controller moves): the library brought into sight or left as it asks
+   * (`librarySight`), else the setting it moves shown. */
   done(id: string) {
     const sight = librarySight(id);
     if (sight) this.libraryWanted.set({ sight });
+    else this.moved.set({ id });
   }
 }

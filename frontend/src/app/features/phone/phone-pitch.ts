@@ -4,6 +4,7 @@ import { EngineService } from '../../core/services/engine.service';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { PhoneFloatHead } from './phone-float-head';
 import { PhoneTempo } from './phone-tempo';
+import { inSight } from './phone-sight';
 
 /**
  * The tempo of a deck, floating over the table of a phone: its fader, − and + held to push
@@ -68,6 +69,7 @@ export class PhonePitch {
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.unbend());
+    inSight(() => ({ kind: 'pitch', deck: this.deck() }));
   }
 
   protected bend(direction: -1 | 1, event: PointerEvent) {

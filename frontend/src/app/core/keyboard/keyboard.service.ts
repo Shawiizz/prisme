@@ -103,6 +103,8 @@ export class KeyboardService {
     event.preventDefault();
     if (event.repeat || this.held.has(event.code)) return;
     this.controls.act(shortcut.control, 1);
+    // the hands on the keys, not on the screen: the setting moved is shown where it is not
+    this.navigation.moved.set({ id: shortcut.control });
     this.held.set(event.code, shortcut.control);
   }
 

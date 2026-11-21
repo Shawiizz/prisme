@@ -5,6 +5,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { Knob } from '../../shared/knob/knob';
 import { percent } from '../../shared/readout';
 import { PhoneFloatHead } from './phone-float-head';
+import { inSight } from './phone-sight';
 
 /**
  * The stems of a deck, floating over the table of a phone: a knob for the level of each
@@ -74,4 +75,10 @@ export class PhoneStems {
   protected readonly engine = inject(EngineService);
   protected readonly stems = deckStems(this.deck);
   protected readonly percent = percent;
+
+  constructor() {
+    inSight(() =>
+      this.stems.separation() === 'none' ? null : { kind: 'stems', deck: this.deck() },
+    );
+  }
 }

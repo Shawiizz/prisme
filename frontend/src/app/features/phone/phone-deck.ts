@@ -7,6 +7,7 @@ import { Cover } from '../../shared/cover/cover';
 import { KeyChip } from '../../shared/key-chip/key-chip';
 import { deckLetter } from '../../shared/time';
 import { DeckWaveform } from '../deck/deck-waveform/deck-waveform';
+import { inSight } from './phone-sight';
 
 /** The record's two ways of driving a deck, and its input played as it comes, as its light
  * names them. */
@@ -95,4 +96,8 @@ export class PhoneDeck {
   ]);
   protected readonly signal = this.driven.signal;
   protected readonly signalTitle = this.driven.signalTitle;
+
+  constructor() {
+    inSight(() => ({ kind: 'deck', deck: this.deck(), compact: this.compact() }));
+  }
 }

@@ -3,6 +3,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Sheet } from '../../shared/sheet';
 import { MixerControls } from '../mixer/mixer-controls/mixer-controls';
+import { inSight } from './phone-sight';
 
 /** The software mixer beside its channels, risen over the table: the master and the booth,
  * the limiter, the crossfader's curve, the headphones, the microphone and the aux line. */
@@ -64,5 +65,6 @@ export class PhoneMixer {
       () => true,
       () => this.sheet().close(),
     );
+    inSight(() => ({ kind: 'mixer' }));
   }
 }

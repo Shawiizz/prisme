@@ -15,7 +15,7 @@ import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
 import type { EffectKind, PageLights } from '../../../core/models/backend';
 
-type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
+export type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
@@ -95,7 +95,7 @@ export class DeckPads {
   protected readonly fx = inject(FxService);
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
-  protected readonly mode = signal<PadMode>('cues');
+  readonly mode = signal<PadMode>('cues');
   /** The page of hot cues and sounds on the pads: 1 to 8, or 9 to 16. */
   protected readonly page = signal(0);
   /** Hot cues and sounds have two pages. */

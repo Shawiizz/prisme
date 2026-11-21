@@ -7,6 +7,7 @@ import { Fader } from '../../shared/fader/fader';
 import { meterSegments } from '../../shared/meter';
 import { deckLetter } from '../../shared/time';
 import { ChannelStrip } from '../mixer/channel-strip/channel-strip';
+import { inSight } from './phone-sight';
 
 const METER_SEGMENTS = 16;
 /** The marks beside the fader, a long one every five. */
@@ -60,4 +61,8 @@ export class PhoneChannel {
     () => this.engine.status()?.meters.decks[this.deck()],
     METER_SEGMENTS,
   );
+
+  constructor() {
+    inSight(() => ({ kind: 'channel', deck: this.deck() }));
+  }
 }

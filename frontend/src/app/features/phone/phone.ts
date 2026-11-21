@@ -26,8 +26,10 @@ import { formatClock } from '../../shared/time';
 import { CommandPalette } from '../command-palette/command-palette';
 import { PhoneDecks } from './phone-decks';
 import { PhoneLibrary } from './phone-library';
+import { PhoneMoved } from './phone-moved';
 import { PhoneRecord } from './phone-record';
 import { PhoneSettings } from './phone-settings';
+import { PhoneSight } from './phone-sight';
 
 type Tab = 'decks' | 'library' | 'settings';
 
@@ -42,7 +44,16 @@ type Tab = 'decks' | 'library' | 'settings';
   templateUrl: './phone.html',
   styleUrl: './phone.scss',
   host: { '[class.android]': 'ANDROID' },
-  imports: [CommandPalette, PhoneDecks, PhoneLibrary, PhoneRecord, PhoneSettings, TPipe],
+  providers: [PhoneSight],
+  imports: [
+    CommandPalette,
+    PhoneDecks,
+    PhoneLibrary,
+    PhoneMoved,
+    PhoneRecord,
+    PhoneSettings,
+    TPipe,
+  ],
 })
 export class Phone {
   protected readonly ANDROID = ANDROID;

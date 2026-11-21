@@ -14,6 +14,7 @@ import { PhoneMixer } from './phone-mixer';
 import { PhonePads } from './phone-pads';
 import { PhonePitch } from './phone-pitch';
 import { PhoneStems } from './phone-stems';
+import { inSight } from './phone-sight';
 
 type Side = 'a' | 'b';
 type Floating = { kind: 'pads' | 'pitch' | 'stems'; side: Side };
@@ -91,6 +92,7 @@ export class PhoneTable {
       () => this.floating() !== null,
       () => this.floating.set(null),
     );
+    inSight(() => (this.mixer.internal() ? { kind: 'crossfader' } : null));
   }
 
   protected deckOf(side: Side): number {

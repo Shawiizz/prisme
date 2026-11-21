@@ -71,6 +71,7 @@
       <span class="pr-btn__dot"></span>{{ 'Rec' | t }}
     </button>
   }
+  <app-phone-moved />
 </header>
 @if (recordMenu()) {
   <app-phone-record (closed)="recordMenu.set(false)" />
