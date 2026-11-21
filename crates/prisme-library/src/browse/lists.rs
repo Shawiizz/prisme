@@ -106,6 +106,11 @@ impl Browser {
         &self.roots
     }
 
+    /// The main music folder, which stays (none before the folders are known).
+    pub fn main_root(&self) -> Option<&PathBuf> {
+        self.roots.first()
+    }
+
     /// The music folder `path` is in, the deepest if they hold one another.
     pub fn root_of(&self, path: &Path) -> Option<&PathBuf> {
         root_of(path, &self.roots)

@@ -18,7 +18,7 @@ use crate::stems_service::{self, Queued, StemsService};
 use prisme_actions::input::Given;
 use prisme_actions::view::View;
 use prisme_control::LibraryAction;
-use prisme_library::browse::{Browser, Column, Focus, Pick, Shelf, Source, PAGE};
+use prisme_library::browse::{Browser, Column, Entry, Focus, Pick, Shelf, Source, PAGE};
 use prisme_library::catalogue::{Track, TrackId, Tracks};
 use prisme_library::mix::{Compare, MixReference, Pitch};
 use prisme_library::{adopt, CrateId, LibraryDb, Search, SessionId, SmartRules, TrackRecord};
@@ -46,6 +46,13 @@ pub struct Library {
 }
 
 impl Library {
+    /// The rows of a list `read`, among the library's, its folders shown: read at last.
+    fn took(&mut self, read: Read) -> Vec<Entry> {
+        self.folders = read.folders;
+        self.unread = None;
+        self.browser.entries(read.rows)
+    }
+
     /// The interface's window of `count` rows from the `first`, asked at `asked` on its clock:
     /// one asked before the window shown, come late, does not take its place.
     pub fn ask_window(&mut self, first: usize, count: usize, asked: f64) {
@@ -363,7 +370,7 @@ pub fn analysed(state: &AppState, record: TrackRecord) {
 /// Shows `source`: the whole list, in its own order if it has one. A folder is the one shown
 /// next time Prisme starts.
 pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
-    let Read { rows, folders } = read(state, db, &source)?;
+    let read = read(state, db, &source)?;
     if let Source::Folder(path) = &source {
         let last = Some(path.display().to_string());
         if state.preferences.read(|p| p.library.last_folder != last) {
@@ -371,9 +378,7 @@ pub fn open(state: &AppState, db: &LibraryDb, source: Source) -> AppResult<()> {
         }
     }
     state.browse(|l| {
-        let rows = l.browser.entries(rows);
-        l.folders = folders;
-        l.unread = None;
+        let rows = l.took(read);
         l.browser.show(source, rows);
     });
     Ok(())
@@ -391,12 +396,10 @@ pub fn up(state: &AppState, db: &LibraryDb) -> AppResult<()> {
 /// The list shown read again, searched, sorted and picked as it was: what it holds changed.
 pub fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
     let source = lock(&state.library).browser.source().clone();
-    let Read { rows, folders } = read(state, db, &source)?;
+    let read = read(state, db, &source)?;
     state.browse(|l| {
         if *l.browser.source() == source {
-            let rows = l.browser.entries(rows);
-            l.folders = folders;
-            l.unread = None;
+            let rows = l.took(read);
             l.browser.refresh(rows);
         }
     });
@@ -620,7 +623,7 @@ pub fn remove_from_library(state: &AppState, db: &LibraryDb, paths: Option<Vec<S
         l.browser.forget(&paths);
         l.browser.put_cursor(next);
         let emptied = *l.browser.source() == Source::Elsewhere && l.browser.elsewhere().next().is_none();
-        emptied.then(|| l.browser.roots()[0].clone())
+        l.browser.main_root().filter(|_| emptied).cloned()
     });
     if let Some(main) = main {
         open(state, db, Source::Folder(main))?;
@@ -696,8 +699,8 @@ fn leave(state: &AppState, db: &LibraryDb, source: &Source) -> AppResult<()> {
         return Ok(());
     }
     let last = state.preferences.read(|p| p.library.last_folder.clone()).map(PathBuf::from);
-    let folder = last.unwrap_or_else(|| lock(&state.library).browser.roots()[0].clone());
-    open(state, db, Source::Folder(folder))
+    let folder = last.or_else(|| lock(&state.library).browser.main_root().cloned());
+    folder.map_or(Ok(()), |folder| open(state, db, Source::Folder(folder)))
 }
 
 /// A track was played: the history, its play count, the prepare list it left, and the set shown.
