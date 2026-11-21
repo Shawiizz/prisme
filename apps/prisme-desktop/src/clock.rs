@@ -19,6 +19,8 @@ use prisme_actions::lane::Lane;
 use prisme_actions::meter::Meters;
 use prisme_actions::view::View;
 use prisme_analysis::Key;
+use prisme_audio_io::StreamStats;
+use prisme_engine::EngineStatus;
 use prisme_library::browse::Column;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::PathBuf;
@@ -102,6 +104,31 @@ struct Player {
     internal: bool,
 }
 
+/// The engine as a tick reads it: its state, how the audio lays the decks on its inputs, and
+/// its stream at its rate.
+struct Engine {
+    status: EngineStatus,
+    layout: (usize, usize),
+    stream: (Arc<StreamStats>, u32),
+}
+
+/// The engine of the audio running, taken out of the session's lock with what the engine hands
+/// back to be freed, freed once the lock is released: the jogs and the clock wait on it.
+fn read_engine(state: &AppState) -> Option<Engine> {
+    let (engine, garbage) = {
+        let mut session = lock(&state.session);
+        let session = session.as_mut()?;
+        let engine = Engine {
+            status: session.controller.status(),
+            layout: session.info.layout(),
+            stream: (session.stats.clone(), session.engine_config.sample_rate),
+        };
+        (engine, session.controller.take_garbage())
+    };
+    drop(garbage);
+    Some(engine)
+}
+
 impl Clock {
     fn tick(&mut self, app: &AppHandle) {
         let state = app.state::<AppState>();
@@ -110,24 +137,15 @@ impl Clock {
         let revision = state.revision();
         let seen = self.seen;
         let moved = |s: Section| seen.is_none_or(|t| t[s as usize] != revision[s as usize]);
-        let (engine, garbage) = {
-            let mut session = lock(&state.session);
-            session.as_mut().map_or((None, Vec::new()), |s| {
-                let stream = (s.stats.clone(), s.engine_config.sample_rate);
-                (Some((s.controller.status(), s.info.layout(), stream)), s.controller.take_garbage())
-            })
-        };
-        // freed, and the view built, with the session's lock released: the jogs and the clock
-        // wait on it
-        drop(garbage);
+        let engine = read_engine(&state);
         // before the view: the controllers show what their holds did at once
         piece("holds", || app.state::<Controllers>().fire_holds(app));
         if let Some(previews) = app.try_state::<Previews>() {
-            let playing = engine.as_ref().and_then(|(e, ..)| e.preview.as_ref()).map(|p| p.id);
+            let playing = engine.as_ref().and_then(|e| e.status.preview.as_ref()).map(|p| p.id);
             piece("preview", || previews.follow(&state, playing));
         }
         let (view, stream) = match engine {
-            Some((engine, layout, stream)) => (actions.view_with(app, engine, Some(layout)), Some(stream)),
+            Some(e) => (actions.view_with(app, e.status, Some(e.layout)), Some(e.stream)),
             None => (actions.view_with(app, Default::default(), None), None),
         };
         let now_s = actions.now_s();
@@ -157,20 +175,31 @@ impl Clock {
         if waits {
             told[Section::Library as usize] = seen.map_or(0, |s| s[Section::Library as usize]);
         }
-        let rows_moved = rows_moved && !waits;
-        let stream_stats = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
-        let stems = &self.stems;
-        let around = &self.around;
-        let meters = &mut self.meters;
-        app.state::<StatusStream>().tell(&state, &view, told, rows_moved, || {
-            let mut status = StatusDto::of(&view, stream_stats, meters.read(&view.status, now_s));
+        let stream = stream.as_ref().map(|(stats, rate)| (&**stats, *rate));
+        self.tell_stream(app, &view, told, rows_moved && !waits, stream, now_s);
+        self.seen = Some(told);
+    }
+
+    /// The page listening, if one does, told what changed of `view` and of the sections whose
+    /// revisions are `told`, the audio running on `stream`.
+    fn tell_stream(
+        &mut self,
+        app: &AppHandle,
+        view: &View,
+        told: [u64; SECTIONS],
+        rows_moved: bool,
+        stream: Option<(&StreamStats, u32)>,
+        now_s: f64,
+    ) {
+        let (stems, around, meters) = (&self.stems, &self.around, &mut self.meters);
+        app.state::<StatusStream>().tell(&app.state(), view, told, rows_moved, || {
+            let mut status = StatusDto::of(view, stream, meters.read(&view.status, now_s));
             status.mix_in_s = app.state::<AutoDj>().mix_in_s(&view.status);
             for (deck, shown) in status.decks.iter_mut().enumerate() {
                 shown.separating = around.decks[deck].as_deref().and_then(|path| stems.separating(path));
             }
             status
         });
-        self.seen = Some(told);
     }
 
     /// Whether the rows of the library's window wait for their separations, then looked for
