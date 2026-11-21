@@ -50,6 +50,8 @@ struct Entry {
 
 /// The HID devices plugged in that may be controllers, each by the interface of its controls:
 /// the one a profile fits best (`fit`), else the first of a vendor's own usage, else its first.
+// a phone's release build reaches no HID device: no `Path` there, the loop never runs
+#[cfg_attr(not(any(desktop, debug_assertions)), allow(unreachable_code))]
 pub fn plugged(fit: impl Fn(&HidInfo) -> Option<usize>) -> Vec<Plugged> {
     let mut devices: BTreeMap<(u16, u16, String), Vec<Entry>> = BTreeMap::new();
     for entry in system().into_iter().chain(simulated::entries()) {
