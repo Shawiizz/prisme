@@ -3,14 +3,14 @@
 //! tempo fader stands, the time left, who drives it, what its keys may do and light, its stems;
 //! and the strip comparing two decks' beats.
 
-use crate::light::{cue_state, ending, State};
+use crate::light::{ending, light, State};
 use crate::pads::Pads;
 use crate::scales::Tempo;
 use crate::stems::part_in;
 use crate::sync::{drift_time, grid_shift_to, matching_tempo, phase, phase_offset, Beat, Phase, IN_PHASE};
 use crate::view::{plays, Sees, View};
 use prisme_analysis::Key;
-use prisme_control::StemPart;
+use prisme_control::{DeckAction, StemPart, Target};
 use prisme_engine::VinylMode;
 use serde::{Deserialize, Serialize};
 
@@ -207,7 +207,7 @@ pub fn deck(view: &View, deck: usize) -> Deck {
         can_motor: status.loaded && drive == Drive::Internal,
         can_align_grid: bpm.and_then(|bpm| grid_shift_to(status, other, bpm)).is_some(),
         can_sync_key: settings.track.and_then(|t| t.key).is_some() && heard_key(view, mixed_with).is_some(),
-        cue: cue_state(status, settings.track.as_ref()),
+        cue: light(&Target::Deck(deck, DeckAction::Cue), view).map_or(State::Off, |l| l.state),
         pads: Pads::of(view, deck),
     }
 }
@@ -434,6 +434,9 @@ mod tests {
         v.status.decks[0].playing = true;
         assert_eq!(deck(&v, 0).cue, State::Off);
         assert_eq!(deck(&v, 1).cue, State::Off, "no track");
+        v.status.decks[0].playing = false;
+        v.decks[0].vinyl = true;
+        assert_eq!(deck(&v, 0).cue, State::Off, "a record holding it in place");
     }
 
     #[test]

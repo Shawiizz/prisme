@@ -1,12 +1,14 @@
 //! What the light of an action shows, read from a [`View`]: on or off, or a state of its own
 //! (a cue paused, a sample loaded or playing, the end of a track soon), and the colour of a
-//! hot cue.
+//! hot cue. A key a record holding its deck in place refuses stays dark (see `record`).
 
 use crate::cue::at_cue;
 use crate::pads::{plays_loop, slice_at, ROLL_BEATS};
+use crate::record::refuses;
+use crate::screen::{drive, Drive};
 use crate::switch::Switch;
 use crate::sync::{phase, Beat, Phase, IN_PHASE};
-use crate::view::{band_index, TrackView, View};
+use crate::view::{band_index, plays, TrackView, View};
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, FxAction, GeneralAction, LibraryAction, MixerAction, SampleAction,
     Target, Turn,
@@ -73,7 +75,8 @@ impl Light {
     }
 }
 
-/// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use.
+/// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use,
+/// and for a key its record refuses.
 pub fn light(target: &Target, view: &View) -> Option<Light> {
     let light = match (Switch::of(target), target) {
         (Some((switch, turn)), _) => Some(Light::lit(shows(turn, switch.is_on(view)))),
@@ -90,7 +93,20 @@ pub fn light(target: &Target, view: &View) -> Option<Light> {
         (None, Target::AutoDj(AutoDjAction::Toggle)) => Some(Light::lit(view.auto_dj)),
         _ => None,
     }?;
-    Some(if target.deck().is_some_and(|deck| !view.shows(deck)) { Light::OFF } else { light })
+    let dark = match *target {
+        Target::Deck(deck, action) => !view.shows(deck) || dark_under_record(view, deck, action),
+        _ => target.deck().is_some_and(|deck| !view.shows(deck)),
+    };
+    Some(if dark { Light::OFF } else { light })
+}
+
+/// Whether the key of `action` of `deck` stays dark, a record holding the deck in place: one
+/// it refuses but PLAY, lit while the record turns; a hot cue, which it would jump to; the
+/// light of a loop, which none plays then.
+fn dark_under_record(view: &View, deck: usize, action: DeckAction) -> bool {
+    action != DeckAction::Play
+        && (action == DeckAction::LoopAny || refuses(action, |_| true))
+        && drive(view, deck) == Drive::Absolute
 }
 
 /// Whether a switch's key turning it `turn` is lit, the switch `on` or not: its key turning it
@@ -111,8 +127,10 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
     let perform = &view.perform.decks[deck];
     let sample = |slot: usize| (status.samples_playing & 1 << slot != 0, settings.samples & 1 << slot != 0);
     let fx = |slot: usize| &settings.fx.slots[slot];
+    // a record holding the deck in place plays it, the deck's own play aside
+    let playing = || if drive(view, deck) == Drive::Absolute { plays(status) } else { status.playing };
     let lit = match action {
-        DeckAction::Play => status.playing,
+        DeckAction::Play => playing(),
         DeckAction::Cue => return Some(Light::of(cue_state(status, track))),
         DeckAction::HotCue(slot) => {
             return Some(match track.and_then(|t| t.hot_cues[slot]) {
@@ -150,7 +168,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::FilterToggle => settings.strip.filter != 0.0,
         DeckAction::HeadphonesSolo => (0..view.decks_in_use).all(|d| view.decks[d].cue == (d == deck)),
         DeckAction::CrossfaderSide(side) => settings.side == side,
-        DeckAction::Beat => status.playing && status.beat_phase.is_some_and(|p| p < BEAT_LIT),
+        DeckAction::Beat => playing() && status.beat_phase.is_some_and(|p| p < BEAT_LIT),
         DeckAction::Clip => perform.clipping,
         DeckAction::Ending => return Some(Light::of(ending(status))),
         DeckAction::TempoZero => tempo(deck, view) == TempoLight::Zero,
@@ -165,7 +183,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
 }
 
 /// A CDJ's cue: on at the cue point, paused stopped elsewhere, off playing or empty.
-pub(crate) fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
+fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
     let cue_s = track.and_then(|t| t.main_cue_s).unwrap_or(0.0);
     if !status.loaded {
         State::Off
@@ -250,7 +268,7 @@ mod tests {
     use crate::stems::Separation;
     use crate::view::fixtures::{loaded, view};
     use prisme_control::StemPart;
-    use prisme_engine::LoopRegion;
+    use prisme_engine::{LoopRegion, VinylMode};
 
     fn target(id: &str) -> Target {
         id.parse().unwrap_or_else(|e| panic!("{e}"))
@@ -300,6 +318,56 @@ mod tests {
         assert_eq!(state("deck1.cue", &away), OFF);
         assert_eq!(state("deck1.cue", &loaded(view(), 0, 0.0, true)), ON, "no cue: the start");
         assert_eq!(state("deck1.cue", &view()), OFF, "empty");
+    }
+
+    /// Deck A on its record, away from its cue point, with a hot cue, a loop, a roll, a slip,
+    /// a cut and an effect on, the record still.
+    fn on_a_record(mode: VinylMode) -> View {
+        let mut v = loaded(view(), 0, 30.0, false);
+        (v.decks[0].vinyl, v.decks[0].vinyl_mode, v.decks[0].key_lock) = (true, mode, true);
+        v.decks[0].fx.slots[0].enabled = true;
+        if let Some(track) = &mut v.decks[0].track {
+            track.hot_cues[0] = Some(0xff8000);
+        }
+        let status = &mut v.status.decks[0];
+        status.looping.active = true;
+        status.looping.beats = Some(4.0);
+        (status.slip_mode, status.beat_phase) = (true, Some(0.1));
+        v.perform.decks[0].roll = Some(0.5);
+        v.perform.decks[0].cut = Some(1);
+        v
+    }
+
+    #[test]
+    fn under_a_record_in_abs_play_shows_it_turning_and_the_keys_it_refuses_are_dark() {
+        let mut v = on_a_record(VinylMode::Absolute);
+        for id in ["deck1.play", "deck1.beat", "deck1.cue", "deck1.hotcue1", "deck1.loop.4", "deck1.loop.any"]
+        {
+            assert_eq!(state(id, &v), OFF, "{id}");
+        }
+        for id in ["deck1.roll4", "deck1.slip.held", "deck1.slip", "deck1.reloop.stop"] {
+            assert_eq!(state(id, &v), OFF, "{id}");
+        }
+        for id in ["deck1.cut2", "deck1.fx", "deck1.keylock"] {
+            assert_eq!(state(id, &v), ON, "{id}");
+        }
+        v.status.decks[0].speed = 1.0;
+        assert_eq!(state("deck1.play", &v), ON, "the record turns");
+        assert_eq!(state("deck1.beat", &v), ON);
+        assert_eq!(state("deck1.cue", &v), OFF);
+        v.status.decks[0].vinyl.run_out = true;
+        assert_eq!(state("deck1.loop.4", &v), ON, "played on by itself past the record");
+    }
+
+    #[test]
+    fn under_a_record_in_rel_the_lights_are_those_of_a_deck_playing_by_itself() {
+        let v = on_a_record(VinylMode::Relative);
+        assert_eq!(state("deck1.play", &v), OFF);
+        assert_eq!(state("deck1.cue", &v), Some(State::Paused));
+        assert_eq!(light(&target("deck1.hotcue1"), &v).map(|l| l.colour), Some(Some(0xff8000)));
+        for id in ["deck1.loop.4", "deck1.loop.any", "deck1.roll4", "deck1.slip", "deck1.cut2"] {
+            assert_eq!(state(id, &v), ON, "{id}");
+        }
     }
 
     #[test]
