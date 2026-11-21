@@ -161,6 +161,11 @@ svg {
 .sliding .over {
   transition: none;
 }
+// the row of the cursor, a controller's knob or the keys moving it: lit from a step away
+.selected .over {
+  background: var(--pr-raise-2);
+  box-shadow: inset 3px 0 var(--pr-light);
+}
 // what the row uncovers as it slides: the deck it goes to
 .under {
   position: absolute;

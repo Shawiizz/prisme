@@ -5,6 +5,7 @@
       <path d="M11 11l4 4" />
     </svg>
     <input
+      #search
       type="search"
       [placeholder]="searchPlaceholder()"
       [attr.aria-label]="searchPlaceholder()"
@@ -88,6 +89,7 @@
     @let moved = slid(track);
     <div
       class="row"
+      [class.selected]="track.selected"
       [class.sliding]="moved"
       [style.height.px]="ROW_PX"
       (pointerdown)="press(track, $event)"

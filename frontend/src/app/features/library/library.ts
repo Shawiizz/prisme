@@ -92,7 +92,9 @@ export class Library {
   constructor() {
     effect(() => saveSize(SIDE_WIDTH_KEY, this.sideWidth()));
     effect(() => {
-      if (this.library.searchRequests() > 0) this.search().nativeElement.focus();
+      if (!this.library.searchWanted()) return;
+      this.search().nativeElement.focus();
+      this.library.searchWanted.set(false);
     });
     let rescans = this.library.rescans();
     effect(() => {

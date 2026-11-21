@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { LibraryService } from './library.service';
+import { LibraryService, cursorMoved } from './library.service';
 import type { LibraryView, LibraryWindow } from '../models/backend';
 
 const window = (seq: number, first: number): LibraryWindow => ({ seq, first, rows: [] });
@@ -91,5 +91,25 @@ describe('LibraryService', () => {
     expect(library.filter()).toBe('dee');
     library.endTyping();
     expect(library.filter()).toBe('de');
+  });
+});
+
+describe('cursorMoved', () => {
+  const at = (cursor: number, cursorMoves: number, listed = 1): LibraryView => ({
+    ...view(1, ''),
+    count: 40,
+    cursor,
+    cursorMoves,
+    listed,
+  });
+
+  it('follows the cursor going to another row, not its row moving', () => {
+    expect(cursorMoved(at(3, 1), at(4, 2))).toBe(true);
+    expect(cursorMoved(at(3, 1), at(9, 1))).toBe(false);
+  });
+
+  it('leaves a list searched or opened again alone', () => {
+    expect(cursorMoved(at(3, 1), at(0, 2, 2))).toBe(false);
+    expect(cursorMoved(null, at(0, 2))).toBe(false);
   });
 });

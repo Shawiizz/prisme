@@ -19,6 +19,25 @@ export interface SettingsPlace {
   setting: string | null;
 }
 
+/** What an action asks of the library in sight: brought up, left once a track is loaded from
+ * it, or brought up and left in turn (the key showing it). */
+export type LibrarySight = 'show' | 'done' | 'toggle';
+
+/**
+ * What the action `id` done (by a controller, a key, the command palette) asks of the library
+ * in sight: its browsing, its search, its lists, its sorts and its preview bring it up; a load
+ * leaves it, the track chosen; the key showing it shows or leaves it. A double, the preview
+ * stopped and the actions of the decks, the mixer or the effects leave the screen as it is
+ * (`null`): the hands are on the controller, the DJ may be choosing a track.
+ */
+export function librarySight(id: string): LibrarySight | null {
+  if (id === 'general.library') return 'toggle';
+  if (!id.startsWith('library.')) return null;
+  if (/^library\.load\d*(\.play)?$/.test(id)) return 'done';
+  if (/^library\.double\d$/.test(id) || id === 'library.preview.stop') return null;
+  return 'show';
+}
+
 /** What is open over the main screen: the settings, the command palette. */
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
@@ -27,8 +46,9 @@ export class NavigationService {
   readonly libraryOnly = computed(() => this.engine.told().libraryOnly);
   readonly settings = signal<SettingsPlace | null>(null);
   readonly palette = signal(false);
-  /** Times the library was asked for from elsewhere: a phone shows it then. */
-  readonly libraryAsked = signal(0);
+  /** What was asked of the library in sight last, each time anew: a phone shows its screen,
+   * or the one it was brought over. */
+  readonly libraryWanted = signal<{ sight: LibrarySight } | null>(null);
   /** The main screen is covered: its keyboard shortcuts wait. */
   readonly covered = computed(() => this.settings() !== null || this.palette());
 
@@ -51,8 +71,15 @@ export class NavigationService {
     this.palette.update((open) => !open);
   }
 
-  /** The library is wanted in sight (a crate opened from the palette). */
+  /** The library is wanted in sight (a crate opened from the palette, its search). */
   showLibrary() {
-    this.libraryAsked.update((n) => n + 1);
+    this.libraryWanted.set({ sight: 'show' });
+  }
+
+  /** The action `id` was done: the library brought into sight or left as it asks
+   * (`librarySight`). */
+  done(id: string) {
+    const sight = librarySight(id);
+    if (sight) this.libraryWanted.set({ sight });
   }
 }

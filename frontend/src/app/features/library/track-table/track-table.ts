@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { EngineService } from '../../../core/services/engine.service';
-import { LibraryService } from '../../../core/services/library.service';
+import { LibraryService, cursorMoved } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
 import { musicalKeyName } from '../../../shared/musical-key';
 import { KeyChip } from '../../../shared/key-chip/key-chip';
@@ -36,14 +36,6 @@ import type { LibraryRow, LibraryView, SortColumn } from '../../../core/models/b
 const STARS = [1, 2, 3, 4, 5];
 /** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */
 const OVERSCAN = 12;
-
-/** Whether the cursor went to another row of the list shown `before`, which `now` shows the
- * same way: a key or a controller moved it, not rows coming, going or moving before it. */
-export function cursorMoved(before: LibraryView | null, now: LibraryView | null): boolean {
-  return (
-    !!before && !!now && now.cursorMoves !== before.cursorMoves && now.listed === before.listed
-  );
-}
 
 /**
  * The tracks being browsed or found, as the backend lists them: only the rows in view are

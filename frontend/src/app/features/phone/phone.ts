@@ -1,5 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Component, DestroyRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { closedByBack } from '../../core/back';
 import { BACKEND_NAMES } from '../../core/models/audio';
@@ -7,7 +16,7 @@ import { ANDROID } from '../../core/platform';
 import { EngineService } from '../../core/services/engine.service';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { LibraryService } from '../../core/services/library.service';
-import { NavigationService } from '../../core/services/navigation.service';
+import { LibrarySight, NavigationService } from '../../core/services/navigation.service';
 import { RecordingService } from '../../core/services/recording.service';
 import { SettingsService } from '../../core/services/settings.service';
 import { Text, t } from '../../core/i18n/i18n';
@@ -45,6 +54,9 @@ export class Phone {
   private readonly controllers = inject(ControllerService);
 
   protected readonly tab = signal<Tab>('decks');
+  /** The screen the library was brought over by an action, gone back to once a track is
+   * loaded from it; none once the DJ chose the screen. */
+  private lentFrom: Tab | null = null;
   private readonly settingsScreen = viewChild(PhoneSettings);
   /** The choice of what to record is open. */
   protected readonly recordMenu = signal(false);
@@ -96,12 +108,14 @@ export class Phone {
       );
     document.addEventListener('visibilitychange', hidden);
     inject(DestroyRef).onDestroy(() => document.removeEventListener('visibilitychange', hidden));
-    // a page of the settings asked for from elsewhere is shown on their screen, as the library
+    // a page of the settings asked for from elsewhere is shown on their screen
     effect(() => {
-      if (this.navigation.settings()) this.tab.set('settings');
+      if (this.navigation.settings()) untracked(() => this.show('settings'));
     });
+    // the library brought into sight by what is done in it, a controller's knob say
     effect(() => {
-      if (this.navigation.libraryAsked()) this.tab.set('library');
+      const wanted = this.navigation.libraryWanted();
+      if (wanted) untracked(() => this.sight(wanted.sight));
     });
     closedByBack(
       () => this.navigation.palette(),
@@ -112,7 +126,26 @@ export class Phone {
   /** Shows the screen of `tab`; the settings touched again while shown go back to their list. */
   protected select(tab: Tab) {
     if (tab === 'settings' && this.tab() === 'settings') this.settingsScreen()?.home();
-    else this.tab.set(tab);
+    else this.show(tab);
+  }
+
+  private show(tab: Tab) {
+    this.lentFrom = null;
+    this.tab.set(tab);
+  }
+
+  /** Brings the library into sight over the screen shown, the palette closed, or goes back to
+   * that screen, as `sight` asks: a track loaded leaves only a library brought up so. */
+  private sight(sight: LibrarySight) {
+    const shown = this.tab() === 'library';
+    if (sight === 'show' || (sight === 'toggle' && !shown)) {
+      this.navigation.palette.set(false);
+      if (shown) return;
+      this.lentFrom = this.tab();
+      this.tab.set('library');
+    } else if (shown && (sight === 'toggle' || this.lentFrom)) {
+      this.show(this.lentFrom ?? 'decks');
+    }
   }
 
   protected toggleTouch() {

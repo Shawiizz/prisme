@@ -28,6 +28,14 @@ import type {
 
 const NO_WINDOW: LibraryWindow = { seq: -1, first: 0, rows: [] };
 
+/** Whether the cursor went to another row of the list shown `before`, which `now` shows the
+ * same way: a key or a controller moved it, not rows coming, going or moving before it. */
+export function cursorMoved(before: LibraryView | null, now: LibraryView | null): boolean {
+  return (
+    !!before && !!now && now.cursorMoves !== before.cursorMoves && now.listed === before.listed
+  );
+}
+
 /**
  * The library as the backend browses it: the list shown, its search, its sort and the rows
  * picked live in the backend, which tells them with the status (`controls.library`) and gives
@@ -57,8 +65,8 @@ export class LibraryService {
   readonly inMemory = computed(() => this.told().inMemory);
   /** The genres of the library, the most common first (loaded on demand). */
   readonly genres = signal<string[]>([]);
-  /** Incremented to ask the view to focus the search field. */
-  readonly searchRequests = signal(0);
+  /** The search is wanted with the focus: the view showing it gives it, and says so. */
+  readonly searchWanted = signal(false);
 
   /** The list browsed, as the backend told it last. */
   readonly view = signal<LibraryView | null>(null);

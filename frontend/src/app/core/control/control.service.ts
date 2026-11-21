@@ -35,7 +35,10 @@ export class ControlService {
 
   /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
-    'library.search': pressed(() => this.library.searchRequests.update((n) => n + 1)),
+    'library.search': pressed(() => {
+      this.navigation.showLibrary();
+      this.library.searchWanted.set(true);
+    }),
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),

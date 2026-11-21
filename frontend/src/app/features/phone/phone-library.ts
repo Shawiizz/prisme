@@ -13,7 +13,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { EngineService } from '../../core/services/engine.service';
-import { LibraryService } from '../../core/services/library.service';
+import { LibraryService, cursorMoved } from '../../core/services/library.service';
 import { PreviewService } from '../../core/services/preview.service';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
@@ -30,7 +30,8 @@ import { PhoneFolderPicker } from './phone-folder-picker';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
 import { lastName, parentOf, shortPath } from '../../core/folders';
-import type { LibraryRow, SortColumn } from '../../core/models/backend';
+import { same } from '../../core/same';
+import type { LibraryRow, LibraryView, SortColumn } from '../../core/models/backend';
 
 /** Height of a row: a finger's, and room for a cover. */
 const ROW_PX = 60;
@@ -99,6 +100,7 @@ export class PhoneLibrary {
   private readonly engine = inject(EngineService);
   protected readonly preview = inject(PreviewService);
   private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
+  private readonly search = viewChild.required<ElementRef<HTMLInputElement>>('search');
   private readonly scrollTop = signal(0);
   private readonly viewHeight = signal(0);
 
@@ -165,6 +167,14 @@ export class PhoneLibrary {
   });
   /** The lists of the library are open, to go to another. */
   protected readonly browsing = signal(false);
+  /** The list a controller's knob points at, while it goes through the lists. */
+  private readonly pointed = computed(
+    () => {
+      const view = this.library.view();
+      return view?.focus === 'lists' ? view.pointed : null;
+    },
+    { equal: same },
+  );
   protected readonly importing = signal(false);
   protected readonly pickingFolder = signal(false);
 
@@ -178,6 +188,29 @@ export class PhoneLibrary {
       const resized = new ResizeObserver(() => this.viewHeight.set(list.clientHeight));
       resized.observe(list);
       destroyed.onDestroy(() => resized.disconnect());
+      const cursor = this.library.view()?.cursor;
+      if (cursor != null) this.bringIntoView(cursor, true);
+    });
+    // the cursor moved in the list (a key, a controller): its row brought into view
+    let before: LibraryView | null = null;
+    effect(() => {
+      const view = this.library.view();
+      const moved = cursorMoved(before, view);
+      before = view;
+      if (moved && view?.cursor != null) untracked(() => this.bringIntoView(view.cursor!));
+    });
+    // the knob gone over the lists: they rise, the one it points at lit; back on the tracks,
+    // they go down
+    let first = true;
+    effect(() => {
+      const pointed = this.pointed();
+      if (!first && !this.peek()) untracked(() => this.browsing.set(pointed !== null));
+      first = false;
+    });
+    effect(() => {
+      if (this.peek() || !this.library.searchWanted()) return;
+      this.search().nativeElement.focus();
+      this.library.searchWanted.set(false);
     });
     overlay(
       () => this.menu() !== null,
@@ -202,6 +235,17 @@ export class PhoneLibrary {
 
   protected scrolled() {
     this.scrollTop.set(this.list().nativeElement.scrollTop);
+  }
+
+  /** Scrolls the least that shows the track at `index` whole, or puts it in the middle
+   * (`centred`) when it is out of view. */
+  private bringIntoView(index: number, centred = false) {
+    const list = this.list().nativeElement;
+    const top = (this.folders().length + index) * ROW_PX;
+    const bottom = top + ROW_PX - list.clientHeight;
+    if (top >= list.scrollTop && bottom <= list.scrollTop) return;
+    if (centred) list.scrollTop = top - (list.clientHeight - ROW_PX) / 2;
+    else list.scrollTop = top < list.scrollTop ? top : bottom;
   }
 
   /** Where a track from elsewhere is: its folder, then where that one is. */

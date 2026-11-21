@@ -52,7 +52,8 @@ describe('ControlService', () => {
       ['library.next', 1],
       ['general.library', 1],
     ]);
-    expect(library.searchRequests()).toBe(1);
+    expect(library.searchWanted()).toBe(true);
+    expect(navigation.libraryWanted()).toEqual({ sight: 'show' });
     expect(navigation.palette()).toBe(true);
   });
 });

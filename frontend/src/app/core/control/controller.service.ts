@@ -14,7 +14,8 @@ import type { Controller, ControllerMapping, Opened, PluggedIn, UiAction } from 
 /**
  * Controllers, MIDI and HID, as the backend shows them (`controls.controllers`): it performs
  * what their controls drive and lights them; the actions the app performs (its windows, the
- * focus of its search) it is told of (`ui-action`). A control is mapped by moving it (learn).
+ * focus of its search) it is told of (`ui-action`), and of the library's done (`action-done`),
+ * to bring the library into sight. A control is mapped by moving it (learn).
  */
 @Injectable({ providedIn: 'root' })
 export class ControllerService {
@@ -41,6 +42,8 @@ export class ControllerService {
       this.controls.act(payload.target, payload.value),
     );
     await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
+    // the library's actions done, whoever asked: the library brought into sight, or left
+    await listen<string>('action-done', ({ payload }) => this.navigation.done(payload));
     // plugged back in, or let go by the program that held it: it plays, its lights off
     await listen<Opened>('controller-opened', ({ payload: { model } }) =>
       this.showConnected(model),
