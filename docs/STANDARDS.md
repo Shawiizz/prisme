@@ -27,6 +27,13 @@ habitude ; une exception se discute, puis s'écrit ici.
 - Pas de préfixe `v`. Plus de tag `mobile-…` (une version unique pour tous les systèmes).
 - Les notes de version suivent toujours le même plan, en anglais : **New**, **Improved**,
   **Fixed**, **Install**. Une ligne dit ce que le DJ voit, pas comment c'est codé.
+- **Avant de publier un brouillon**, ses fichiers sont essayés sur un vrai appareil, les tests
+  ne tournant que sur ordinateur :
+  - Windows : l'installateur par-dessus la version publiée, la bibliothèque relue, un mix court
+    avec un contrôleur.
+  - Android : l'APK par-dessus la version publiée ; un contrôleur branché, son profil changé,
+    débranché puis rebranché, l'appli ouverte avec lui ; l'écran éteint pendant la lecture ; un
+    fichier enregistré (rapport de diagnostic) et un fichier ouvert (son d'un pad).
 
 ## 3. Fichiers publiés
 
