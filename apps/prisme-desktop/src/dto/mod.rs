@@ -59,6 +59,54 @@ mod tests {
         assert_eq!(wasapi, AudioSettings { backend: BackendDto::Wasapi, ..AudioSettings::default() });
     }
 
+    fn device(name: &str, kind: &'static str, is_default: bool) -> DeviceDto {
+        DeviceDto {
+            name: name.into(),
+            kind,
+            channels: 2,
+            sample_rate: 48_000,
+            buffer_sizes: Vec::new(),
+            is_default,
+        }
+    }
+
+    #[test]
+    fn the_turntables_turned_on_read_the_driver_or_the_inputs_of_the_card_played_on() {
+        let usb = AudioSettings {
+            backend: BackendDto::Usb,
+            output_device: Some("DJM".into()),
+            ..Default::default()
+        };
+        assert_eq!(usb.with_turntables(&[]).unwrap().input_device.as_deref(), Some("DJM"));
+        let listed = [device("UMC", "output", false), device("DJM", "output", true)];
+        let first = AudioSettings { output_device: None, ..usb.clone() }.with_turntables(&listed);
+        assert_eq!(first.unwrap().input_device.as_deref(), Some("UMC"), "as the settings' switch");
+        assert_eq!(AudioSettings { output_device: None, ..usb }.with_turntables(&[]), None);
+
+        let card = "Speakers (UMC404HD 192k)";
+        let wasapi = AudioSettings {
+            backend: BackendDto::Wasapi,
+            output_device: Some(card.into()),
+            ..Default::default()
+        };
+        let listed = [
+            device(card, "output", false),
+            device("Microphone (Realtek Audio)", "input", true),
+            device("Line (UMC404HD 192k)", "input", false),
+        ];
+        let on = wasapi.with_turntables(&listed).unwrap();
+        assert_eq!(on, AudioSettings { input_device: Some("Line (UMC404HD 192k)".into()), ..wasapi.clone() });
+        let default =
+            AudioSettings { output_device: Some("Speakers (Realtek Audio)".into()), ..wasapi.clone() };
+        let on = default.with_turntables(&listed[1..]).unwrap();
+        assert_eq!(
+            on.input_device.as_deref(),
+            Some("Microphone (Realtek Audio)"),
+            "no card of its own: the default"
+        );
+        assert_eq!(wasapi.with_turntables(&listed[..1]), None, "no input");
+    }
+
     #[test]
     fn a_decks_signal_light_shows_the_record_driving_it_and_none_with_its_cables_crossed() {
         assert_eq!(signal_light(true, false, SignalState::Ok), Some(SignalDto::Ok));

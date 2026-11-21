@@ -4,7 +4,7 @@
 use super::edits::GridChange;
 use super::{fx, mixer, transport, Performing};
 use crate::auto_dj::Takeover;
-use crate::dto::{RpmDto, StemMixDto, VinylChangeDto, VinylModeDto};
+use crate::dto::{AudioSettings, RpmDto, StemMixDto, VinylChangeDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};
 use crate::state::{deck_commands, lock, AppState, DeckSettings, LoadedTrack};
@@ -12,7 +12,7 @@ use prisme_actions::input::Input;
 use prisme_actions::screen::Drive;
 use prisme_actions::sync::{kept_tempo, matching_tempo};
 use prisme_actions::view::{mixed_with, tempo_rate};
-use prisme_control::{DeckAction, StemPart};
+use prisme_control::{DeckAction, StemPart, Target};
 use prisme_engine::Command;
 use tracing::warn;
 
@@ -205,10 +205,47 @@ fn send_deck(state: &AppState, deck: usize, settings: &DeckSettings) -> AppResul
     deck_commands(deck, settings).into_iter().try_for_each(|c| state.send_if_running(c))
 }
 
-/// Who drives `deck`: itself, its record (relative or absolute) or its input as it comes. Its
-/// input leaves the record's settings as they were, for when the deck plays its track again.
-pub fn set_mode(state: &AppState, deck: usize, mode: Drive) -> AppResult<()> {
+/// Turns the turntables on for the driver in use, given its settings kept: the audio restarts.
+pub type TurnOn<'a> = &'a dyn Fn(&AudioSettings) -> AppResult<()>;
+
+/// The settings kept of the audio running if its driver has the turntables off: no input read
+/// and no turntable simulated, on the devices chosen (none missing).
+fn turntables_off(state: &AppState) -> Option<AudioSettings> {
+    let saved = state.preferences.read(|p| p.audio.clone());
+    let session = lock(&state.session);
+    let running = session.as_ref()?;
+    let off = !running.info.simulated && running.settings.input_device.is_none();
+    (off && running.settings.same_devices(&saved)).then_some(saved)
+}
+
+/// Before `deck` is put on its record or its input (by `target`, if an action asks): if the
+/// driver in use has the turntables off, they are turned on once the DJ said yes (`yes`), else
+/// the DJ is asked. Nothing to do if the audio does not run.
+pub fn read_turntables(
+    state: &AppState,
+    deck: usize,
+    target: Option<&Target>,
+    yes: Option<TurnOn>,
+) -> AppResult<()> {
+    let Some(saved) = turntables_off(state) else { return Ok(()) };
+    match yes {
+        Some(turn_on) => turn_on(&saved),
+        None => Err(AppError::ConfirmTurntables {
+            deck,
+            driver: saved.backend,
+            target: target.map(Target::to_string),
+        }),
+    }
+}
+
+/// Who drives `deck`: itself, its record (relative or absolute) or its input as it comes, the
+/// turntables turned on first if they must be (see [`read_turntables`]). Its input leaves the
+/// record's settings as they were, for when the deck plays its track again.
+pub fn set_mode(state: &AppState, deck: usize, mode: Drive, yes: Option<TurnOn>) -> AppResult<()> {
     AppState::deck_exists(deck)?;
+    if mode != Drive::Internal {
+        read_turntables(state, deck, None, yes)?;
+    }
     let thru = mode == Drive::Thru;
     if lock(&state.decks)[deck].passthrough != thru {
         set_passthrough(state, deck, thru)?;
@@ -399,7 +436,7 @@ mod tests {
     use super::*;
     use crate::actions::bench::Bench;
     use crate::actions::Source;
-    use crate::dto::RpmDto;
+    use crate::dto::{BackendDto, RpmDto};
 
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
         let input = Input::of(steps, action != DeckAction::JogTouch, None);
@@ -493,13 +530,13 @@ mod tests {
             let d = lock(&bench.state.decks)[1];
             (d.passthrough, d.vinyl_enabled, d.vinyl_mode)
         };
-        set_mode(&bench.state, 1, Drive::Relative).unwrap();
+        set_mode(&bench.state, 1, Drive::Relative, None).unwrap();
         assert_eq!(mode(&bench), (false, true, VinylModeDto::Relative));
-        set_mode(&bench.state, 1, Drive::Thru).unwrap();
+        set_mode(&bench.state, 1, Drive::Thru, None).unwrap();
         assert_eq!(mode(&bench), (true, true, VinylModeDto::Relative));
-        set_mode(&bench.state, 1, Drive::Absolute).unwrap();
+        set_mode(&bench.state, 1, Drive::Absolute, None).unwrap();
         assert_eq!(mode(&bench), (false, true, VinylModeDto::Absolute));
-        set_mode(&bench.state, 1, Drive::Internal).unwrap();
+        set_mode(&bench.state, 1, Drive::Internal, None).unwrap();
         assert_eq!(mode(&bench), (false, false, VinylModeDto::Absolute));
     }
 
@@ -638,5 +675,99 @@ mod tests {
         bench.state.update_preferences(|p| p.dj.cue_on_load = true);
         loaded(&bench.state, 1);
         assert_eq!(lock(&bench.state.decks).map(|d| d.cue)[..2], [false, true]);
+    }
+
+    /// The bench's card with the turntables off, as the DJ chose and as the audio runs.
+    fn put_turntables_off(bench: &Bench) -> AudioSettings {
+        let off = AudioSettings { input_device: None, ..bench.state.preferences.read(|p| p.audio.clone()) };
+        bench.state.update_preferences(|p| p.audio = off.clone());
+        let mut session = lock(&bench.state.session);
+        let running = session.as_mut().unwrap();
+        running.settings = off.clone();
+        running.info.input_channels = 0;
+        off
+    }
+
+    fn driving(bench: &Bench, deck: usize) -> (bool, bool, VinylModeDto) {
+        let d = lock(&bench.state.decks)[deck];
+        (d.vinyl_enabled, d.passthrough, d.vinyl_mode)
+    }
+
+    fn asked(outcome: AppResult<()>, target: Option<&str>) -> bool {
+        matches!(
+            outcome,
+            Err(AppError::ConfirmTurntables { deck: 0, driver: BackendDto::Asio, target: asked })
+                if asked.as_deref() == target
+        )
+    }
+
+    #[test]
+    fn a_deck_put_on_its_record_or_its_input_asks_first_for_the_turntables_its_driver_has_off() {
+        let bench = Bench::new();
+        put_turntables_off(&bench);
+        let before = driving(&bench, 0);
+        assert!(asked(bench.press("deck1.vinyl.on", 1.0), Some("deck1.vinyl.on")));
+        assert!(asked(bench.press("deck1.vinyl", 1.0), Some("deck1.vinyl.on")), "turned over to on");
+        assert!(asked(bench.press("deck1.passthrough", 1.0), Some("deck1.passthrough.on")));
+        for mode in [Drive::Relative, Drive::Absolute, Drive::Thru] {
+            assert!(asked(set_mode(&bench.state, 0, mode, None), None), "{mode:?}");
+        }
+        assert_eq!(driving(&bench, 0), before, "nothing changed until the DJ says yes");
+        bench.press("deck1.vinyl.off", 1.0).unwrap();
+        set_mode(&bench.state, 0, Drive::Internal, None).unwrap();
+    }
+
+    #[test]
+    fn a_deck_reads_its_turntable_without_asking_when_the_audio_has_one_simulated_or_does_not_run() {
+        let bench = Bench::new();
+        set_mode(&bench.state, 0, Drive::Relative, None).unwrap();
+
+        put_turntables_off(&bench);
+        lock(&bench.state.session).as_mut().unwrap().info.simulated = true;
+        set_mode(&bench.state, 0, Drive::Absolute, None).unwrap();
+        bench.press("deck1.passthrough.on", 1.0).unwrap();
+
+        // the card chosen with its turntables is missing: the audio plays on the defaults
+        bench.state.update_preferences(|p| p.audio.input_device = Some("Card".into()));
+        lock(&bench.state.session).as_mut().unwrap().info.simulated = false;
+        set_mode(&bench.state, 1, Drive::Relative, None).unwrap();
+
+        *lock(&bench.state.session) = None;
+        set_mode(&bench.state, 1, Drive::Thru, None).unwrap();
+        assert_eq!(driving(&bench, 1), (true, true, VinylModeDto::Relative));
+    }
+
+    #[test]
+    fn the_dj_saying_yes_turns_the_turntables_on_then_puts_the_deck_on_its_record() {
+        let bench = Bench::new();
+        let off = put_turntables_off(&bench);
+        let given = std::cell::RefCell::new(Vec::new());
+        let turn_on = |saved: &AudioSettings| {
+            given.borrow_mut().push(saved.clone());
+            let on = AudioSettings { input_device: saved.output_device.clone(), ..saved.clone() };
+            bench.state.update_preferences(|p| p.audio = on.clone());
+            let mut session = lock(&bench.state.session);
+            let running = session.as_mut().unwrap();
+            running.settings = on;
+            running.info.input_channels = 4;
+            Ok(())
+        };
+        set_mode(&bench.state, 0, Drive::Absolute, Some(&turn_on)).unwrap();
+        assert_eq!(*given.borrow(), [off], "turned on from the settings kept");
+        assert_eq!(driving(&bench, 0), (true, false, VinylModeDto::Absolute));
+        set_mode(&bench.state, 0, Drive::Thru, Some(&turn_on)).unwrap();
+        assert_eq!(given.borrow().len(), 1, "on already");
+        assert!(driving(&bench, 0).1);
+    }
+
+    #[test]
+    fn a_yes_that_cannot_turn_the_turntables_on_leaves_the_deck_as_it_was() {
+        let bench = Bench::new();
+        put_turntables_off(&bench);
+        let before = driving(&bench, 0);
+        let fails = |saved: &AudioSettings| Err(AppError::NoTurntableInput(saved.backend));
+        let outcome = set_mode(&bench.state, 0, Drive::Relative, Some(&fails));
+        assert!(matches!(outcome, Err(AppError::NoTurntableInput(BackendDto::Asio))));
+        assert_eq!(driving(&bench, 0), before);
     }
 }

@@ -65,6 +65,6 @@ export function deckVinyl(deck: Signal<number>) {
       ? t('Left and right cables crossed? See Settings, Turntables')
       : SIGNAL_TITLE[vinyl()?.signal ?? 'none'];
   });
-  const setMode = (to: DeckMode) => engine.call('set_deck_mode', { deck: deck(), mode: to });
+  const setMode = (to: DeckMode) => engine.setDeckMode(deck(), to);
   return { mode, offered, signal, signalTitle, setMode };
 }

@@ -1,9 +1,9 @@
 use crate::actions::{deck, transport, Actions, Order};
 use crate::audio_host::layer_partner;
 use crate::auto_dj::AutoDj;
-use crate::commands::audio::start_audio;
+use crate::commands::audio::{start_audio, turn_turntables_on};
 use crate::commands::blocking;
-use crate::dto::VinylChangeDto;
+use crate::dto::{AudioSettings, VinylChangeDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_actions::screen::Drive;
@@ -72,10 +72,16 @@ pub fn set_vinyl_swap(state: State<'_, AppState>, deck: usize, swap: bool) -> Ap
     replace_decoder(&state, deck)
 }
 
-/// Who drives `deck`: itself, its record or its input (see `deck::set_mode`).
+/// Who drives `deck`: itself, its record or its input (see `deck::set_mode`); `confirmed`, the
+/// DJ said yes to turning the turntables on. Off the commands' threads: the audio may restart.
 #[tauri::command]
-pub fn set_deck_mode(state: State<'_, AppState>, deck: usize, mode: Drive) -> AppResult<()> {
-    deck::set_mode(&state, deck, mode)
+pub async fn set_deck_mode(app: AppHandle, deck: usize, mode: Drive, confirmed: bool) -> AppResult<()> {
+    blocking(move || {
+        let state = app.state::<AppState>();
+        let turn_on = |saved: &AudioSettings| turn_turntables_on(&state, saved);
+        deck::set_mode(&state, deck, mode, confirmed.then_some(&turn_on as deck::TurnOn))
+    })
+    .await
 }
 
 /// Another record on the deck's turntable (`record`: the id of one of its sides), on the side the

@@ -28,6 +28,7 @@ const TEXTS: Record<string, (p: Params) => string> = {
   controllerUnplugged: (p) => t('Controller {controller} is not plugged in', p),
   unknownFormat: (p) => t('Unknown timecode {format}', p),
   engineBusy: () => t('The engine is busy, try again'),
+  noTurntableInput: (p) => t('The {driver} driver has no input for the turntables', p),
   inputsNotAllowed: () =>
     t('Allow Prisme to listen to the inputs of the sound card, then apply again'),
   notTheUpdate: () => t('The file downloaded is not the new version of Prisme'),

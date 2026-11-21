@@ -133,6 +133,59 @@ describe('EngineService', () => {
     });
   });
 
+  describe('a deck put on its record while the driver has the turntables off', () => {
+    afterEach(() => clearMocks());
+
+    const off = (target: string | null) => ({
+      code: 'confirmTurntables',
+      params: { deck: 1, driver: 'USB', target },
+      message: 'the turntables are off for the USB driver: deck 2 hears nothing',
+    });
+
+    it('asks to turn them on, the action of a controller performed again once the DJ says so', async () => {
+      const confirm = vi.spyOn(TestBed.inject(ConfirmService), 'ask');
+      confirm.mockResolvedValueOnce(false);
+      expect(await engine.failed(off('deck2.vinyl.on'))).toBe(false);
+      expect(calls).toEqual([]);
+      expect(engine.error()).toBeNull();
+      confirm.mockResolvedValueOnce(true);
+      expect(await engine.failed(off('deck2.vinyl.on'))).toBe(true);
+      expect(confirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          title: 'Turn the turntables on?',
+          detail: expect.stringContaining('off for the USB driver: deck B'),
+        }),
+      );
+      expect(calls).toEqual([
+        [
+          'perform_action',
+          {
+            target: 'deck2.vinyl.on',
+            value: 1,
+            confirmed: true,
+            track: null,
+            order: expect.anything(),
+          },
+        ],
+      ]);
+    });
+
+    it('chooses the mode of the deck again once the DJ turns them on', async () => {
+      vi.mocked(engine.call).mockRestore();
+      const asked: unknown[] = [];
+      mockIPC((command, args) => {
+        asked.push([command, args]);
+        if (!(args as { confirmed: boolean }).confirmed) throw off(null);
+      });
+      vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValueOnce(true);
+      expect(await engine.setDeckMode(1, 'absolute')).toBe(true);
+      expect(asked).toEqual([
+        ['set_deck_mode', { deck: 1, mode: 'absolute', confirmed: false }],
+        ['set_deck_mode', { deck: 1, mode: 'absolute', confirmed: true }],
+      ]);
+    });
+  });
+
   describe('what the backend changed', () => {
     const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
     const level = { level: 1, on: true };

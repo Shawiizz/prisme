@@ -961,7 +961,7 @@ pub(crate) mod bench {
 
     use super::*;
     use crate::audio_host::AudioSession;
-    use crate::dto::{AudioInfo, BackendDto};
+    use crate::dto::{AudioInfo, AudioSettings, BackendDto};
     use crate::state::LoadedTrack;
     use prisme_engine::{Command, Engine, EngineConfig};
     use prisme_session::JsonFile;
@@ -1005,7 +1005,7 @@ pub(crate) mod bench {
     }
 
     impl Bench {
-        /// Two decks, the audio running.
+        /// Two decks, the audio running on an ASIO card with the turntables on it.
         pub fn new() -> Self {
             let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
             let (engine, controller) = prisme_engine::create(config);
@@ -1019,8 +1019,17 @@ pub(crate) mod bench {
                 simulated: false,
                 missing: None,
             };
+            let card = AudioSettings {
+                backend: BackendDto::Asio,
+                output_device: Some("Card".into()),
+                input_device: Some("Card".into()),
+                ..AudioSettings::default()
+            };
             let state = AppState::new(JsonFile::in_memory(Default::default()));
-            *lock(&state.session) = Some(AudioSession::idle(controller, config, info));
+            state.update_preferences(|p| p.audio = card.clone());
+            let mut session = AudioSession::idle(controller, config, info);
+            session.settings = card;
+            *lock(&state.session) = Some(session);
             let library = Arc::new(LibraryDb::open_in_memory().unwrap());
             Self {
                 state,

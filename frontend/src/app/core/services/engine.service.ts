@@ -2,14 +2,15 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { ControlState, MAX_DECKS, StatusChanges, Waveform, decodeWaveform } from '../models/engine';
 import { Playhead, followPlayhead } from '../playhead';
-import { ConfirmService } from '../../shared/confirm/confirm';
+import { ConfirmService, Question } from '../../shared/confirm/confirm';
 import { same, sameItems } from '../same';
 import { withChanges } from '../told';
 import { deckLetter } from '../../shared/time';
-import { t } from '../i18n/i18n';
+import { Params, t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
 import type {
   ControlChanges,
+  DeckMode,
   DeckSettings,
   DeckStatus,
   EngineStatus,
@@ -20,6 +21,30 @@ import type {
 
 /** How long a refusal stays said. */
 const REFUSAL_MS = 5000;
+
+/** What the DJ is asked before the backend does what it did not, by the code of its answer. */
+const QUESTIONS: Record<string, (p: Params) => Question> = {
+  confirmReplace: (p) => {
+    const eject = Boolean(p['eject']);
+    return {
+      title: t('Deck {deck} is playing', { deck: deckLetter(Number(p['deck'])) }),
+      detail: eject
+        ? t('The track playing stops and leaves the deck.')
+        : t('The track playing stops, and the new one takes its place.'),
+      confirm: eject ? t('Eject') : t('Load'),
+      cancel: t('Cancel'),
+    };
+  },
+  confirmTurntables: (p) => ({
+    title: t('Turn the turntables on?'),
+    detail: t(
+      'The turntables are off for the {driver} driver: deck {deck} cannot hear its input. Turning them on restarts the audio for a moment.',
+      { driver: String(p['driver']), deck: deckLetter(Number(p['deck'])) },
+    ),
+    confirm: t('Turn on'),
+    cancel: t('Cancel'),
+  }),
+};
 const NONE_LOADING: boolean[] = Array(MAX_DECKS).fill(false);
 
 /**
@@ -309,56 +334,55 @@ export class EngineService {
     return this.perform(`${target}.${on ? 'on' : 'off'}`, 1);
   }
 
-  /** Runs a backend command; a failure is shown rather than thrown, until one goes through
-   * (see `failed`). Whether it was done. */
-  async call(command: string, args: Record<string, unknown>): Promise<boolean> {
+  /** Runs a backend command; a failure is shown rather than thrown, until one goes through,
+   * or the DJ is asked and it is done `again` (see `failed`). Whether it was done. */
+  async call(
+    command: string,
+    args: Record<string, unknown>,
+    again?: () => Promise<boolean>,
+  ): Promise<boolean> {
     this.refusal.set(null);
     try {
       await invoke(command, args);
       this.error.set(null);
       return true;
     } catch (e) {
-      return this.failed(e);
+      return this.failed(e, again);
     }
   }
 
+  /** Who drives `deck`: itself, its record or its input; `confirmed`, the DJ said yes to
+   * turning the turntables on, as asked if they are off. Whether it was done. */
+  setDeckMode(deck: number, mode: DeckMode, confirmed = false): Promise<boolean> {
+    return this.call('set_deck_mode', { deck, mode, confirmed }, () =>
+      this.setDeckMode(deck, mode, true),
+    );
+  }
+
   /** What the backend did not do, for the app or a controller: the track of a deck that plays
-   * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so,
-   * the action done `again` then (by default, performed again on the track it took); any other
-   * failure is shown.
+   * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so; a
+   * deck put on its record or its input while the driver has the turntables off waits for the
+   * DJ to turn them on. Said yes, the action is done `again` (by default, performed again, on
+   * the track it took if it took one); any other failure is shown.
    * Whether it was done in the end. */
   async failed(error: unknown, again?: () => Promise<boolean>): Promise<boolean> {
-    if (!isBackendError(error) || !['deckPlays', 'confirmReplace'].includes(error.code)) {
-      this.error.set(errorText(error));
-      return false;
-    }
-    const letter = { deck: deckLetter(Number(error.params['deck'])) };
-    const eject = Boolean(error.params['eject']);
-    if (error.code === 'deckPlays') {
+    if (isBackendError(error) && error.code === 'deckPlays') {
+      const letter = { deck: deckLetter(Number(error.params['deck'])) };
       this.refuse(
-        eject
+        error.params['eject']
           ? t('Deck {deck} is playing: its track stays on it', letter)
           : t('Deck {deck} is playing: nothing is loaded on it', letter),
       );
       return false;
     }
-    const confirmed = await this.confirm.ask({
-      title: t('Deck {deck} is playing', letter),
-      detail: eject
-        ? t('The track playing stops and leaves the deck.')
-        : t('The track playing stops, and the new one takes its place.'),
-      confirm: eject ? t('Eject') : t('Load'),
-      cancel: t('Cancel'),
-    });
-    if (!confirmed) return false;
-    const track = error.params['track'];
+    if (!isBackendError(error) || !Object.hasOwn(QUESTIONS, error.code)) {
+      this.error.set(errorText(error));
+      return false;
+    }
+    if (!(await this.confirm.ask(QUESTIONS[error.code](error.params)))) return false;
+    const { target, track } = error.params;
     return again
       ? again()
-      : this.perform(
-          String(error.params['target']),
-          1,
-          true,
-          typeof track === 'string' ? track : null,
-        );
+      : this.perform(String(target), 1, true, typeof track === 'string' ? track : null);
   }
 }

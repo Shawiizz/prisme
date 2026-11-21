@@ -1,8 +1,10 @@
 //! The audio: its settings, the devices, the audio running and how well it keeps up.
 
+use crate::audio_watchdog::card_name;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{Backend, StreamStats};
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::sync::atomic::Ordering;
 
 #[derive(Debug, Clone, Serialize)]
@@ -99,6 +101,19 @@ impl Default for BackendDto {
     }
 }
 
+impl BackendDto {
+    /// Whether it reaches one device for the outputs and the inputs.
+    pub fn one_device(self) -> bool {
+        matches!(self, BackendDto::Asio | BackendDto::Usb)
+    }
+}
+
+impl fmt::Display for BackendDto {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Backend::from(*self).fmt(f)
+    }
+}
+
 impl From<BackendDto> for Backend {
     fn from(b: BackendDto) -> Self {
         match b {
@@ -186,6 +201,28 @@ impl AudioSettings {
             AudioChangeDto::Simulate(on) => next.simulate = on,
         }
         next
+    }
+
+    /// These settings with the turntables on, `devices` those of their driver: on its one
+    /// device if it has one (as [`AudioChangeDto::TurntablesOnDriver`]), else on the inputs of
+    /// the output's sound card, or its default inputs. None if the driver has no input.
+    pub fn with_turntables(&self, devices: &[DeviceDto]) -> Option<Self> {
+        let of_kind = |kind| devices.iter().filter(move |d| d.kind == kind);
+        if self.backend.one_device() {
+            let first = || of_kind("output").next().map(|d| d.name.clone());
+            return Some(self.changed(AudioChangeDto::TurntablesOnDriver(true), first))
+                .filter(|on| on.input_device.is_some());
+        }
+        let output = self.output_device.as_deref().or_else(|| {
+            let default = of_kind("output").find(|d| d.is_default);
+            default.map(|d| d.name.as_str())
+        });
+        let card = output.map(card_name);
+        let input = of_kind("input")
+            .find(|d| Some(card_name(&d.name)) == card)
+            .or_else(|| of_kind("input").find(|d| d.is_default))
+            .or_else(|| of_kind("input").next())?;
+        Some(Self { input_device: Some(input.name.clone()), ..self.clone() })
     }
 
     /// These settings on the computer's default devices: what plays while the chosen ones are

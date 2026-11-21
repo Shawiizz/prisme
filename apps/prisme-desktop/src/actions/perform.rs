@@ -2,7 +2,8 @@
 //! a fader's position, an encoder's steps.
 
 use super::{deck, fx, general, mixer, sampler, transport, Performing, Source};
-use crate::dto::CrossfaderCurveDto;
+use crate::commands::audio::turn_turntables_on;
+use crate::dto::{AudioSettings, CrossfaderCurveDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
 use prisme_actions::input::{Given, Input, KEY_STEPS};
@@ -17,7 +18,7 @@ use prisme_actions::switch::Switch;
 use prisme_actions::view::band_index;
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, DeckSwitch, Effect, FxAction, GeneralAction, Kind, LibraryAction,
-    MixerAction, MixerSwitch, Target, FX_SLOTS,
+    MixerAction, MixerSwitch, Target, Turn, FX_SLOTS,
 };
 use prisme_engine::Command;
 use transport::{PITCH_BEND, SMALL_BEND, TEMPO_STEP};
@@ -277,6 +278,9 @@ impl Performing<'_> {
         let state = self.state;
         match switch {
             Switch::Deck(deck, switch) => {
+                if on && matches!(switch, DeckSwitch::Passthrough | DeckSwitch::Vinyl) {
+                    self.read_turntables(deck, switch)?;
+                }
                 let send = |command| transport::send(state, deck, command);
                 match switch {
                     DeckSwitch::Sync => deck::set_sync(state, deck, on),
@@ -301,6 +305,15 @@ impl Performing<'_> {
             Switch::LiveCue(live) => mixer::set_live_cue(state, live, on),
             Switch::Quantize => general::set_quantize(state, on),
         }
+    }
+
+    /// Before `deck` is put on its record or its input by `switch`: the turntables turned on if
+    /// they must be and the DJ said yes, else the DJ asked (see `deck::read_turntables`).
+    fn read_turntables(&self, deck: usize, switch: DeckSwitch) -> AppResult<()> {
+        let turn_on = |saved: &AudioSettings| turn_turntables_on(self.state, saved);
+        let yes = matches!(self.source(), Source::Interface { confirmed: true });
+        let target = Target::Deck(deck, DeckAction::Switch(switch, Turn::On));
+        deck::read_turntables(self.state, deck, Some(&target), yes.then_some(&turn_on as deck::TurnOn))
     }
 
     /// So many beats ahead, or back below zero.

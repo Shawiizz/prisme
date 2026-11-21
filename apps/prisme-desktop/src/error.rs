@@ -2,6 +2,7 @@
 //! what it needs to word it (`params`), and its English message for the codes the interface
 //! does not know (`errors.ts`).
 
+use crate::dto::BackendDto;
 use prisme_actions::switch::LiveSource;
 use prisme_audio_io::latency::LatencyError;
 use prisme_audio_io::AudioError;
@@ -58,6 +59,13 @@ pub enum AppError {
     /// then, taking `track` of the library if it took one.
     #[error("deck {} plays: its track leaves it once the DJ says so", .deck + 1)]
     ConfirmReplace { target: String, deck: usize, eject: bool, track: Option<String> },
+    /// A deck put on its record or its input while the driver in use has the turntables off:
+    /// they are turned on once the DJ says so, `target` performed again then (if an action
+    /// asked).
+    #[error("the turntables are off for the {driver} driver: deck {} hears nothing", .deck + 1)]
+    ConfirmTurntables { deck: usize, driver: BackendDto, target: Option<String> },
+    #[error("the {0} driver has no input for the turntables")]
+    NoTurntableInput(BackendDto),
     #[error("{0} is not a folder")]
     FolderNotFound(String),
     /// The music folder it is, or is in.
@@ -143,6 +151,12 @@ impl AppError {
             AppError::DeckPlays { deck, eject } => ("deckPlays", json!({ "deck": deck, "eject": eject })),
             AppError::ConfirmReplace { target, deck, eject, track } => {
                 ("confirmReplace", json!({ "target": target, "deck": deck, "eject": eject, "track": track }))
+            }
+            AppError::ConfirmTurntables { deck, driver, target } => {
+                ("confirmTurntables", json!({ "deck": deck, "driver": driver.to_string(), "target": target }))
+            }
+            AppError::NoTurntableInput(driver) => {
+                ("noTurntableInput", json!({ "driver": driver.to_string() }))
             }
             AppError::FolderNotFound(_) => ("folderNotFound", none()),
             AppError::FolderAlreadyIn(folder) => ("folderAlreadyIn", json!({ "folder": folder })),

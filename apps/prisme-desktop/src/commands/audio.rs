@@ -24,13 +24,8 @@ pub fn audio_backends() -> Vec<BackendChoiceDto> {
     Backend::available()
         .into_iter()
         .map(BackendDto::from)
-        .map(|backend| BackendChoiceDto { backend, one_device: one_device(backend) })
+        .map(|backend| BackendChoiceDto { backend, one_device: backend.one_device() })
         .collect()
-}
-
-/// Whether `backend` reaches one device for the outputs and the inputs.
-fn one_device(backend: BackendDto) -> bool {
-    matches!(backend, BackendDto::Asio | BackendDto::Usb)
 }
 
 /// The devices of the driver listed last, which the settings window's drafts are read against:
@@ -133,27 +128,43 @@ pub async fn apply_audio_settings(
 ) -> AppResult<()> {
     blocking(move || {
         let state = app.state::<AppState>();
-        let saved = state.preferences.read(|p| p.audio.clone());
-        let running = lock(&state.session).is_some();
-        if settings != saved || !running {
-            // kept as they start: no other start comes between
-            let _starting = lock(&state.audio_start);
-            match start(&state, &settings) {
-                // devices missing since the start stay chosen, the defaults playing meanwhile
-                Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
-                    start(&state, &settings.on_default_devices())?
-                }
-                started => started?,
-            };
-            state.update_preferences(|p| p.audio = settings);
-            state.moved(Section::Audio);
-        }
+        apply(&state, settings)?;
         if let Some(mode) = mix_mode.filter(|&mode| state.preferences.read(|p| p.mixer.mode) != mode) {
             crate::actions::mixer::set_mix_mode(&state, mode)?;
         }
         Ok(())
     })
     .await
+}
+
+/// Restarts the audio with `settings` if they changed or it does not run, and keeps them for
+/// the next start.
+fn apply(state: &AppState, settings: AudioSettings) -> AppResult<()> {
+    let saved = state.preferences.read(|p| p.audio.clone());
+    let running = lock(&state.session).is_some();
+    if settings == saved && running {
+        return Ok(());
+    }
+    // kept as they start: no other start comes between
+    let _starting = lock(&state.audio_start);
+    match start(state, &settings) {
+        // devices missing since the start stay chosen, the defaults playing meanwhile
+        Err(AppError::Audio(AudioError::DeviceNotFound(_))) if settings.same_devices(&saved) => {
+            start(state, &settings.on_default_devices())?
+        }
+        started => started?,
+    };
+    state.update_preferences(|p| p.audio = settings);
+    state.moved(Section::Audio);
+    Ok(())
+}
+
+/// The turntables turned on for the driver of the settings kept (`saved`), as the settings
+/// would turn them on: the audio restarts.
+pub fn turn_turntables_on(state: &AppState, saved: &AudioSettings) -> AppResult<()> {
+    let devices = devices_of(saved.backend)?;
+    let settings = saved.with_turntables(&devices).ok_or(AppError::NoTurntableInput(saved.backend))?;
+    apply(state, settings)
 }
 
 /// The channels of the audio's devices a latency measurement may join (two each at least). Off
@@ -235,7 +246,7 @@ pub async fn measure_latency(app: AppHandle, output: usize, input: usize) -> App
         let settings = running.unwrap_or_else(|| state.preferences.read(|p| p.audio.clone()));
         let mut devices = audio_host::stream_settings(&settings);
         // a card or a driver both ways listens where it plays
-        if one_device(settings.backend) {
+        if settings.backend.one_device() {
             devices.input_device = devices.input_device.or_else(|| devices.output_device.clone());
         }
         let (_, measured) = restart(&state, &settings, || {
