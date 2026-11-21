@@ -15,7 +15,7 @@ pub use lists::{Focus, Shelf};
 pub use selection::Pick;
 pub use sort::{Column, Sort};
 
-use crate::catalogue::{folded, Catalogue, Track, TrackId, Tracks};
+use crate::catalogue::{folded, search_words, Catalogue, Track, TrackId, Tracks};
 use crate::db::{Crate, CrateId, HistorySession, SessionId, TrackRecord};
 use crate::mix::{MixReference, Rank};
 use lists::Elsewhere;
@@ -239,7 +239,7 @@ impl Browser {
     /// The first `limit` tracks of the library a search for `text` finds, by the rule of the
     /// lists' searches.
     pub fn search(&self, text: &str, limit: usize) -> impl Iterator<Item = &Track> {
-        let words: Vec<String> = folded(text).split_whitespace().map(String::from).collect();
+        let words = search_words(text);
         let tracks = self.catalogue.ids().map(|id| self.catalogue.get(id));
         tracks.filter(move |track| track.analysed() && track.matches(&words)).take(limit)
     }
@@ -332,7 +332,7 @@ impl Browser {
         let before = folded(self.filter.trim());
         let now = folded(text.trim());
         self.filter = text.to_owned();
-        self.words = now.split_whitespace().map(String::from).collect();
+        self.words = search_words(text);
         self.shown = if !before.is_empty() && now.starts_with(&before) {
             let shown = std::mem::take(&mut self.shown);
             shown.into_iter().filter(|&row| self.visible(row)).collect()

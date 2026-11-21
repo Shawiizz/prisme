@@ -188,6 +188,11 @@ pub fn folded(text: &str) -> String {
     text.chars().flat_map(char::to_lowercase).map(unaccented).collect()
 }
 
+/// The words a search for `text` looks for, folded.
+pub fn search_words(text: &str) -> Vec<String> {
+    folded(text).split_whitespace().map(String::from).collect()
+}
+
 fn unaccented(c: char) -> char {
     match c {
         'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'ā' | 'ă' | 'ą' => 'a',
