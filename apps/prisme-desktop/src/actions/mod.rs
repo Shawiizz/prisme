@@ -9,7 +9,8 @@
 //! modules hold what the actions and the interface's commands both do, done once. What the
 //! actions keep between presses is here, and the view of the application the controllers'
 //! lights and values are read from ([`Actions::view`]). The actions the interface performs (its
-//! windows, the focus of its search), a controller tells it (`ui-action`).
+//! windows, the focus of its search), a controller tells it (`ui-action`); those of the library
+//! done, whoever asked, are told it to bring the library into sight ([`DONE_EVENT`]).
 
 pub mod browse;
 mod cues;
@@ -37,7 +38,7 @@ use prisme_actions::lane::{follows, lane, reads_files, takes_selection, Lane};
 use prisme_actions::perform::{Memory, PerformState};
 use prisme_actions::position::position;
 use prisme_actions::view::View;
-use prisme_control::{DeckAction, Kind, LibraryAction, Owner, SampleAction, Target, Unknown};
+use prisme_control::{DeckAction, GeneralAction, Kind, LibraryAction, Owner, SampleAction, Target, Unknown};
 use prisme_engine::EngineStatus;
 use prisme_library::LibraryDb;
 use serde::Serialize;
@@ -57,6 +58,9 @@ pub use view::{view_of, view_with};
 
 /// A failure of an action a controller asked for, for the interface to word (an `AppError`).
 pub const FAILED_EVENT: &str = "action-failed";
+/// An action of the library done, or the key showing the library pressed (its target), whoever
+/// asked: the interface brings the library into sight, or leaves it once a track is loaded.
+pub const DONE_EVENT: &str = "action-done";
 /// How long an action of the interface waits for the one sent before it, which may be lost.
 const ORDER_WAIT: Duration = Duration::from_millis(50);
 
@@ -335,12 +339,28 @@ impl Ends<'_> {
 }
 
 /// Performs `target` driven by `input` as `asked`, here: one that panics fails as any other,
-/// the thread asking (a controller's, the interface's turn) going on.
+/// the thread asking (a controller's, the interface's turn) going on. One the interface brings
+/// into sight, done, it is told ([`DONE_EVENT`]).
 fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
-    catch_unwind(AssertUnwindSafe(|| host.perform_here(target, input, asked))).unwrap_or_else(|_| {
-        error!("{target} failed");
-        Err(AppError::Other(format!("{target} failed")))
-    })
+    let outcome =
+        catch_unwind(AssertUnwindSafe(|| host.perform_here(target, input, asked))).unwrap_or_else(|_| {
+            error!("{target} failed");
+            Err(AppError::Other(format!("{target} failed")))
+        });
+    if outcome.is_ok() && in_sight(target, input) {
+        host.tell(DONE_EVENT, target.to_string());
+    }
+    outcome
+}
+
+/// Whether the interface brings into sight what `target` did, driven by `input`: an action of
+/// the library, or the key showing it, pressed or turned (not let go).
+fn in_sight(target: &Target, input: Input) -> bool {
+    let acts = match input {
+        Input::Value(value) | Input::Set(value) => value > 0.0,
+        Input::Steps { steps, .. } => steps != 0.0,
+    };
+    acts && matches!(target, Target::Library(_) | Target::General(GeneralAction::Library))
 }
 
 /// An action sent once the actions it follows are all over.
@@ -1545,7 +1565,43 @@ mod selection {
         pressed(&bench, "library.load2");
         bench.actions.settle();
         assert_eq!(loaded(&bench, 1), Some(files[1].0.clone()), "the second row");
-        assert!(bench.told().is_empty(), "the interface told nothing");
+        let done = ["library.next", "library.next", "library.load2"].map(|id| (DONE_EVENT.into(), id.into()));
+        assert_eq!(bench.told(), done, "the interface told only what was done, to bring it into sight");
+    }
+
+    #[test]
+    fn the_interface_is_told_of_the_library_s_actions_done_whoever_asked() {
+        let bench = Arc::new(Bench::new());
+        bench.load(0, 60.0, None);
+        bench.press("deck1.play", 1.0).unwrap();
+        bench.run(0.05);
+        let file = track("told");
+        listed(&bench, std::slice::from_ref(&file));
+        let done = |id: &str, input: Input, source: Source| {
+            let target: Target = id.parse().unwrap();
+            bench.actions.perform(&bench, &target, input, source, Answer::Told, &mut InTurn::default());
+            bench.actions.settle();
+            bench
+                .told()
+                .into_iter()
+                .filter(|(event, _)| event == DONE_EVENT)
+                .map(|(_, target)| target)
+                .collect::<Vec<_>>()
+        };
+        let ddj = || Source::Controller(Moved { device: "DDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+        let screen = || Source::Interface { confirmed: false };
+        let turned = Input::Steps { steps: -1.0, step: None };
+        assert_eq!(done("library.browse", turned, ddj()), ["library.browse"]);
+        assert_eq!(done("library.next", Input::Value(1.0), screen()), ["library.next"], "a key, the palette");
+        assert!(done("library.next", Input::Value(0.0), ddj()).is_empty(), "let go: nothing done");
+        assert_eq!(done("general.library", Input::Value(1.0), ddj()), ["general.library"]);
+        assert!(done("general.tempoRange", Input::Value(1.0), ddj()).is_empty(), "not the library's");
+        assert!(
+            done("mixer.crossfader", Input::Value(0.5), ddj()).is_empty(),
+            "the mixer's: in sight on the decks"
+        );
+        assert_eq!(done("library.go", Input::Value(1.0), ddj()), ["library.load2"], "as it was sent");
+        assert!(done("library.load1", Input::Value(1.0), ddj()).is_empty(), "refused: deck A plays");
     }
 
     /// Two tracks listed in the library, nothing picked.

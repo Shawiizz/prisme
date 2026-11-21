@@ -7,7 +7,7 @@
 
 use super::{ControllerSetup, Controllers, JogSteps, Link};
 use crate::actions::bench::{track, Bench, TRACK_S};
-use crate::actions::{Source, FAILED_EVENT};
+use crate::actions::{Source, DONE_EVENT, FAILED_EVENT};
 use crate::controller_hid::{self, simulated};
 use crate::state::lock;
 use prisme_actions::input::Input;
@@ -123,6 +123,7 @@ fn a_midi_controller_plays_its_deck_and_lights_it_with_the_interface_asleep() {
     bench.select(&track.0);
     jogvision.press(LOAD_A);
     let loaded = load_id(bench).expect("loaded on deck A");
+    assert_eq!(told(bench), [DONE_EVENT], "the library left, the track chosen");
 
     // CUE held on the cue point plays from it, PLAY pressed meanwhile keeps it playing
     jogvision.send(&[0x90, CUE, 0x7f]);
@@ -322,6 +323,7 @@ fn a_hid_controller_plays_its_deck_from_its_reader_thread_and_lights_it_in_its_r
     bench.select(&track.0);
     s4.press(BROWSE_KEYS, S4_LOAD_A);
     let loaded = load_id(&bench).expect("loaded on deck A");
+    assert_eq!(told(&bench), [DONE_EVENT], "the library left, the track chosen");
 
     s4.press(KEYS, S4_PLAY);
     assert!(playing(&bench));
