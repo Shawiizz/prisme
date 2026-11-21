@@ -25,8 +25,17 @@ pub struct Track {
     pub key: Option<Key>,
     /// Its file name and tags, folded (see [`folded`]): what a search looks into.
     pub(crate) words: String,
-    /// Its title, artist, album and genre in lower case, as they are sorted.
-    pub(crate) sorted: [Option<String>; 4],
+    /// Its title, artist, album and genre as they are sorted.
+    pub(crate) sorted: SortTexts,
+}
+
+/// A track's texts as the rows are sorted by them: in lower case.
+#[derive(Debug, Clone)]
+pub(crate) struct SortTexts {
+    pub title: String,
+    pub artist: Option<String>,
+    pub album: Option<String>,
+    pub genre: Option<String>,
 }
 
 impl Track {
@@ -46,7 +55,12 @@ impl Track {
             .collect::<Vec<_>>()
             .join(" ");
         let lower = |text: &Option<String>| text.as_ref().map(|t| t.to_lowercase());
-        let sorted = [Some(title.to_lowercase()), lower(&artist), lower(&album), lower(&genre)];
+        let sorted = SortTexts {
+            title: title.to_lowercase(),
+            artist: lower(&artist),
+            album: lower(&album),
+            genre: lower(&genre),
+        };
         let analysis = record.as_ref().map(TrackRecord::effective_analysis);
         let bpm = analysis.and_then(|a| a.tempo).map(|t| t.bpm);
         let key = analysis.and_then(|a| a.key).map(|k| k.key);
