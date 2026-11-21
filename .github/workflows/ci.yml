@@ -29,8 +29,9 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    # about 20 minutes on Windows, where the GPU tests run on the software renderer
-    timeout-minutes: 45
+    # on Windows, where the GPU tests run on the software renderer: about 20 minutes with the
+    # cache, near 50 without it
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
