@@ -4,7 +4,7 @@
 //! beat, Stop when the leader stops. The output chosen is let go when it is unplugged and
 //! opened again once it is back.
 
-use crate::controllers::port_of;
+use crate::controllers::{find_port, midi_error, port_names, port_of, CLIENT};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{MidiOutput, MidiOutputConnection};
@@ -14,7 +14,6 @@ use std::time::Duration;
 use tauri::{AppHandle, Manager};
 use tracing::{info, warn};
 
-const CLIENT: &str = "Prisme";
 const TICKS_PER_BEAT: u32 = 24;
 const POLL: Duration = Duration::from_millis(1);
 const IDLE_POLL: Duration = Duration::from_millis(100);
@@ -214,19 +213,10 @@ impl Clock {
 /// Opens the output `name`, or the same plugged in elsewhere: its port and the connection.
 fn open(name: &str) -> AppResult<(String, MidiOutputConnection)> {
     let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
-    let ports = output.ports();
-    let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
-    let at = port_of(&names, name, &[]).ok_or_else(|| AppError::ControllerUnplugged(name.to_owned()))?;
-    let connection = output.connect(&ports[at], "Prisme clock").map_err(midi_error)?;
-    Ok((names[at].clone(), connection))
-}
-
-fn port_names(output: &MidiOutput) -> Vec<String> {
-    output.ports().iter().filter_map(|p| output.port_name(p).ok()).collect()
-}
-
-fn midi_error(e: impl std::fmt::Display) -> AppError {
-    AppError::Midi(e.to_string())
+    let (port, port_name) =
+        find_port(&output, name, &[]).ok_or_else(|| AppError::ControllerUnplugged(name.to_owned()))?;
+    let connection = output.connect(&port, "Prisme clock").map_err(midi_error)?;
+    Ok((port_name, connection))
 }
 
 #[cfg(test)]

@@ -23,7 +23,7 @@ use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::ControllersDto;
 use crate::error::{AppError, AppResult};
-use midir::{MidiInput, MidiInputConnection, MidiOutput};
+use midir::{MidiIO, MidiInputConnection, MidiOutput};
 use prisme_actions::hold::Pressed;
 use prisme_actions::input::Input;
 use prisme_actions::perform::ClipHold;
@@ -45,7 +45,7 @@ use std::time::{Duration, Instant};
 /// The low half of a 14-bit control follows its high half within this.
 const FINE_HALF_WITHIN: Duration = Duration::from_millis(100);
 
-const CLIENT: &str = "Prisme";
+pub(crate) const CLIENT: &str = "Prisme";
 /// How often the controllers in use are looked for, to open again one plugged back: less
 /// than a controller takes to come back on the USB bus, so that none goes unseen.
 const WATCH_EVERY: Duration = Duration::from_millis(500);
@@ -402,15 +402,23 @@ pub struct Levels {
 /// The output of the same name, for the lights: none on a controller without one.
 fn open_output(device: &str) -> AppResult<Option<MidiWriter>> {
     let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
-    let ports = output.ports();
-    let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
-    let Some(at) = port_of(&names, device, &[]) else { return Ok(None) };
-    let connection = output.connect(&ports[at], CLIENT).map_err(midi_error)?;
+    let Some((port, _)) = find_port(&output, device, &[]) else { return Ok(None) };
+    let connection = output.connect(&port, CLIENT).map_err(midi_error)?;
     Ok(Some(MidiWriter::new(connection)?))
 }
 
-fn port_names(input: &MidiInput) -> Vec<String> {
-    input.ports().iter().filter_map(|p| input.port_name(p).ok()).collect()
+/// The names of the ports of a MIDI input or output.
+pub(crate) fn port_names(io: &impl MidiIO) -> Vec<String> {
+    io.ports().iter().filter_map(|p| io.port_name(p).ok()).collect()
+}
+
+/// The port of `io` of the controller saved as `device`, but those `taken` (see [`port_of`]),
+/// and its name.
+pub(crate) fn find_port<IO: MidiIO>(io: &IO, device: &str, taken: &[String]) -> Option<(IO::Port, String)> {
+    let ports = io.ports();
+    let names: Vec<String> = ports.iter().map(|p| io.port_name(p).unwrap_or_default()).collect();
+    let at = port_of(&names, device, taken)?;
+    Some((ports[at].clone(), names[at].clone()))
 }
 
 /// Of the ports `names` but those `taken` (another controller of the same model's), the one of
@@ -437,7 +445,7 @@ fn base_port_name(name: &str) -> String {
     base_device_name(name)
 }
 
-fn midi_error(e: impl std::fmt::Display) -> AppError {
+pub(crate) fn midi_error(e: impl std::fmt::Display) -> AppError {
     AppError::Midi(e.to_string())
 }
 

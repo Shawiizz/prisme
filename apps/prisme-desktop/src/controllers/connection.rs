@@ -2,7 +2,7 @@
 //! closed, let go.
 
 use super::{
-    base_port_name, hid_plugged, light_of, midi_error, open_output, port_names, port_of, with_hid,
+    base_port_name, find_port, hid_plugged, light_of, midi_error, open_output, port_names, port_of, with_hid,
     Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT,
     PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
 };
@@ -244,17 +244,14 @@ impl Controllers {
         }
         let mut input = MidiInput::new(CLIENT).map_err(midi_error)?;
         input.ignore(Ignore::All);
-        let ports = input.ports();
-        let names: Vec<String> = ports.iter().map(|p| input.port_name(p).unwrap_or_default()).collect();
-        let at = port_of(&names, device, &self.ports_open())
+        let (port, port_name) = find_port(&input, device, &self.ports_open())
             .ok_or_else(|| AppError::ControllerUnplugged(device.to_owned()))?;
-        let (port, port_name) = (&ports[at], names[at].clone());
         let (receiving, name) = (app.clone(), device.to_owned());
         let jog = JogSteps::new(self.jog_steps_per_turn(device));
         let read = jog.clone();
         let connection = input
             .connect(
-                port,
+                &port,
                 CLIENT,
                 move |stamp_us, bytes, _| {
                     if let Some(event) = prisme_control::parse(bytes) {
