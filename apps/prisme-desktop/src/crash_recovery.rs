@@ -59,10 +59,13 @@ impl CrashRecovery {
         }
     }
 
-    /// Puts the restored decks where they were (once the audio runs).
+    /// Puts the restored decks where they were (once the audio runs), but for one the DJ loaded
+    /// another track on meanwhile.
     pub fn seek(state: &AppState, decks: &[Option<SavedDeck>]) {
+        let loaded = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(|t| t.path.clone()));
         for (deck, saved) in decks.iter().enumerate() {
-            if let Some(saved) = saved {
+            let Some(saved) = saved else { continue };
+            if loaded.get(deck).is_some_and(|path| path.as_ref() == Some(&saved.path)) {
                 let _ = state.send(Command::Seek { deck, seconds: saved.position_s });
             }
         }

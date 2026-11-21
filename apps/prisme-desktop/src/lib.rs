@@ -80,7 +80,7 @@ mod usb_android;
 
 use actions::Actions;
 use controllers::Controllers;
-use crash_recovery::CrashRecovery;
+use crash_recovery::{CrashRecovery, SavedDeck};
 use library_service::LibraryService;
 use midi_clock::MidiClock;
 use prisme_session::JsonFile;
@@ -209,8 +209,12 @@ pub fn run() {
             prepare_window(app);
             let data_dir = data_dir(app);
             let library = manage_states(app, data_dir.as_deref());
-            restore_session(app, &library);
+            let restored = restore_decks(app, &library);
+            #[cfg(not(target_os = "android"))]
+            start_audio(app.handle(), &restored);
             start_services(app, &library);
+            #[cfg(target_os = "android")]
+            start_audio_apart(app.handle().clone(), restored);
             Ok(())
         })
         .invoke_handler(invoke_handler())
@@ -283,23 +287,39 @@ fn manage_states(app: &tauri::App, data_dir: Option<&Path>) -> Arc<LibraryServic
     library
 }
 
-/// The decks as the last run left them if it crashed (else as the dev start asks), and the
-/// audio started on them.
-fn restore_session(app: &tauri::App, library: &LibraryService) {
+/// The decks as the last run left them if it crashed (else as the dev start asks), loaded:
+/// those restored, to be put where they were once the audio runs.
+fn restore_decks(app: &tauri::App, library: &LibraryService) -> Vec<Option<SavedDeck>> {
     let restored = app.state::<CrashRecovery>().decks_to_restore();
     #[cfg(target_os = "android")]
     usb_android::install();
     let state = app.state::<AppState>();
     dev_startup::preload_tracks(app.handle(), &state, library);
     CrashRecovery::preload(app.handle(), &state, library, &restored);
+    restored
+}
+
+/// The audio started, the decks `restored` put where they were, then kept in case of a crash.
+fn start_audio(app: &tauri::AppHandle, restored: &[Option<SavedDeck>]) {
+    let state = app.state::<AppState>();
     start_saved_audio(&state);
-    CrashRecovery::seek(&state, &restored);
-    CrashRecovery::start(app.handle().clone());
+    CrashRecovery::seek(&state, restored);
+    CrashRecovery::start(app.clone());
     if let Some(gain) = dev_startup::master_gain() {
         if let Err(e) = state.send(prisme_engine::Command::SetMasterGain { gain }) {
             warn!("the master gain asked not set: {e}");
         }
     }
+}
+
+/// [`start_audio`] on a thread of its own: Android asks the DJ for a USB sound card, an answer
+/// the start must not wait for.
+#[cfg(target_os = "android")]
+fn start_audio_apart(app: tauri::AppHandle, restored: Vec<Option<SavedDeck>>) {
+    std::thread::Builder::new()
+        .name("prisme-audio-start".into())
+        .spawn(move || start_audio(&app, &restored))
+        .expect("cannot start the audio's start thread");
 }
 
 /// The threads that watch, play and tell: the audio's watchdog, the history, the Auto DJ, the
@@ -503,13 +523,14 @@ fn open_json<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static>
     file
 }
 
-/// The saved devices, or the default ones if they are missing (interface unplugged).
+/// The saved devices, or the default ones if they are missing (interface unplugged); neither
+/// if the audio runs already, the DJ having chosen devices meanwhile.
 fn start_saved_audio(state: &AppState) {
     let mut settings = state.preferences.get().audio;
     settings.simulate |= dev_startup::simulate_requested();
-    if let Err(e) = commands::audio::start_audio(state, &settings) {
+    if let Err(e) = commands::audio::start_audio_unless_running(state, &settings) {
         warn!("saved audio settings unusable ({e}), using the default devices");
-        if let Err(e) = commands::audio::start_audio(state, &settings.on_default_devices()) {
+        if let Err(e) = commands::audio::start_audio_unless_running(state, &settings.on_default_devices()) {
             error!("audio could not start: {e}");
         }
     }
