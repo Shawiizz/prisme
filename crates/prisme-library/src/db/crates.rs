@@ -19,23 +19,9 @@ pub struct Crate {
 }
 
 impl LibraryDb {
-    /// Every crate, by name.
-    pub fn crates(&self) -> Result<Vec<Crate>, DbError> {
-        let mut crates = self.crate_list()?;
-        if crates.iter().any(|c| c.rules.is_some()) {
-            let library = self.analysed_records()?;
-            for c in &mut crates {
-                if let Some(rules) = &c.rules {
-                    c.track_count = library.iter().filter(|r| rules.matches(r)).count();
-                }
-            }
-        }
-        Ok(crates)
-    }
-
     /// Every crate, by name, the tracks of a smart one not counted (0): whoever holds the
-    /// library counts them.
-    pub fn crate_list(&self) -> Result<Vec<Crate>, DbError> {
+    /// library counts them (`Browser::set_crates`).
+    pub fn crates(&self) -> Result<Vec<Crate>, DbError> {
         let crates: Vec<(CrateId, String, Option<String>, usize)> = {
             let conn = self.conn();
             let mut stmt = conn.prepare_cached(
@@ -224,7 +210,6 @@ mod tests {
         };
         let id = db.create_smart_crate("House", &house).unwrap();
         assert_eq!(db.crate_rules(id).unwrap(), Some(house));
-        assert_eq!(db.crates().unwrap()[0].track_count, 1);
         assert_eq!(db.crate_tracks(id).unwrap()[0].path, "a.mp3");
 
         let techno = SmartRules {

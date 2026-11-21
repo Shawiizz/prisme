@@ -6,12 +6,11 @@
 use super::edits::TrackEdits;
 use super::marks::TrackMarks;
 use super::{path_key, DbError, FileStamp, LibraryDb};
-use crate::scan::within;
 use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis, ANALYSIS_VERSION};
 use prisme_media::TrackTags;
 use rusqlite::{params, OptionalExtension, Row};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Version of what is read from the tags: bump it to read every file's tags again.
 pub const TAGS_VERSION: u32 = 1;
@@ -282,23 +281,6 @@ impl LibraryDb {
         Ok(rows.collect::<Result<_, _>>()?)
     }
 
-    /// The tracks under none of `folders`: loaded from elsewhere (a file dropped on a deck),
-    /// they stay until removed. One under a folder that is away (a drive unplugged) is not
-    /// among them, the folder still being one of `folders`.
-    pub fn records_outside(&self, folders: &[PathBuf]) -> Result<Vec<TrackRecord>, DbError> {
-        let paths: Vec<String> = {
-            let conn = self.conn();
-            let mut stmt = conn.prepare_cached("SELECT path FROM tracks ORDER BY path")?;
-            let rows = stmt.query_map([], |r| r.get(0))?;
-            rows.collect::<Result<_, _>>()?
-        };
-        let mut records = Vec::new();
-        for path in paths.iter().map(Path::new).filter(|path| !folders.iter().any(|f| within(path, f))) {
-            records.extend(self.get(path)?);
-        }
-        Ok(records)
-    }
-
     pub fn track_count(&self) -> Result<usize, DbError> {
         Ok(self.conn().query_row("SELECT COUNT(*) FROM tracks", [], |r| r.get::<_, i64>(0))? as usize)
     }
@@ -448,23 +430,6 @@ mod tests {
         assert_eq!(db.get(Path::new(path)).unwrap(), None);
         assert_eq!(db.cover(Path::new(path)).unwrap(), None);
         assert_eq!(db.cues(Path::new(path)).unwrap().len(), 1);
-    }
-
-    #[test]
-    fn tracks_outside_the_music_folders_are_those_loaded_from_elsewhere() {
-        let db = LibraryDb::open_in_memory().unwrap();
-        let folders = [PathBuf::from("C:/Music"), PathBuf::from("E:/Unplugged Sets")];
-        for path in
-            ["C:/Music/House/a.mp3", "E:/Unplugged Sets/b.mp3", "C:/Music 2/c.mp3", "D:/Downloads/d.mp3"]
-        {
-            db.save(&sample(path, "a", "t")).unwrap();
-        }
-        db.save(&TrackRecord::failed(Path::new("D:/Downloads/e.mp3"), STAMP, "corrupt".into())).unwrap();
-        let outside = |folders: &[PathBuf]| {
-            db.records_outside(folders).unwrap().into_iter().map(|r| r.path).collect::<Vec<_>>()
-        };
-        assert_eq!(outside(&folders), ["C:/Music 2/c.mp3", "D:/Downloads/d.mp3", "D:/Downloads/e.mp3"]);
-        assert_eq!(outside(&folders[..1]).len(), 4, "a folder removed leaves its tracks outside");
     }
 
     #[test]

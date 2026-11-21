@@ -166,14 +166,6 @@ impl Catalogue {
         self.tracks.iter().enumerate().filter(|(_, t)| t.record.is_some()).map(|(at, _)| TrackId(at as u32))
     }
 
-    pub fn len(&self) -> usize {
-        self.tracks.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.tracks.is_empty()
-    }
-
     fn push(&mut self, track: Track) -> TrackId {
         let id = TrackId(self.tracks.len() as u32);
         self.ids.insert(track.path.clone(), id);
