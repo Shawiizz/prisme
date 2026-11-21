@@ -5,7 +5,7 @@ use crate::choices;
 use crate::dto::InputChannelsDto;
 use crate::error::{AppError, AppResult};
 use crate::preferences::MixerPreferences;
-use crate::state::{live_preferences, lock, AppState};
+use crate::state::{live_preferences, AppState};
 use prisme_actions::switch::LiveSource;
 use prisme_engine::Command;
 use tauri::State;
@@ -19,7 +19,7 @@ pub fn set_live_input(
     input: Option<InputChannelsDto>,
 ) -> AppResult<()> {
     choose_live_input(&state, source, input)?;
-    let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+    let info = state.running_info();
     let channels = state.live_input(source, info.as_ref());
     state.send_if_running(Command::SetLiveInput {
         source: prisme_actions::engine_live(source),

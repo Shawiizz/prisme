@@ -217,7 +217,7 @@ impl DeckSettingsDto {
     /// The decks' settings as the interface shows them, `view` showing their knobs.
     pub fn all(state: &AppState, view: &View) -> Vec<Self> {
         let ranges = state.preferences.read(|p| std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d)));
-        let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+        let info = state.running_info();
         let samplers = lock(&state.samplers);
         let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
         let inputs = info.as_ref().map(|info| info.input_channels);

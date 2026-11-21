@@ -809,9 +809,9 @@ impl Performing<'_> {
         lock(&self.actions.memory)
     }
 
-    /// The Auto DJ lets go of `deck`'s transport, the DJ taking it.
-    fn take_over_transport(&self, deck: usize) {
-        take_over(self.auto_dj().as_deref(), Takeover::Transport(deck));
+    /// The Auto DJ, if it runs, lets go of what the DJ takes over by hand.
+    fn take_over(&self, takeover: Takeover) {
+        take_over(self.auto_dj().as_deref(), takeover);
     }
 
     /// The track on `deck` played or paused; the Auto DJ lets the deck go.

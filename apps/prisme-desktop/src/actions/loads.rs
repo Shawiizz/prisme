@@ -4,7 +4,7 @@
 //! deck that plays leaves it once the DJ says so, or never if the DJ chose so (see
 //! [`Performing::may_replace`]).
 
-use super::{deck, take_over, Performing, Source};
+use super::{deck, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
@@ -62,7 +62,7 @@ impl Performing<'_> {
         let (Some(path), Some(library)) = (self.track(), self.library) else { return Ok(()) };
         let path = path.to_owned();
         self.may_replace(target, deck, false)?;
-        take_over(self.auto_dj().as_deref(), Takeover::Load(deck));
+        self.take_over(Takeover::Load(deck));
         let previews = self.app.map(|app| app.state::<Previews>());
         let Some(completion) =
             track_loading::put_on_deck(self.state, library, previews.as_deref(), deck, path)?
@@ -82,11 +82,11 @@ impl Performing<'_> {
     /// instant double): nothing is read again. Nothing if that deck has no track.
     fn double(&self, target: &Target, deck: usize) -> AppResult<()> {
         let from = deck ^ 1;
-        if self.state.with_track(from, |_| ()).is_err() {
+        if !self.state.has_track(from) {
             return Ok(());
         }
         self.may_replace(target, deck, false)?;
-        take_over(self.auto_dj().as_deref(), Takeover::Load(deck));
+        self.take_over(Takeover::Load(deck));
         let turn = self.state.ask_load(deck);
         let track = self.state.with_track(from, |t| t.double())?;
         let auto_gain = self.state.preferences.read(|p| p.dj.auto_gain);

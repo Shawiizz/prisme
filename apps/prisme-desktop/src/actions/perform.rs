@@ -237,13 +237,11 @@ impl Performing<'_> {
                 _ => Ok(()),
             },
             // a track's key, 12 semitones down to 12 up
-            DeckAction::Key => match state.with_track(deck, |_| ()) {
-                Ok(()) => {
-                    let step = self.memory().faders.give_stepped(&target, at, KEY_STEPS);
-                    deck::set_key_shift(state, deck, step as i8 - 12)
-                }
-                Err(_) => Ok(()),
-            },
+            DeckAction::Key if state.has_track(deck) => {
+                let step = self.memory().faders.give_stepped(&target, at, KEY_STEPS);
+                deck::set_key_shift(state, deck, step as i8 - 12)
+            }
+            DeckAction::Key => Ok(()),
             DeckAction::SamplerGain => sampler::set_sampler_gain(state, deck, at),
             DeckAction::StemLevel(part) => deck::set_stem_level(state, deck, part, at),
             DeckAction::FxKnob(knob) => self.deck_fader(deck, self.fx_knob(deck, knob), at),

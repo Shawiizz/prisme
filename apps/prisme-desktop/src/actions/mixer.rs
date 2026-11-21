@@ -22,7 +22,7 @@ pub fn set_mix_mode(state: &AppState, mode: MixModeDto) -> AppResult<()> {
 
 /// Applies the routing the preferences give to the running audio, if any.
 pub fn route(state: &AppState) -> AppResult<()> {
-    let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(()) };
+    let Some(info) = state.running_info() else { return Ok(()) };
     state.send(Command::SetRouting { routing: state.routing(&info) })
 }
 

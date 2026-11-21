@@ -4,6 +4,7 @@
 //! tracks.
 
 use super::Performing;
+use crate::auto_dj::Takeover;
 use crate::error::AppResult;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_actions::cue::{self, CuePress};
@@ -95,7 +96,7 @@ impl Performing<'_> {
     /// deck go.
     pub(super) fn hot_cue(&self, deck: usize, slot: usize) -> AppResult<()> {
         let Ok(cue) = self.state.with_track(deck, |t| t.cue(hot(slot)).cloned()) else { return Ok(()) };
-        self.take_over_transport(deck);
+        self.take_over(Takeover::Transport(deck));
         match cue {
             Some(cue) => {
                 if let Some(length_s) = cue.loop_length_s {

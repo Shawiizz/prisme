@@ -1,6 +1,6 @@
 use crate::actions::{deck, transport, Actions, Order};
 use crate::audio_host::layer_partner;
-use crate::auto_dj::{AutoDj, Takeover};
+use crate::auto_dj::AutoDj;
 use crate::commands::audio::start_audio;
 use crate::commands::blocking;
 use crate::dto::VinylChangeDto;
@@ -22,10 +22,13 @@ pub fn hand(
     seconds: Option<f64>,
     at_ms: f64,
 ) -> AppResult<()> {
-    state.deck_in_use(deck)?;
-    auto_dj.take_over(Takeover::Transport(deck));
     let position_s = seconds.map(|s| s.max(0.0));
-    state.send(Command::Hand { deck, position_s, at_s: at_ms / 1000.0 })
+    transport::send_by_hand(
+        &state,
+        Some(&auto_dj),
+        deck,
+        Command::Hand { deck, position_s, at_s: at_ms / 1000.0 },
+    )
 }
 
 /// The track on `deck` put at `seconds`, within it; nothing without a track.
@@ -49,10 +52,8 @@ pub fn jog(
     seconds: f64,
     at_ms: f64,
 ) -> AppResult<()> {
-    state.deck_in_use(deck)?;
-    auto_dj.take_over(Takeover::Transport(deck));
     let turns = seconds / prisme_engine::JOG_TURN_S;
-    state.send(Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
+    transport::send_by_hand(&state, Some(&auto_dj), deck, Command::Jog { deck, turns, at_s: at_ms / 1000.0 })
 }
 
 /// A setting of the vinyl control of `deck` changed alone (see `deck::set_vinyl`); it is put on

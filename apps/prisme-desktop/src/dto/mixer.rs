@@ -281,7 +281,7 @@ impl RoutingStateDto {
     /// without one), and the live inputs it takes.
     pub fn of(state: &AppState, decks_in_use: usize) -> Self {
         let mixer = state.preferences.read(|p| p.mixer);
-        let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+        let info = state.running_info();
         let routing = info.as_ref().map(|info| state.routing(info));
         let switches = *lock(&state.live);
         let free = info.as_ref().map(free_inputs).unwrap_or_default();

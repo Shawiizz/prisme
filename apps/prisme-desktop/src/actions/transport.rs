@@ -23,10 +23,22 @@ pub fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {
     state.send(command)
 }
 
+/// Sends `command` to the engine for `deck`, one of those in use, moved by hand: the Auto DJ
+/// lets the deck go.
+pub fn send_by_hand(
+    state: &AppState,
+    auto_dj: Option<&AutoDj>,
+    deck: usize,
+    command: Command,
+) -> AppResult<()> {
+    state.deck_in_use(deck)?;
+    take_over(auto_dj, Takeover::Transport(deck));
+    state.send(command)
+}
+
 /// So many beats ahead, or back below zero; the Auto DJ lets the deck go.
 pub fn beat_jump(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, beats: f64) -> AppResult<()> {
-    take_over(auto_dj, Takeover::Transport(deck));
-    send(state, deck, Command::BeatJump { deck, beats })
+    send_by_hand(state, auto_dj, deck, Command::BeatJump { deck, beats })
 }
 
 /// Stores the loop of `deck` from `start_s` to `end_s`, playing it if `active`; without them,
@@ -45,16 +57,12 @@ pub fn set_loop(
 
 /// The track on `deck` played or paused; the Auto DJ lets the deck go.
 pub fn set_playing(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, playing: bool) -> AppResult<()> {
-    state.deck_in_use(deck)?;
-    take_over(auto_dj, Takeover::Transport(deck));
-    state.send(Command::SetPlaying { deck, playing })
+    send_by_hand(state, auto_dj, deck, Command::SetPlaying { deck, playing })
 }
 
 /// To `seconds` into the track; the Auto DJ lets the deck go.
 pub fn seek(state: &AppState, auto_dj: Option<&AutoDj>, deck: usize, seconds: f64) -> AppResult<()> {
-    state.deck_in_use(deck)?;
-    take_over(auto_dj, Takeover::Transport(deck));
-    state.send(Command::Seek { deck, seconds })
+    send_by_hand(state, auto_dj, deck, Command::Seek { deck, seconds })
 }
 
 /// To `seconds` into the track, within it; nothing without a track.

@@ -2,7 +2,7 @@
 //! track quickly, under shift say), the tempo fader, and the deck leading the others.
 
 use super::edits::GridChange;
-use super::{fx, mixer, take_over, transport, Performing};
+use super::{fx, mixer, transport, Performing};
 use crate::auto_dj::Takeover;
 use crate::dto::{RpmDto, StemMixDto, VinylChangeDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
@@ -34,7 +34,7 @@ pub(super) fn turn(doing: &Performing, deck: usize, action: DeckAction, input: I
     };
     // a hand let go of the wheel takes nothing over
     if !matches!(command, Command::JogTouch { touched: false, .. }) {
-        take_over(doing.auto_dj().as_deref(), Takeover::Transport(deck));
+        doing.take_over(Takeover::Transport(deck));
     }
     doing.state.send_if_running(command)
 }
@@ -333,7 +333,7 @@ pub fn scale_size(state: &AppState, deck: usize, factor: f64) -> AppResult<()> {
 
 /// The track's key moved to `semitones`, within 12 either way: nothing without a track.
 pub fn key_to(state: &AppState, deck: usize, semitones: i32) -> AppResult<()> {
-    if state.with_track(deck, |_| ()).is_err() {
+    if !state.has_track(deck) {
         return Ok(());
     }
     let most = i32::from(MAX_KEY_SHIFT);
@@ -344,7 +344,7 @@ impl Performing<'_> {
     /// The track on `deck` run through while `held`, back (`way` -1) or forward (1).
     pub(super) fn search(&self, deck: usize, way: f64, held: bool) -> AppResult<()> {
         if held {
-            self.take_over_transport(deck);
+            self.take_over(Takeover::Transport(deck));
         }
         let speed = if held { way * transport::SEARCH_SPEED } else { 0.0 };
         transport::send(self.state, deck, Command::Search { deck, speed })

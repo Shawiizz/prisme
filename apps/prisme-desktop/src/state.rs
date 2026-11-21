@@ -747,6 +747,16 @@ impl AppState {
         status.decks[..status.deck_count].iter().any(moves)
     }
 
+    /// Whether `deck` holds a track.
+    pub fn has_track(&self, deck: usize) -> bool {
+        lock(&self.tracks).get(deck).is_some_and(Option::is_some)
+    }
+
+    /// What the audio running is, if it runs.
+    pub fn running_info(&self) -> Option<AudioInfo> {
+        lock(&self.session).as_ref().map(|s| s.info.clone())
+    }
+
     /// Reads the track loaded on `deck` with `f`.
     pub fn with_track<R>(&self, deck: usize, f: impl FnOnce(&LoadedTrack) -> R) -> AppResult<R> {
         Self::deck_exists(deck)?;
@@ -919,7 +929,7 @@ impl AppState {
 
     /// Whether the software mixer runs: the channel faders are Prisme's.
     pub fn mixes_itself(&self) -> bool {
-        let info = lock(&self.session).as_ref().map(|s| s.info.clone());
+        let info = self.running_info();
         info.is_some_and(|info| self.routing(&info).mode == MixMode::Internal)
     }
 
@@ -931,7 +941,7 @@ impl AppState {
     /// The first output the preview is heard on: the headphones, on the running device, if
     /// they are apart from what the audience hears.
     pub fn preview_output(&self) -> AppResult<usize> {
-        let info = lock(&self.session).as_ref().map(|s| s.info.clone()).ok_or(AppError::AudioNotRunning)?;
+        let info = self.running_info().ok_or(AppError::AudioNotRunning)?;
         self.routing(&info).preview_output(info.decks).ok_or(AppError::NoPreviewOutput)
     }
 
