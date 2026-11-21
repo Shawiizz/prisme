@@ -27,6 +27,7 @@ import { LibrarySidebar } from '../library/library-sidebar/library-sidebar';
 import { PreviewStrip } from '../library/preview-strip/preview-strip';
 import { LIST_LABEL, SEARCH_PLACEHOLDER, emptyText } from '../library/list-labels';
 import { PhoneFolderPicker } from './phone-folder-picker';
+import { inSight } from './phone-sight';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
 import { lastName, parentOf, shortPath } from '../../core/folders';
@@ -182,6 +183,7 @@ export class PhoneLibrary {
   protected readonly letter = deckLetter;
 
   constructor() {
+    inSight(() => ({ kind: 'tracks' }));
     const destroyed = inject(DestroyRef);
     afterNextRender(() => {
       const list = this.list().nativeElement;

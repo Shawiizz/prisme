@@ -43,7 +43,7 @@ export type Setting =
 
 /** What a part of the phone's screen shows: a deck's readouts, its channel, its panel (with
  * the channel, or not), its pitch, its stems or its pads floating; the crossfader, the mixer's
- * sheet. */
+ * sheet; the tracks of the library. */
 export type View =
   | { kind: 'deck'; deck: number; compact: boolean }
   | { kind: 'channel'; deck: number }
@@ -52,7 +52,8 @@ export type View =
   | { kind: 'stems'; deck: number }
   | { kind: 'pads'; deck: number; mode: PadMode; fxSlot: number }
   | { kind: 'crossfader' }
-  | { kind: 'mixer' };
+  | { kind: 'mixer' }
+  | { kind: 'tracks' };
 
 const MIXER: Record<string, MixerSetting> = {
   'mixer.crossfader': 'crossfader',
@@ -171,6 +172,9 @@ export function shows(view: View, setting: Setting): boolean {
 export class PhoneSight {
   private readonly views = signal<readonly Signal<View | null>[]>([]);
   readonly shown = computed(() => this.views().flatMap((view) => view() ?? []));
+
+  /** Whether the screen shows the tracks of the library. */
+  readonly tracks = computed(() => this.shown().some((view) => view.kind === 'tracks'));
 
   /** Whether the screen shows `setting`. */
   showing(setting: Setting): boolean {

@@ -19,23 +19,29 @@ export interface SettingsPlace {
   setting: string | null;
 }
 
-/** What an action asks of the library in sight: brought up, left once a track is loaded from
- * it, or brought up and left in turn (the key showing it). */
-export type LibrarySight = 'show' | 'done' | 'toggle';
+/** What an action asks of the library in sight: brought up, its tracks gone through (which
+ * any list of them shows), left once a track is loaded from it, or brought up and left in turn
+ * (the key showing it). */
+export type LibrarySight = 'show' | 'browse' | 'done' | 'toggle';
+
+/** The actions going through the tracks of the list shown: its cursor, its order, the
+ * selection, the preview, another list opened. */
+const BROWSING =
+  /^library\.(browse|previous|next|page\.(previous|next)|sort\.\w+|preview(\.seek)?|selectAll|clearSelection|list\.open)$/;
 
 /**
  * What the action `id` done (by a controller, a key, the command palette) asks of the library
- * in sight: its browsing, its search, its lists, its sorts and its preview bring it up; a load
- * leaves it, the track chosen; the key showing it shows or leaves it. A double, the preview
- * stopped and the actions of the decks, the mixer or the effects leave the screen as it is
- * (`null`): the hands are on the controller, the DJ may be choosing a track.
+ * in sight: its browsing goes through its tracks; its search, its lists and the rest bring it
+ * up; a load leaves it, the track chosen; the key showing it shows or leaves it. A double, the
+ * preview stopped and the actions of the decks, the mixer or the effects leave the screen as it
+ * is (`null`): the hands are on the controller, the DJ may be choosing a track.
  */
 export function librarySight(id: string): LibrarySight | null {
   if (id === 'general.library') return 'toggle';
   if (!id.startsWith('library.')) return null;
   if (/^library\.load\d*(\.play)?$/.test(id)) return 'done';
   if (/^library\.double\d$/.test(id) || id === 'library.preview.stop') return null;
-  return 'show';
+  return BROWSING.test(id) ? 'browse' : 'show';
 }
 
 /** What is open over the main screen: the settings, the command palette. */

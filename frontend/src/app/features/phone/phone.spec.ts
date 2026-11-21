@@ -1,9 +1,12 @@
-import { Component, input } from '@angular/core';
+import { Component, input, signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { ControlState } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
+import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
+import { PhoneSight } from './phone-sight';
+import type { LibraryView } from '../../core/models/backend';
 import { SETTINGS_PAGES } from '../settings/settings-catalog';
 
 @Component({ selector: 'app-phone-decks', template: '' })
@@ -144,6 +147,23 @@ describe('Phone', () => {
     touch(LIBRARY_TAB);
     done('library.load1');
     expect(shown()).toBe(LIBRARY_TAB);
+  });
+
+  it('leaves the library under the decks where they show it, but for its lists', () => {
+    const peek = fixture.debugElement.injector.get(PhoneSight).show(signal({ kind: 'tracks' }));
+    done('library.browse');
+    done('library.next');
+    expect(shown()).toBe(DECKS_TAB);
+    done('library.load1');
+    expect(shown()).toBe(DECKS_TAB);
+    done('library.lists');
+    expect(shown()).toBe(LIBRARY_TAB);
+    done('library.load1');
+    expect(shown()).toBe(DECKS_TAB);
+    TestBed.inject(LibraryService).view.set({ focus: 'lists' } as LibraryView);
+    done('library.browse');
+    expect(shown()).toBe(LIBRARY_TAB);
+    peek();
   });
 
   it('shows the library and leaves it in turn with the key showing it', () => {

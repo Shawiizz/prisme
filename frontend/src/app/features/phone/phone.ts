@@ -63,6 +63,7 @@ export class Phone {
   protected readonly recording = inject(RecordingService);
   private readonly settings = inject(SettingsService);
   private readonly controllers = inject(ControllerService);
+  private readonly inSight = inject(PhoneSight);
 
   protected readonly tab = signal<Tab>('decks');
   /** The screen the library was brought over by an action, gone back to once a track is
@@ -146,10 +147,14 @@ export class Phone {
   }
 
   /** Brings the library into sight over the screen shown, the palette closed, or goes back to
-   * that screen, as `sight` asks: a track loaded leaves only a library brought up so. */
+   * that screen, as `sight` asks: a track loaded leaves only a library brought up so. Its tracks
+   * gone through stay where the screen shows them (under the decks), but for its lists. */
   private sight(sight: LibrarySight) {
     const shown = this.tab() === 'library';
-    if (sight === 'show' || (sight === 'toggle' && !shown)) {
+    const tracksShown = this.inSight.tracks() && this.library.view()?.focus !== 'lists';
+    if (sight === 'browse' && tracksShown) {
+      this.navigation.palette.set(false);
+    } else if (sight === 'show' || sight === 'browse' || (sight === 'toggle' && !shown)) {
       this.navigation.palette.set(false);
       if (shown) return;
       this.lentFrom = this.tab();

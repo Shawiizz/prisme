@@ -2,23 +2,32 @@ import { TestBed } from '@angular/core/testing';
 import { NavigationService, librarySight } from './navigation.service';
 
 describe('librarySight', () => {
-  it('brings the library up for its browsing, its search, its lists, its sorts and its preview', () => {
+  it('goes through its tracks for its browsing, its sorts, its selection and its preview', () => {
     const ids = [
       'library.browse',
       'library.next',
+      'library.previous',
       'library.page.previous',
+      'library.list.open',
+      'library.sort.bpm',
+      'library.selectAll',
+      'library.clearSelection',
+      'library.preview',
+      'library.preview.seek',
+    ];
+    expect(ids.filter((id) => librarySight(id) !== 'browse')).toEqual([]);
+  });
+
+  it('brings the library up for its search, its lists and what changes them', () => {
+    const ids = [
       'library.focus',
       'library.lists',
       'library.list.next',
-      'library.list.open',
+      'library.left',
       'library.go',
       'library.search',
-      'library.sort.bpm',
-      'library.selectAll',
       'library.remove',
       'library.prepare',
-      'library.preview',
-      'library.preview.seek',
     ];
     expect(ids.filter((id) => librarySight(id) !== 'show')).toEqual([]);
   });
@@ -53,9 +62,9 @@ describe('NavigationService', () => {
     const navigation = TestBed.inject(NavigationService);
     navigation.done('deck1.play');
     expect(navigation.libraryWanted()).toBeNull();
-    navigation.done('library.browse');
+    navigation.done('library.lists');
     const first = navigation.libraryWanted();
-    navigation.done('library.next');
+    navigation.done('library.list.next');
     expect(navigation.libraryWanted()).toEqual({ sight: 'show' });
     expect(navigation.libraryWanted()).not.toBe(first);
     navigation.done('library.load1');
