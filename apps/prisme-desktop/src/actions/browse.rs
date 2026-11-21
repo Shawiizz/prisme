@@ -334,7 +334,7 @@ pub fn reload(state: &AppState, db: &LibraryDb) {
 /// The lists the library keeps read again: the crates, the sets, the prepare list, and the
 /// tracks of the set going on.
 pub fn lists(state: &AppState, db: &LibraryDb) -> AppResult<()> {
-    let crates = db.crate_list()?;
+    let crates = db.crates()?;
     let sessions = db.history_sessions()?;
     let prepare: Vec<String> = db.prepare_list()?.into_iter().map(|e| e.path).collect();
     let latest = sessions.iter().max_by_key(|s| s.started_at_ms);
@@ -394,7 +394,7 @@ pub fn up(state: &AppState, db: &LibraryDb) -> AppResult<()> {
 }
 
 /// The list shown read again, searched, sorted and picked as it was: what it holds changed.
-pub fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
+fn refresh(state: &AppState, db: &LibraryDb) -> AppResult<()> {
     let source = lock(&state.library).browser.source().clone();
     let read = read(state, db, &source)?;
     state.browse(|l| {
@@ -552,8 +552,8 @@ pub fn add_to_crate(state: &AppState, db: &LibraryDb, id: CrateId, paths: &[Stri
 }
 
 /// The crates read again, and the crate `changed` shown with them.
-pub fn crates_changed(state: &AppState, db: &LibraryDb, changed: Option<CrateId>) -> AppResult<()> {
-    let crates = db.crate_list()?;
+fn crates_changed(state: &AppState, db: &LibraryDb, changed: Option<CrateId>) -> AppResult<()> {
+    let crates = db.crates()?;
     let shown = state.browse(|l| {
         l.browser.set_crates(crates);
         changed.is_some_and(|id| *l.browser.source() == Source::Crate(id))

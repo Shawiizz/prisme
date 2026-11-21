@@ -17,6 +17,7 @@ use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_actions::perform::PerformState;
 use prisme_actions::switch::LiveSource;
+use prisme_actions::view::plays;
 use prisme_analysis::TrackAnalysis;
 use prisme_engine::{
     BeatGrid, Command, DeckStatus, EngineConfig, EngineController, EngineStatus, LoopRegion, MixMode,
@@ -736,7 +737,7 @@ impl AppState {
 
     /// Whether `deck` plays: its track moves, by itself or under a record.
     pub fn deck_plays(&self, deck: usize) -> bool {
-        self.deck_status(deck).is_ok_and(|d| moves(&d))
+        self.deck_status(deck).is_ok_and(|d| plays(&d))
     }
 
     /// Whether a deck plays: its track moves, by itself or under a record.
@@ -744,7 +745,7 @@ impl AppState {
         let mut session = lock(&self.session);
         let Some(session) = session.as_mut() else { return false };
         let status = session.controller.status();
-        status.decks[..status.deck_count].iter().any(moves)
+        status.decks[..status.deck_count].iter().any(plays)
     }
 
     /// Whether `deck` holds a track.
@@ -1173,11 +1174,6 @@ pub fn free_inputs(info: &AudioInfo) -> Vec<usize> {
 /// The channels chosen for a live source, if they are all `free`.
 pub fn live_channels(chosen: Option<InputChannelsDto>, free: &[usize]) -> Option<InputChannelsDto> {
     chosen.filter(|c| c.channels().all(|channel| free.contains(&channel)))
-}
-
-/// A deck's track moves, by itself or under a record: the DJ hears or holds it.
-fn moves(d: &DeckStatus) -> bool {
-    prisme_actions::view::plays(d)
 }
 
 /// Decks layered on one turntable of the device of `info` (see `layer_partner`) read its one

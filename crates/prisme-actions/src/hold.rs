@@ -5,7 +5,7 @@ use prisme_control::{DeckAction, DeckSwitch, Target, Turn};
 
 /// Held this long (ms), the SYNC of the screen and of the keyboard matches the leader once
 /// instead of locking to it.
-pub const SYNC_HOLD_MS: u32 = 450;
+const SYNC_HOLD_MS: u32 = 450;
 /// A tempo key held steps again after this wait (ms), then at this pace.
 const REPEAT_WAIT_MS: u32 = 400;
 const REPEAT_EVERY_MS: u32 = 60;

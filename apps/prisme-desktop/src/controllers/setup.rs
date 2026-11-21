@@ -141,7 +141,7 @@ impl Controllers {
     }
 
     /// The controllers plugged in when last looked for, and those in use that are not.
-    pub(super) fn listed(&self) -> ControllersDto {
+    fn listed(&self) -> ControllersDto {
         let plugged = lock(&self.plugged).clone();
         let setup = self.setup();
         let missing: Vec<String> =

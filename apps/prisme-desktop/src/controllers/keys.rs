@@ -134,7 +134,7 @@ impl Controllers {
     /// What a key drives instead of its action as it is: another action pressed twice or
     /// with another key held, a fader put at a position, its action latched. `None` when it
     /// drives its action as it is.
-    pub(super) fn instead(
+    fn instead(
         &self,
         device: &str,
         event: Event,
@@ -191,7 +191,7 @@ impl Controllers {
     /// A key whose action waits to know whether it is held: pressed, nothing yet; let go
     /// before its time, its own actions (those it drives along too) pressed and let go, or its
     /// mode chosen; after, the hold's let go.
-    pub(super) fn hold(
+    fn hold(
         &self,
         device: &str,
         event: Event,

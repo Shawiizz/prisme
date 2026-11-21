@@ -14,7 +14,7 @@ const TRIM_RANGE_DB: f32 = 12.0;
 const LIVE_UNITY: f32 = 0.75;
 const LIVE_BOOST_DB: f32 = 12.0;
 /// The headphone volume knob goes up to +3.5 dB.
-pub const MAX_HEADPHONE_GAIN: f32 = 1.5;
+const MAX_HEADPHONE_GAIN: f32 = 1.5;
 
 /// EQ: full left removes the band, the centre is flat, full right +6 dB.
 pub fn eq_gain(knob: f32) -> f32 {

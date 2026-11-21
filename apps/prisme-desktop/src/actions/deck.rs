@@ -19,7 +19,7 @@ use tracing::warn;
 /// Seconds of track a turn of a jog wheel goes through in a search.
 const SEARCH_SECONDS_PER_TURN: f64 = 10.0;
 /// How far a key moves, either way.
-pub const MAX_KEY_SHIFT: u8 = 12;
+const MAX_KEY_SHIFT: u8 = 12;
 
 /// A jog wheel of `deck` turned, touched or let go (`action`) by `input`, its turns not
 /// added up as an encoder's steps: they come as finely as the wheel tells them.
@@ -83,7 +83,7 @@ pub fn set_key_shift(state: &AppState, deck: usize, semitones: i8) -> AppResult<
 
 /// How the track on `deck` plays each part, until the next load: the parts it turns on or off
 /// from the next bar if `on_bar` (see `Command::SetStemMix`).
-pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
+fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool) -> AppResult<()> {
     state.change_track(deck, |t| t.stem_mix = mix)?;
     state.send_if_running(Command::SetStemMix { deck, mix: mix.into(), on_bar })
 }
@@ -127,7 +127,7 @@ pub fn set_stem_level(state: &AppState, deck: usize, part: StemPart, level: f32)
 }
 
 /// The deck chosen to lead the others; `None`: the engine picks it.
-pub fn set_sync_leader(state: &AppState, deck: Option<usize>) -> AppResult<()> {
+fn set_sync_leader(state: &AppState, deck: Option<usize>) -> AppResult<()> {
     if let Some(d) = deck {
         state.deck_in_use(d)?;
     }

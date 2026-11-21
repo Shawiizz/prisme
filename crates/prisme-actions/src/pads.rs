@@ -15,7 +15,7 @@ pub const PADS: usize = 8;
 /// The loops of the screen's LOOP pads, in beats.
 pub const LOOP_BEATS: [f64; PADS] = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0];
 /// The jumps of its JUMP pads, in beats.
-pub const JUMP_BEATS: [f64; PADS] = [-32.0, -16.0, -4.0, -1.0, 1.0, 4.0, 16.0, 32.0];
+const JUMP_BEATS: [f64; PADS] = [-32.0, -16.0, -4.0, -1.0, 1.0, 4.0, 16.0, 32.0];
 
 /// A loop this close to a length (of a beat, or of the deck's size) has it.
 const LOOP_LENGTH_WITHIN: f64 = 0.01;

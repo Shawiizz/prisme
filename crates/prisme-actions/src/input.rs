@@ -120,7 +120,7 @@ pub struct Stepped {
 
 impl Stepped {
     /// The step of `count` at `position`.
-    pub fn step_at(position: f32, count: usize) -> usize {
+    fn step_at(position: f32, count: usize) -> usize {
         ((position * count as f32).floor().max(0.0) as usize).min(count - 1)
     }
 

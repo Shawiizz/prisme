@@ -152,7 +152,7 @@ impl Shade<'_> {
 
 impl Lit {
     /// `control` at `value`, unless it shows it already.
-    pub(super) fn show(&mut self, control: Control, value: u8) -> Option<Lighting<'static>> {
+    fn show(&mut self, control: Control, value: u8) -> Option<Lighting<'static>> {
         (self.shown.insert(control, value) != Some(value)).then_some(Lighting::Value(control, value))
     }
 
@@ -180,7 +180,7 @@ impl Lit {
 
     /// `control` shown by a message of its own, unless it shows it already; the message kept
     /// is written over, not made again.
-    pub(super) fn message(&mut self, control: Control, message: &[u8]) -> Option<Lighting<'_>> {
+    fn message(&mut self, control: Control, message: &[u8]) -> Option<Lighting<'_>> {
         self.blinking.remove(&control);
         self.shown.remove(&control);
         let kept = self.messages.entry(control).or_default();

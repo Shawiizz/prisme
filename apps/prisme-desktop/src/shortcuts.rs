@@ -107,7 +107,7 @@ pub fn default_keys(control: &str) -> Vec<KeyPreference> {
 }
 
 /// The keys of `control` among `shortcuts`.
-pub fn keys_of(shortcuts: &[Shortcut], control: &str) -> Vec<KeyPreference> {
+fn keys_of(shortcuts: &[Shortcut], control: &str) -> Vec<KeyPreference> {
     shortcuts.iter().filter(|s| s.control == control).map(|s| s.key.clone()).collect()
 }
 

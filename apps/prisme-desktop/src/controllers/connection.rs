@@ -24,7 +24,7 @@ use tracing::{error, info, warn};
 
 impl Controllers {
     /// The controllers plugged in: the MIDI ports, and the HID devices that may be controllers.
-    pub fn plugged() -> Vec<String> {
+    pub(super) fn plugged() -> Vec<String> {
         let midi = MidiInput::new(CLIENT).map(|input| port_names(&input)).unwrap_or_else(|e| {
             warn!("MIDI ports not listed: {e}");
             Vec::new()
@@ -186,13 +186,13 @@ impl Controllers {
     }
 
     /// The ports the controllers are open on.
-    pub(super) fn ports_open(&self) -> Vec<String> {
+    fn ports_open(&self) -> Vec<String> {
         lock(&self.connections).iter().map(|c| c.port.clone()).collect()
     }
 
     /// Takes out the connections `which` picks, closed once the lock is let go: closing one
     /// waits for its callback, which may be waiting for the lock (see [`Self::receive`]).
-    pub(super) fn take_connections(&self, which: impl Fn(&Connection) -> bool) -> Vec<Connection> {
+    fn take_connections(&self, which: impl Fn(&Connection) -> bool) -> Vec<Connection> {
         lock(&self.connections).extract_if(.., |c| which(c)).collect()
     }
 
@@ -272,7 +272,7 @@ impl Controllers {
     }
 
     /// Opens the HID controller `device`: its reports are read from its own thread.
-    pub(super) fn open_hid(&self, app: &AppHandle, device: &str) -> AppResult<()> {
+    fn open_hid(&self, app: &AppHandle, device: &str) -> AppResult<()> {
         let plugged = hid_plugged();
         let names: Vec<String> = plugged.iter().map(|p| p.name.clone()).collect();
         let at = port_of(&names, device, &self.ports_open())

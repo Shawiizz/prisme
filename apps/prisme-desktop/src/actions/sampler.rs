@@ -64,7 +64,7 @@ fn plays(state: &AppState, deck: usize, slot: usize) -> bool {
     state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0)
 }
 
-pub fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
+fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
     AppState::deck_exists(deck)?;
     if slot < SAMPLE_SLOTS {
         Ok(())
