@@ -31,6 +31,16 @@ runs:
       if: runner.os == 'Windows'
       shell: pwsh
       run: ./scripts/setup-dev.ps1
+    # asio-sys unpacks the SDK it fetches by renaming the first folder of the temporary folder
+    # whose name starts with "asio", which on the runners is not the SDK: it is unpacked here
+    - name: ASIO SDK
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $zip = Join-Path $env:RUNNER_TEMP 'asiosdk.zip'
+        Invoke-WebRequest https://www.steinberg.net/asiosdk -OutFile $zip
+        Expand-Archive $zip -DestinationPath $env:RUNNER_TEMP -Force
+        "CPAL_ASIO_DIR=$(Join-Path $env:RUNNER_TEMP 'ASIOSDK')" >> $env:GITHUB_ENV
     - name: Resource compiler
       if: runner.os == 'Windows'
       shell: pwsh
