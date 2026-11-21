@@ -1,6 +1,7 @@
 import {
   Component,
   ElementRef,
+  afterRenderEffect,
   computed,
   effect,
   inject,
@@ -123,6 +124,11 @@ export class LibrarySidebar {
       () => this.folderMenu() !== null,
       () => this.folderMenu.set(null),
     );
+    // the list the knob points at kept in sight
+    afterRenderEffect(() => {
+      if (this.pointed() === null) return;
+      this.host.querySelector('.item.pointed')?.scrollIntoView({ block: 'nearest' });
+    });
   }
 
   /** Drags the line above `section`: it grows as the line goes up, as tall as its rows or into
@@ -159,7 +165,9 @@ export class LibrarySidebar {
     saveSize(HEIGHTS_KEY, this.heights());
   }
 
+  /** Folded by the DJ, the crates open while the knob points at one. */
   isFolded(section: Foldable): boolean {
+    if (section === 'crates' && typeof this.pointed() === 'number') return false;
     return this.folded().includes(section);
   }
 
