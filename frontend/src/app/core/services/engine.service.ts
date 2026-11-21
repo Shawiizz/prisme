@@ -360,19 +360,23 @@ export class EngineService {
   }
 
   /** What the backend did not do, for the app or a controller: the track of a deck that plays
-   * stays there (said for a few seconds, not as an error), or leaves it once the DJ says so; a
+   * stays there, and a record holding its deck in place (ABS) keeps the track where it is (both
+   * said for a few seconds, not as errors), or the track leaves the deck once the DJ says so; a
    * deck put on its record or its input while the driver has the turntables off waits for the
    * DJ to turn them on. Said yes, the action is done `again` (by default, performed again, on
    * the track it took if it took one); any other failure is shown.
    * Whether it was done in the end. */
   async failed(error: unknown, again?: () => Promise<boolean>): Promise<boolean> {
-    if (isBackendError(error) && error.code === 'deckPlays') {
+    if (isBackendError(error) && (error.code === 'deckPlays' || error.code === 'recordHolds')) {
       const letter = { deck: deckLetter(Number(error.params['deck'])) };
-      this.refuse(
-        error.params['eject']
-          ? t('Deck {deck} is playing: its track stays on it', letter)
-          : t('Deck {deck} is playing: nothing is loaded on it', letter),
-      );
+      if (error.code === 'recordHolds')
+        this.refuse(t('The record holds deck {deck} in ABS', letter));
+      else
+        this.refuse(
+          error.params['eject']
+            ? t('Deck {deck} is playing: its track stays on it', letter)
+            : t('Deck {deck} is playing: nothing is loaded on it', letter),
+        );
       return false;
     }
     if (!isBackendError(error) || !Object.hasOwn(QUESTIONS, error.code)) {

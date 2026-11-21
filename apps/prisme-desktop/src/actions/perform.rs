@@ -24,12 +24,19 @@ use prisme_engine::Command;
 use transport::{PITCH_BEND, SMALL_BEND, TEMPO_STEP};
 
 impl Performing<'_> {
-    /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light.
+    /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light;
+    /// refused if its deck's record holds it in place and it would move its track, but a key let
+    /// go, which lets go of what it held.
     pub(super) fn perform(&self, target: &Target, input: Input) -> AppResult<()> {
         if target.kind() == Kind::Light
             || target.deck().is_some_and(|deck| self.state.deck_in_use(deck).is_err())
         {
             return Ok(());
+        }
+        if let Target::Deck(deck, action) = *target {
+            if action.kind() != Kind::Button || input.amount() > 0.0 {
+                transport::record_allows(self.state, deck, action)?;
+            }
         }
         if let Target::Deck(deck, action @ (DeckAction::Jog | DeckAction::JogTouch | DeckAction::JogSearch)) =
             *target
@@ -775,7 +782,7 @@ mod faders {
 #[cfg(test)]
 mod switches {
     use crate::actions::bench::Bench;
-    use crate::dto::CrossfaderCurveDto;
+    use crate::dto::{CrossfaderCurveDto, VinylModeDto};
     use crate::state::{lock, LoadedTrack};
     use prisme_actions::input::Input;
     use prisme_engine::Command;
@@ -1006,11 +1013,16 @@ mod switches {
         assert_eq!(lock(&bench.state.decks)[0].side, Some(prisme_control::Side::Right));
     }
 
+    fn on_a_relative_record(bench: &Bench, deck: usize) {
+        let mut decks = lock(&bench.state.decks);
+        (decks[deck].vinyl_enabled, decks[deck].vinyl_mode) = (true, VinylModeDto::Relative);
+    }
+
     #[test]
     fn sync_locks_a_deck_or_matches_a_record_once() {
         let bench = Bench::new();
         press(&bench, "deck1.sync.on");
-        lock(&bench.state.decks)[1].vinyl_enabled = true;
+        on_a_relative_record(&bench, 1);
         press(&bench, "deck2.sync");
         press(&bench, "deck1.sync.once");
         assert!(matches!(
@@ -1035,7 +1047,7 @@ mod switches {
             bench.sent()[..],
             [Command::SetPitch { deck: 0, .. }, Command::SyncOnce { deck: 0 }]
         ));
-        lock(&bench.state.decks)[1].vinyl_enabled = true;
+        on_a_relative_record(&bench, 1);
         press(&bench, "deck2.sync.once");
         assert_eq!(lock(&bench.state.decks)[1].pitch, 1.0, "the record keeps its tempo");
         assert!(matches!(bench.sent()[..], [Command::SyncOnce { deck: 1 }]));
@@ -1051,5 +1063,206 @@ mod switches {
         assert_eq!(beats(), 8.0);
         turn(&bench, "deck1.fx3.beats", -9.0);
         assert_eq!(beats(), 0.125);
+    }
+}
+
+#[cfg(test)]
+mod under_a_record {
+    //! A record holding its deck in place (ABS) refuses what would move its track, or start or
+    //! stop it; one in REL, or a deck playing by itself, does all of it.
+
+    use crate::actions::bench::Bench;
+    use crate::actions::deck::set_mode;
+    use crate::actions::{Answer, InTurn, Moved, Source, FAILED_EVENT};
+    use crate::error::AppError;
+    use crate::state::lock;
+    use prisme_actions::input::Input;
+    use prisme_actions::screen::Drive;
+    use prisme_control::Target;
+    use prisme_engine::Command;
+    use prisme_library::{Cue, CueSlot};
+    use std::sync::Arc;
+
+    /// Pressed, held or turned: each family of what moves the track.
+    const MOVING: [&str; 40] = [
+        "deck1.play",
+        "deck1.cue",
+        "deck1.cue.play",
+        "deck1.cue.stop",
+        "deck1.cue.goto",
+        "deck1.start",
+        "deck1.start.play",
+        "deck1.start.keep",
+        "deck1.end",
+        "deck1.hotcue1",
+        "deck1.loop",
+        "deck1.loop.4",
+        "deck1.loop.size",
+        "deck1.loop.in",
+        "deck1.loop.out",
+        "deck1.loop.halve",
+        "deck1.loop.double",
+        "deck1.reloop",
+        "deck1.reloop.stop",
+        "deck1.loop.in.goto",
+        "deck1.loop.out.goto",
+        "deck1.loop.move.forward",
+        "deck1.loop.clear",
+        "deck1.roll3",
+        "deck1.roll.0.5",
+        "deck1.slice2",
+        "deck1.jump.back",
+        "deck1.jump.forward",
+        "deck1.jump.-8",
+        "deck1.search.back",
+        "deck1.search.forward",
+        "deck1.censor",
+        "deck1.reverse.held",
+        "deck1.reverse",
+        "deck1.slip.held",
+        "deck1.slip.on",
+        "deck1.brake",
+        "deck1.spinback",
+        "deck1.sync.on",
+        "deck1.sync.once",
+    ];
+
+    /// Deck A with a minute of track at 120 BPM, at 10 s, its hot cue 1 at 30 s and its cue
+    /// point at 20 s, driven by `drive`.
+    fn deck_a(drive: Drive) -> Bench {
+        let bench = Bench::new();
+        bench.load(0, 60.0, Some(120.0));
+        bench.load(1, 60.0, Some(120.0));
+        bench.at(0, 10.0);
+        let mut tracks = lock(&bench.state.tracks);
+        let track = tracks[0].as_mut().unwrap();
+        track.put_cue(Cue::point(CueSlot::Hot(0), 30.0));
+        track.put_cue(Cue::point(CueSlot::Main, 20.0));
+        drop(tracks);
+        set_mode(&bench.state, 0, drive, None).unwrap();
+        bench.run(0.01);
+        bench.sent();
+        bench
+    }
+
+    fn held(outcome: Result<(), AppError>) -> bool {
+        matches!(outcome, Err(AppError::RecordHolds { deck: 0 }))
+    }
+
+    #[test]
+    fn in_abs_every_key_moving_the_track_is_refused_and_its_release_lets_go() {
+        let bench = deck_a(Drive::Absolute);
+        for id in MOVING {
+            assert!(held(bench.press(id, 1.0)), "{id}");
+            assert!(bench.sent().is_empty(), "{id} sent nothing");
+            bench.press(id, 0.0).unwrap();
+            bench.sent();
+        }
+        let turned = Input::Steps { steps: 2.0, step: None };
+        for id in ["deck1.loop.move", "deck1.jog.search"] {
+            assert!(held(bench.moved("DDJ", id, turned)), "{id}");
+        }
+        let screen = Source::Interface { confirmed: false };
+        assert!(held(bench.perform("deck1.position", Input::Value(0.5), screen)));
+        bench.run(0.01);
+        let status = bench.status(0);
+        assert!((status.position_s - 10.0).abs() < 0.01 && !status.playing, "{status:?}");
+    }
+
+    #[test]
+    fn in_abs_a_hot_cue_is_marked_the_mixer_the_effects_and_the_cues_kept_go_on() {
+        let bench = deck_a(Drive::Absolute);
+        for id in [
+            "deck1.hotcue2",
+            "deck1.hotcue1.delete",
+            "deck1.cue.set",
+            "deck1.cut2",
+            "deck1.fx",
+            "deck1.keylock",
+            "deck1.sync.leader",
+            "deck1.headphones",
+            "deck1.eq.low.kill",
+            "deck1.jog.touch",
+        ] {
+            bench.press(id, 1.0).unwrap_or_else(|e| panic!("{id}: {e}"));
+            bench.press(id, 0.0).unwrap();
+        }
+        bench.press("deck1.volume", 0.5).unwrap();
+        let cue = |slot| bench.state.with_track(0, |t| t.cue(slot).map(|c| c.position_s)).unwrap();
+        assert_eq!(cue(CueSlot::Hot(1)), Some(10.0), "marked where the record is");
+        assert_eq!(cue(CueSlot::Hot(0)), None, "deleted");
+        assert_eq!(cue(CueSlot::Main), Some(10.0));
+        let sent = bench.sent();
+        assert!(!sent.iter().any(|c| matches!(c, Command::Seek { .. } | Command::Jump { .. })));
+    }
+
+    #[test]
+    fn in_rel_and_played_by_itself_every_key_moving_the_track_does() {
+        for drive in [Drive::Relative, Drive::Internal] {
+            let bench = deck_a(drive);
+            for id in MOVING {
+                bench.press(id, 1.0).unwrap_or_else(|e| panic!("{drive:?} {id}: {e}"));
+                bench.press(id, 0.0).unwrap();
+            }
+            assert!(!bench.sent().is_empty());
+        }
+    }
+
+    #[test]
+    fn in_rel_a_cue_a_hot_cue_a_jump_and_a_loop_put_the_track_where_they_say() {
+        let bench = deck_a(Drive::Relative);
+        let at = |id: &str| {
+            bench.press(id, 1.0).unwrap();
+            bench.press(id, 0.0).unwrap();
+            bench.run(0.01);
+            bench.status(0).position_s
+        };
+        assert_eq!(at("deck1.hotcue1"), 30.0);
+        assert_eq!(at("deck1.jump.-8"), 26.0);
+        assert_eq!(at("deck1.cue.goto"), 20.0);
+        assert_eq!(at("deck1.start"), 0.0);
+        at("deck1.loop.4");
+        assert!(bench.status(0).looping.active);
+        bench.at(0, 12.0);
+        assert!((bench.status(0).position_s - 12.0).abs() < 1e-3, "the screen's place");
+    }
+
+    #[test]
+    fn a_controller_is_told_a_refusal_once_for_the_messages_of_a_gesture() {
+        let bench = Arc::new(deck_a(Drive::Absolute));
+        let send = |id: &str, value: f32| {
+            let source =
+                Source::Controller(Moved { device: "DDJ".into(), at_s: 0.0, jog_steps_per_turn: 720.0 });
+            let target: Target = id.parse().unwrap();
+            bench.actions.perform(
+                &bench,
+                &target,
+                Input::Value(value),
+                source,
+                Answer::Told,
+                &mut InTurn::default(),
+            );
+        };
+        for value in [0.2, 0.4, 0.6, 0.8] {
+            send("deck1.position", value);
+        }
+        send("deck1.cue", 1.0);
+        send("deck1.cue", 0.0);
+        let told = bench.told();
+        assert_eq!(told.len(), 1, "{told:?}");
+        assert_eq!(told[0].0, FAILED_EVENT);
+        assert_eq!(told[0].1["code"], "recordHolds");
+        assert_eq!(told[0].1["params"]["deck"], 0);
+    }
+
+    #[test]
+    fn the_fader_start_leaves_a_deck_its_record_holds_in_place_alone() {
+        let bench = deck_a(Drive::Absolute);
+        lock(&bench.state.decks)[0].fader_start = true;
+        for gain in [0.0, 1.0, 0.0] {
+            crate::actions::mixer::set_volume(&bench.state, 0, gain).unwrap();
+        }
+        let sent = bench.sent();
+        assert!(sent.iter().all(|c| matches!(c, Command::SetVolume { .. })));
     }
 }

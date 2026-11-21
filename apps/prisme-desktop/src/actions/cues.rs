@@ -8,6 +8,7 @@ use crate::auto_dj::Takeover;
 use crate::error::AppResult;
 use crate::state::{lock, AppState, LoadedTrack};
 use prisme_actions::cue::{self, CuePress};
+use prisme_actions::screen::Drive;
 use prisme_engine::{BeatGrid, Command, LoopRegion};
 use prisme_library::{Cue, CueSlot};
 
@@ -65,14 +66,14 @@ impl Performing<'_> {
 
     /// The main cue point where `deck` plays (on the nearest beat with quantize). A stopped
     /// deck goes there, on the cue point then; a playing one plays on, with no jump in the
-    /// music.
+    /// music, and a record holding the deck in place keeps it where it is.
     pub(super) fn set_cue_here(&self, deck: usize) -> AppResult<()> {
         let Ok(status) = self.state.deck_status(deck) else { return Ok(()) };
         if !status.loaded {
             return Ok(());
         }
         let cue_s = self.set_main_cue(deck, status.position_s)?;
-        if cue::playing(&status) {
+        if cue::playing(&status) || self.state.drive(deck) == Drive::Absolute {
             Ok(())
         } else {
             self.seek(deck, cue_s)

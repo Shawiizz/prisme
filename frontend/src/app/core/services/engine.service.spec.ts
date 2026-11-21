@@ -75,6 +75,17 @@ describe('EngineService', () => {
       vi.useRealTimers();
     });
 
+    it('says for a few seconds that a record holds its deck in place', async () => {
+      const held = {
+        code: 'recordHolds',
+        params: { deck: 1 },
+        message: 'the record holds deck 2 in ABS',
+      };
+      expect(await engine.failed(held)).toBe(false);
+      expect(engine.refusal()).toBe('The record holds deck B in ABS');
+      expect(engine.error()).toBeNull();
+    });
+
     it('takes a refusal back at the next thing asked', async () => {
       await engine.failed(refused(true));
       expect(engine.refusal()).toBe('Deck A is playing: its track stays on it');

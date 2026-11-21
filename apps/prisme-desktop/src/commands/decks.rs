@@ -7,13 +7,15 @@ use crate::dto::{AudioSettings, VinylChangeDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_actions::screen::Drive;
+use prisme_control::DeckAction;
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
-/// pointer's clock (not before its start), or let go (`None`).
+/// pointer's clock (not before its start), or let go (`None`); refused under a record holding
+/// the deck in place.
 #[tauri::command]
 pub fn hand(
     state: State<'_, AppState>,
@@ -22,6 +24,9 @@ pub fn hand(
     seconds: Option<f64>,
     at_ms: f64,
 ) -> AppResult<()> {
+    if seconds.is_some() {
+        transport::record_allows(&state, deck, DeckAction::Position)?;
+    }
     let position_s = seconds.map(|s| s.max(0.0));
     transport::send_by_hand(
         &state,
@@ -31,7 +36,8 @@ pub fn hand(
     )
 }
 
-/// The track on `deck` put at `seconds`, within it; nothing without a track.
+/// The track on `deck` put at `seconds`, within it; nothing without a track, refused under a
+/// record holding the deck in place.
 #[tauri::command]
 pub fn seek_deck(
     state: State<'_, AppState>,
@@ -39,6 +45,7 @@ pub fn seek_deck(
     deck: usize,
     seconds: f64,
 ) -> AppResult<()> {
+    transport::record_allows(&state, deck, DeckAction::Position)?;
     transport::seek_within(&state, Some(&auto_dj), deck, seconds)
 }
 

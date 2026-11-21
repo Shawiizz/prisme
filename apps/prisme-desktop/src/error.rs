@@ -64,6 +64,10 @@ pub enum AppError {
     /// asked).
     #[error("the turntables are off for the {driver} driver: deck {} hears nothing", .deck + 1)]
     ConfirmTurntables { deck: usize, driver: BackendDto, target: Option<String> },
+    /// An action of a deck its record holds in place (ABS): it would move the track, or start
+    /// or stop it.
+    #[error("the record holds deck {} in ABS", .deck + 1)]
+    RecordHolds { deck: usize },
     #[error("the {0} driver has no input for the turntables")]
     NoTurntableInput(BackendDto),
     #[error("{0} is not a folder")]
@@ -155,6 +159,7 @@ impl AppError {
             AppError::ConfirmTurntables { deck, driver, target } => {
                 ("confirmTurntables", json!({ "deck": deck, "driver": driver.to_string(), "target": target }))
             }
+            AppError::RecordHolds { deck } => ("recordHolds", json!({ "deck": deck })),
             AppError::NoTurntableInput(driver) => {
                 ("noTurntableInput", json!({ "driver": driver.to_string() }))
             }

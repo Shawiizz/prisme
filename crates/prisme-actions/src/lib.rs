@@ -14,6 +14,7 @@ pub mod perform;
 pub mod player;
 pub mod position;
 pub mod press;
+pub mod record;
 pub mod scales;
 pub mod screen;
 pub mod stems;

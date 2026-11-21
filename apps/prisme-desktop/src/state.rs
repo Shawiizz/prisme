@@ -16,6 +16,7 @@ use crate::recording::Recorder;
 use crate::sampler::Samplers;
 use crate::track_waveform::TrackWaveform;
 use prisme_actions::perform::PerformState;
+use prisme_actions::screen::Drive;
 use prisme_actions::switch::LiveSource;
 use prisme_actions::view::plays;
 use prisme_analysis::TrackAnalysis;
@@ -1052,6 +1053,13 @@ impl AppState {
             }
         }
         decks
+    }
+
+    /// Who drives `deck`, as the decks are laid out (see [`AppState::decks_laid_out`]).
+    pub fn drive(&self, deck: usize) -> Drive {
+        let settings = self.decks_laid_out(self.layout())[deck];
+        let run_out = self.deck_status(deck).is_ok_and(|s| s.vinyl.run_out);
+        Drive::of(settings.passthrough, settings.vinyl_enabled, settings.vinyl_mode.into(), run_out)
     }
 
     /// The decks in use: two, or four (a preference).

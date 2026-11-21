@@ -3,9 +3,13 @@
 
 use super::take_over;
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+use prisme_actions::record::refuses;
+use prisme_actions::screen::Drive;
+use prisme_control::DeckAction;
 use prisme_engine::{Command, LoopRegion};
+use prisme_library::CueSlot;
 
 /// The speed change while a bend key is held, and while a small one is.
 pub const PITCH_BEND: f64 = 0.03;
@@ -16,6 +20,17 @@ pub const TEMPO_STEP: f64 = 0.001;
 pub const LOOP_KEY_BEATS: f64 = 4.0;
 /// Seconds of track a second a search runs through beside the track's play.
 pub const SEARCH_SPEED: f64 = 8.0;
+
+/// `action` of `deck` refused if a record holds the deck in place and it would move the track,
+/// or start or stop it (see `prisme_actions::record`).
+pub fn record_allows(state: &AppState, deck: usize, action: DeckAction) -> AppResult<()> {
+    state.deck_in_use(deck)?;
+    let set = |slot: usize| state.with_track(deck, |t| t.cue(CueSlot::Hot(slot as u8)).is_some());
+    if refuses(action, |slot| set(slot).is_ok_and(|set| set)) && state.drive(deck) == Drive::Absolute {
+        return Err(AppError::RecordHolds { deck });
+    }
+    Ok(())
+}
 
 /// Sends `command` to the engine for `deck`, one of those in use.
 pub fn send(state: &AppState, deck: usize, command: Command) -> AppResult<()> {

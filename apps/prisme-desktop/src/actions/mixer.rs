@@ -7,6 +7,7 @@ use crate::auto_dj::{AutoDj, Takeover};
 use crate::dto::{CrossfaderCurveDto, MixModeDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
+use prisme_actions::screen::Drive;
 use prisme_actions::switch::LiveSource;
 use prisme_actions::{engine_band, engine_live, engine_side};
 use prisme_control::{Band, Side};
@@ -30,7 +31,8 @@ pub fn route(state: &AppState) -> AppResult<()> {
 const FADER_CLOSED: f32 = 1e-3;
 
 /// The channel fader of `deck` (a linear gain). With fader start on the software mixer, a
-/// fader raised from closed plays its deck, and closed stops it on its cue point.
+/// fader raised from closed plays its deck, and closed stops it on its cue point; not a deck its
+/// record holds in place, which it starts and stops itself.
 pub fn set_volume(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
     AppState::deck_exists(deck)?;
     let (before, fader_start) = state
@@ -38,7 +40,7 @@ pub fn set_volume(state: &AppState, deck: usize, gain: f32) -> AppResult<()> {
         .change(|decks| (std::mem::replace(&mut decks[deck].volume, gain), decks[deck].fader_start));
     state.send_if_running(Command::SetVolume { deck, gain })?;
     let Some(play) = fader_start.then(|| opened(before, gain)).flatten() else { return Ok(()) };
-    if !state.mixes_itself() {
+    if !state.mixes_itself() || state.drive(deck) == Drive::Absolute {
         return Ok(());
     }
     let Ok(cue_s) = state.with_track(deck, |t| t.cue(CueSlot::Main).map_or(0.0, |c| c.position_s)) else {

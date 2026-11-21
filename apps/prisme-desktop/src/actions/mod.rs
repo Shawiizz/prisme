@@ -125,8 +125,8 @@ impl Answer {
     fn give(self, host: &impl Host, outcome: AppResult<()>) {
         match (self, outcome) {
             (Answer::To(asking), outcome) => drop(asking.send(outcome)),
-            (Answer::Told, Err(e)) => host.tell(FAILED_EVENT, &e),
-            (Answer::Told, Ok(())) => {}
+            (Answer::Told, Err(e)) if host.actions().tells(&e) => host.tell(FAILED_EVENT, &e),
+            (Answer::Told, _) => {}
         }
     }
 }
@@ -693,6 +693,15 @@ impl Actions {
     pub(crate) fn tapped(&self, deck: usize, at_s: f64) -> Option<f64> {
         let bpm = lock(&self.memory).decks[deck].taps.tap(at_s)?;
         Some((bpm * 100.0).round() / 100.0)
+    }
+
+    /// Whether the interface is told of `failure`, of an action a controller asked for: a
+    /// refusal of a deck's record once for the messages of a gesture (see `Refusals`).
+    fn tells(&self, failure: &AppError) -> bool {
+        match *failure {
+            AppError::RecordHolds { deck } => lock(&self.memory).refusals.tells(deck, self.now_s()),
+            _ => true,
+        }
     }
 
     /// Seconds since Prisme started: the clock of the actions no controller times.

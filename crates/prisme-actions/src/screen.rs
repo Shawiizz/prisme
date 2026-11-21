@@ -8,7 +8,7 @@ use crate::pads::Pads;
 use crate::scales::Tempo;
 use crate::stems::part_in;
 use crate::sync::{drift_time, grid_shift_to, matching_tempo, phase, phase_offset, Beat, Phase, IN_PHASE};
-use crate::view::{plays, View};
+use crate::view::{plays, Sees, View};
 use prisme_analysis::Key;
 use prisme_control::StemPart;
 use prisme_engine::VinylMode;
@@ -111,6 +111,19 @@ pub enum Drive {
     /// No one: it plays its input as it comes.
     #[serde(rename = "thru")]
     Thru,
+}
+
+impl Drive {
+    /// Who drives a deck on its input (`passthrough`) or on its record (`vinyl`, in `mode`):
+    /// itself once the needle ran out.
+    pub fn of(passthrough: bool, vinyl: bool, mode: VinylMode, run_out: bool) -> Self {
+        match (passthrough, vinyl && !run_out, mode) {
+            (true, ..) => Drive::Thru,
+            (false, false, _) => Drive::Internal,
+            (false, true, VinylMode::Relative) => Drive::Relative,
+            (false, true, VinylMode::Absolute) => Drive::Absolute,
+        }
+    }
 }
 
 /// A deck's tempo fader as shown.
@@ -247,18 +260,9 @@ pub fn heard_key(view: &View, deck: usize) -> Option<Key> {
 }
 
 /// Who drives `deck`: its record, unless the needle ran out and the deck plays on by itself.
-fn drive(view: &View, deck: usize) -> Drive {
-    let settings = &view.decks[deck];
-    if settings.passthrough {
-        Drive::Thru
-    } else if !settings.vinyl || view.deck_status(deck).vinyl.run_out {
-        Drive::Internal
-    } else {
-        match settings.vinyl_mode {
-            VinylMode::Relative => Drive::Relative,
-            VinylMode::Absolute => Drive::Absolute,
-        }
-    }
+pub fn drive(sees: &impl Sees, deck: usize) -> Drive {
+    let settings = sees.deck(deck);
+    Drive::of(settings.passthrough, settings.vinyl, settings.vinyl_mode, sees.status(deck).vinyl.run_out)
 }
 
 /// Whether something else than its fader holds the tempo of `deck`: its record, or the sync.

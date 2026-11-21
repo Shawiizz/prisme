@@ -2,10 +2,12 @@
 //! pads and the interface show (a deck's slicer, the cuts held, its roll, its effect focused),
 //! what they keep for themselves alone (its cue played while held, the slices held, its filter
 //! set aside, its tempo tapped, where the faders over a few steps or silent at an end were
-//! given); and when the levels last clipped.
+//! given); when the levels last clipped, and when each deck last refused an action its record
+//! holds it from.
 
 use crate::input::Faders;
 use crate::press::Held;
+use crate::record::Refusals;
 use crate::tap::TapTempo;
 use prisme_control::MAX_DECKS;
 use prisme_engine::EngineStatus;
@@ -42,6 +44,7 @@ pub struct Memory {
     pub decks: [DeckMemory; MAX_DECKS],
     pub faders: Faders,
     pub clips: Clips,
+    pub refusals: Refusals,
 }
 
 #[derive(Debug, Default)]

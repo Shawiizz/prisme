@@ -946,6 +946,7 @@
   "{beats} beats": "{beats} temps",
   "{beats} beat": "{beats} temps",
   "Deck {deck} is playing: its track stays on it": "Le deck {deck} joue : son morceau y reste",
+  "The record holds deck {deck} in ABS": "Le disque tient le deck {deck} en ABS",
   "The track playing stops and leaves the deck.": "Le morceau en cours s'arrête et quitte le deck.",
   "Eject": "Éjecter",
   "EJECT": "ÉJECTER",
