@@ -66,6 +66,13 @@ Timecode records: {records:?}"
     Ok(())
 }
 
+/// An error the page met, kept in the log so that a diagnostic report holds it: the page's
+/// own console is out of reach in a published build.
+#[tauri::command]
+pub fn page_error(message: String) {
+    tracing::error!(target: "page", "{message}");
+}
+
 fn section(report: &mut String, title: &str, value: &impl Serialize) {
     let json = serde_json::to_string_pretty(value).unwrap_or_else(|e| e.to_string());
     let _ = write!(report, "\n{title}:\n{json}\n");

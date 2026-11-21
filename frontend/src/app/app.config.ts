@@ -1,5 +1,9 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, ErrorHandler, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { PageErrors } from './core/page-errors';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideBrowserGlobalErrorListeners()],
+  providers: [
+    provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: PageErrors },
+  ],
 };

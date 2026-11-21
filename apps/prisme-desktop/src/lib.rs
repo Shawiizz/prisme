@@ -392,6 +392,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::decks::set_timecode,
         commands::decks::set_vinyl,
         commands::decks::set_vinyl_swap,
+        commands::diagnostics::page_error,
         commands::diagnostics::save_diagnostics,
         commands::edits::edit_grid,
         commands::edits::key_choices,
