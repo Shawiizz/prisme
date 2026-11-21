@@ -30,8 +30,10 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.prisme_desktop"
         android:usesCleartextTraffic="${usesCleartextTraffic}">
+        <!-- a change of the system's (the font, the display, a keyboard or a controller plugged in,
+             the SIM card) is taken by the page as it is: never recreated, nor reloaded mid-set -->
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|navigation|touchscreen|screenSize|smallestScreenSize|screenLayout|density|fontScale|fontWeightAdjustment|locale|layoutDirection|grammaticalGender|uiMode|colorMode|mcc|mnc"
             android:launchMode="singleTask"
             android:label="@string/main_activity_title"
             android:name=".MainActivity"
