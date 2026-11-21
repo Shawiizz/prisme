@@ -8,7 +8,7 @@ use crate::record::refuses;
 use crate::screen::{drive, Drive};
 use crate::switch::Switch;
 use crate::sync::{phase, Beat, Phase, IN_PHASE};
-use crate::view::{band_index, plays, TrackView, View};
+use crate::view::{band_index, turns, TrackView, View};
 use prisme_control::{
     AutoDjAction, Beats, DeckAction, FxAction, GeneralAction, LibraryAction, MixerAction, SampleAction,
     Target, Turn,
@@ -127,11 +127,14 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
     let perform = &view.perform.decks[deck];
     let sample = |slot: usize| (status.samples_playing & 1 << slot != 0, settings.samples & 1 << slot != 0);
     let fx = |slot: usize| &settings.fx.slots[slot];
-    // a record holding the deck in place plays it, the deck's own play aside
-    let playing = || if drive(view, deck) == Drive::Absolute { plays(status) } else { status.playing };
+    // a deck on its record plays while the record turns, the deck's own play aside
+    let playing = match drive(view, deck) {
+        Drive::Relative | Drive::Absolute => turns(status),
+        Drive::Internal | Drive::Thru => status.playing,
+    };
     let lit = match action {
-        DeckAction::Play => playing(),
-        DeckAction::Cue => return Some(Light::of(cue_state(status, track))),
+        DeckAction::Play => playing,
+        DeckAction::Cue => return Some(Light::of(cue_state(status, track, playing))),
         DeckAction::HotCue(slot) => {
             return Some(match track.and_then(|t| t.hot_cues[slot]) {
                 Some(colour) => Light { state: State::On, colour: Some(colour) },
@@ -168,7 +171,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::FilterToggle => settings.strip.filter != 0.0,
         DeckAction::HeadphonesSolo => (0..view.decks_in_use).all(|d| view.decks[d].cue == (d == deck)),
         DeckAction::CrossfaderSide(side) => settings.side == side,
-        DeckAction::Beat => playing() && status.beat_phase.is_some_and(|p| p < BEAT_LIT),
+        DeckAction::Beat => playing && status.beat_phase.is_some_and(|p| p < BEAT_LIT),
         DeckAction::Clip => perform.clipping,
         DeckAction::Ending => return Some(Light::of(ending(status))),
         DeckAction::TempoZero => tempo(deck, view) == TempoLight::Zero,
@@ -182,14 +185,14 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
     Some(Light::lit(lit))
 }
 
-/// A CDJ's cue: on at the cue point, paused stopped elsewhere, off playing or empty.
-fn cue_state(status: &DeckStatus, track: Option<&TrackView>) -> State {
+/// A CDJ's cue: on at the cue point, paused stopped elsewhere, off `playing` or empty.
+fn cue_state(status: &DeckStatus, track: Option<&TrackView>, playing: bool) -> State {
     let cue_s = track.and_then(|t| t.main_cue_s).unwrap_or(0.0);
     if !status.loaded {
         State::Off
     } else if at_cue(status.position_s, cue_s) {
         State::On
-    } else if status.playing {
+    } else if playing {
         State::Off
     } else {
         State::Paused
@@ -360,14 +363,18 @@ mod tests {
     }
 
     #[test]
-    fn under_a_record_in_rel_the_lights_are_those_of_a_deck_playing_by_itself() {
-        let v = on_a_record(VinylMode::Relative);
-        assert_eq!(state("deck1.play", &v), OFF);
+    fn under_a_record_in_rel_the_lights_are_those_of_a_deck_played_as_the_record_turns() {
+        let mut v = on_a_record(VinylMode::Relative);
+        v.status.decks[0].playing = true;
+        assert_eq!(state("deck1.play", &v), OFF, "the record still, whatever PLAY said");
         assert_eq!(state("deck1.cue", &v), Some(State::Paused));
         assert_eq!(light(&target("deck1.hotcue1"), &v).map(|l| l.colour), Some(Some(0xff8000)));
         for id in ["deck1.loop.4", "deck1.loop.any", "deck1.roll4", "deck1.slip", "deck1.cut2"] {
             assert_eq!(state(id, &v), ON, "{id}");
         }
+        v.status.decks[0].speed = 1.0;
+        assert_eq!(state("deck1.play", &v), ON, "the record turns");
+        assert_eq!(state("deck1.cue", &v), OFF);
     }
 
     #[test]

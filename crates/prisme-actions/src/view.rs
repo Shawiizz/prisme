@@ -231,6 +231,11 @@ pub fn plays(status: &DeckStatus) -> bool {
     status.loaded && (status.playing || status.speed.abs() >= MOVING_SPEED)
 }
 
+/// Whether the record under a deck at `status` turns its track.
+pub fn turns(status: &DeckStatus) -> bool {
+    status.loaded && status.speed.abs() >= MOVING_SPEED
+}
+
 /// The deck `deck` is mixed with, the engine at `status`: another one playing, else the one
 /// beside it (A and B, C and D).
 pub fn mixed_with(status: &EngineStatus, deck: usize) -> usize {
