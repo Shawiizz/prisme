@@ -25,7 +25,7 @@ pub use light::{light, nearest, LightValue, LightValues, OFF, ON};
 pub use listed::{beats_text, listed_targets, CUT_BEATS, ROLL_BEATS};
 pub use mapping::{
     Chord, Encoding, FaderSet, Hold, Mapping, Mappings, Modes, ProfileControl, Reader, Seen, Shift, Shifts,
-    ShownRoom, When, SHIFT,
+    ShownRoom, StepCarry, When, SHIFT,
 };
 pub use message::{parse, Control, Event, Midi};
 pub use pickup::Pickup;

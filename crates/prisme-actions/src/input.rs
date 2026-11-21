@@ -3,7 +3,9 @@
 //! stands. Two controllers on one action each pick it up on their own.
 
 use crate::view::band_index;
-use prisme_control::{DeckAction, FxAction, Kind, MixerAction, Pickup, Target, FX_SLOTS, MAX_DECKS};
+use prisme_control::{
+    DeckAction, FxAction, Kind, MixerAction, Pickup, StepCarry, Target, FX_SLOTS, MAX_DECKS,
+};
 use std::collections::HashMap;
 
 /// How far a step of an encoder moves a fader's action when its profile does not say.
@@ -60,7 +62,7 @@ impl Given {
 struct ControlMemory {
     pickup: Pickup,
     /// What is left of the steps short of a whole one.
-    steps: f32,
+    steps: StepCarry,
 }
 
 /// The controls of the controllers, by controller and action.
@@ -85,11 +87,8 @@ impl Inputs {
                 position.map(|at| Given::Value((at + steps * step.unwrap_or(ENCODER_STEP)).clamp(0.0, 1.0)))
             }
             Input::Steps { steps, .. } => {
-                let memory = self.memory(device, target);
-                let total = memory.steps + steps;
-                let whole = total.trunc();
-                memory.steps = total - whole;
-                (whole != 0.0).then_some(Given::Steps(whole as i32))
+                let whole = self.memory(device, target).steps.whole(steps);
+                (whole != 0).then_some(Given::Steps(whole))
             }
             Input::Value(value) => match position {
                 Some(at) => {

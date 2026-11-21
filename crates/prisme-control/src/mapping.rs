@@ -385,6 +385,20 @@ pub struct ShownRoom {
     places: Vec<usize>,
 }
 
+/// What an encoder's steps add up to short of a whole step, carried on to its next.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct StepCarry(f32);
+
+impl StepCarry {
+    /// The whole steps of `steps` and what was carried, what falls short of one carried on.
+    pub fn whole(&mut self, steps: f32) -> i32 {
+        let total = self.0 + steps;
+        let whole = total.trunc();
+        self.0 = total - whole;
+        whole as i32
+    }
+}
+
 /// The mappings of all the controllers: on each controller and layer, a control drives
 /// one action, and an action has one control, but for those the application says take
 /// several (a jog wheel sends its top and its edge apart). Found by controller and control.
@@ -571,7 +585,7 @@ struct DeviceReader {
     /// The last position of each control read by its changes (`AbsoluteWrap`).
     positions: HashMap<Control, u16>,
     /// What is left of each encoder's scaled steps short of a whole one.
-    remainders: HashMap<Control, f32>,
+    remainders: HashMap<Control, StepCarry>,
 }
 
 /// What is read of a device ([`Reader::seen`]).
@@ -663,11 +677,7 @@ impl Reader {
 
     /// The whole steps of `steps` of `control`, what falls short of one kept for the next.
     pub fn whole_steps(&mut self, device: &str, control: Control, steps: f32) -> i32 {
-        let remainder = self.device(device).remainders.entry(control).or_default();
-        let total = *remainder + steps;
-        let whole = total.trunc();
-        *remainder = total - whole;
-        whole as i32
+        self.device(device).remainders.entry(control).or_default().whole(steps)
     }
 
     /// What is read of `device` now: its shifts held, the modes its groups are in, its keys
