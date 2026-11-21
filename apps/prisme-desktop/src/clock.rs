@@ -37,6 +37,8 @@ pub fn start(app: AppHandle) {
     std::thread::Builder::new()
         .name("prisme-clock".into())
         .spawn(move || {
+            #[cfg(target_os = "android")]
+            crate::android_jni::attach_for_life();
             let mut clock = Clock::default();
             loop {
                 piece("tick", || clock.tick(&app));

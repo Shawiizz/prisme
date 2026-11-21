@@ -92,7 +92,7 @@ mod android {
     use crate::folders;
     use crate::library_service::LibraryService;
     use crate::state::{lock, AppState};
-    use jni::objects::{JObject, JValue};
+    use jni::objects::{GlobalRef, JObject, JValue};
     use jni::sys::jint;
     use jni::JNIEnv;
     use prisme_actions::input::Input;
@@ -101,12 +101,13 @@ mod android {
     use prisme_control::{DeckAction, Target, MAX_DECKS};
     use std::path::Path;
     use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::Arc;
+    use std::sync::{Arc, OnceLock};
     use tauri::{AppHandle, Manager};
     use tracing::error;
 
     /// Where the player is shown from (`MainActivity.kt`).
     const ACTIVITY: &str = "com.shawiizz.prisme.MainActivity";
+    static ACTIVITY_CLASS: OnceLock<GlobalRef> = OnceLock::new();
 
     /// Tells Android's player what it shows, when that changed.
     #[derive(Default)]
@@ -156,11 +157,11 @@ mod android {
 
     fn update(state: &str) {
         android_jni::call("show the player", |env, context| {
-            let activity = android_jni::class(env, context, ACTIVITY)?;
+            let activity = android_jni::kept_class(env, context, &ACTIVITY_CLASS, ACTIVITY)?;
             let state = env.new_string(state)?;
             let signature = "(Landroid/content/Context;Ljava/lang/String;)V";
             env.call_static_method(
-                &activity,
+                activity,
                 "showPlayer",
                 signature,
                 &[JValue::Object(context), JValue::Object(&state)],
@@ -180,7 +181,7 @@ mod android {
                 return;
             }
             android_jni::call("show the cover", |env, context| {
-                let activity = android_jni::class(env, context, ACTIVITY)?;
+                let activity = android_jni::kept_class(env, context, &ACTIVITY_CLASS, ACTIVITY)?;
                 let path = env.new_string(&path)?;
                 let jpeg: JObject = match &jpeg {
                     Some(jpeg) => env.byte_array_from_slice(jpeg)?.into(),
@@ -188,7 +189,7 @@ mod android {
                 };
                 let signature = "(Landroid/content/Context;Ljava/lang/String;[B)V";
                 let args = [JValue::Object(context), JValue::Object(&path), JValue::Object(&jpeg)];
-                env.call_static_method(&activity, "showCover", signature, &args)?;
+                env.call_static_method(activity, "showCover", signature, &args)?;
                 Ok(())
             });
         });

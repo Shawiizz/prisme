@@ -1,7 +1,7 @@
 //! Calls from Rust into the Java side of the Android application, from any thread, and the
 //! application the Java side's calls into Rust reach.
 
-use jni::objects::{JClass, JObject, JValue};
+use jni::objects::{GlobalRef, JClass, JObject, JValue};
 use jni::{JNIEnv, JavaVM};
 use std::sync::OnceLock;
 use tauri::AppHandle;
@@ -64,6 +64,18 @@ pub fn attached<T>(f: impl FnOnce() -> T) -> T {
     }
 }
 
+/// Attaches this thread to the virtual machine for the rest of its life: one that calls the
+/// system again and again (a watch, the clock) is not attached and detached each time.
+pub fn attach_for_life() {
+    let android = ndk_context::android_context();
+    // SAFETY: the virtual machine is the one the application runs in, which keeps it alive.
+    let attached = unsafe { JavaVM::from_raw(android.vm().cast()) }
+        .and_then(|vm| vm.attach_current_thread_permanently().map(drop));
+    if let Err(e) = attached {
+        warn!("thread not attached to the virtual machine: {e}");
+    }
+}
+
 /// Tells and clears an exception thrown while trying to do `what`: left pending, it would bring
 /// the next call of this thread down, and the application with it once the thread is detached.
 fn clear_exception(env: &mut JNIEnv, what: &str) {
@@ -90,4 +102,18 @@ pub fn class<'local>(
         &[JValue::Object(&name)],
     )?;
     Ok(JClass::from(class.l()?))
+}
+
+/// [`class`], looked up once and kept in `kept` for the life of the application.
+pub fn kept_class<'k>(
+    env: &mut JNIEnv,
+    context: &JObject,
+    kept: &'k OnceLock<GlobalRef>,
+    name: &str,
+) -> jni::errors::Result<&'k JClass<'static>> {
+    if kept.get().is_none() {
+        let class = class(env, context, name)?;
+        let _ = kept.set(env.new_global_ref(class)?);
+    }
+    Ok(kept.get().expect("set above").as_obj().into())
 }
