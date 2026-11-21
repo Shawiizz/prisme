@@ -2,7 +2,6 @@ import { Component, inject, input } from '@angular/core';
 import { BANDS } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
-import { readout } from '../../../shared/readout';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
@@ -17,8 +16,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
         [label]="b.label"
         [labelTitle]="b.killTitle()"
         bipolar
-        [readout]="read(eq(b.band))"
-        [value]="eq(b.band).at"
+        [state]="eq(b.band)"
         [active]="killed(b.band)"
         (valueChange)="setEq(b.band, $event)"
         (labelClick)="toggleKill(b.band)"
@@ -29,8 +27,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
         label="TRIM"
         [labelTitle]="'Gain before the EQ (±12 dB)' | t"
         bipolar
-        [readout]="read(knobs().trim)"
-        [value]="knobs().trim.at"
+        [state]="knobs().trim"
         (valueChange)="setTrim($event)"
       />
     }
@@ -39,8 +36,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
       class="filter"
-      [readout]="read(knobs().filter)"
-      [value]="knobs().filter.at"
+      [state]="knobs().filter"
       (valueChange)="setFilter($event)"
     />
   `,
@@ -61,7 +57,6 @@ export class ChannelStrip {
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
   protected readonly mixer = inject(MixerService);
-  protected readonly read = (knob: KnobState) => readout(knob.reads);
   protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {
       band: 'high',

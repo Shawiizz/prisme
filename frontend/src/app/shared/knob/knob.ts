@@ -9,6 +9,8 @@ import {
 } from '@angular/core';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { ownValue } from '../own-value';
+import { readout } from '../readout';
+import type { KnobState } from '../../core/models/backend';
 
 /** The knob turns through 270 degrees, from bottom left to bottom right. */
 const SWEEP = 270;
@@ -62,7 +64,7 @@ function arc(from: number, to: number): string {
       aria-valuemin="0"
       aria-valuemax="1"
       [attr.aria-valuenow]="current()"
-      [attr.aria-valuetext]="readout()"
+      [attr.aria-valuetext]="reads()"
       [attr.aria-label]="labelTitle() || label()"
       [class.grabbed]="grabbed() !== null"
       (pointerdown)="grab($event)"
@@ -73,7 +75,7 @@ function arc(from: number, to: number): string {
       (pointerleave)="hovered.set(false)"
       (wheel)="scroll($event)"
       (keydown)="key($event)"
-      (dblclick)="set(defaultValue())"
+      (dblclick)="set(home())"
     >
       <path class="track" [attr.d]="track" />
       <path class="value" [attr.d]="valueArc()" />
@@ -100,8 +102,8 @@ function arc(from: number, to: number): string {
         [title]="labelTitle()"
       >
         <span class="face" [class.shown]="!reading()">{{ label() }}</span>
-        @if (readout() !== null) {
-          <span class="face number" [class.shown]="reading()">{{ readout() }}</span>
+        @if (reads() !== null) {
+          <span class="face number" [class.shown]="reading()">{{ reads() }}</span>
         }
       </button>
     }
@@ -226,7 +228,10 @@ function arc(from: number, to: number): string {
   `,
 })
 export class Knob {
-  readonly value = input.required<number>();
+  /** As the backend shows it: where it stands, where a double click puts it back and what it
+   * reads; else `value`, `defaultValue` and `readout`. */
+  readonly state = input<KnobState | null>(null);
+  readonly value = input(0);
   readonly defaultValue = input(0.5);
   readonly bipolar = input(false, { transform: booleanAttribute });
   readonly label = input('');
@@ -252,7 +257,13 @@ export class Knob {
   /** Follows the input, and moves at once with the gestures (several can come before the
    * input does); held and a moment after, its own, the input's echoes of older values coming
    * in between. */
-  private readonly own = ownValue(this.value, () => this.grabbed() !== null);
+  private readonly at = computed(() => this.state()?.at ?? this.value());
+  protected readonly home = computed(() => this.state()?.home ?? this.defaultValue());
+  protected readonly reads = computed(() => {
+    const state = this.state();
+    return state ? readout(state.reads) : this.readout();
+  });
+  private readonly own = ownValue(this.at, () => this.grabbed() !== null);
   protected readonly current = this.own.current;
   private readonly angle = computed(() => START + Math.min(Math.max(this.current(), 0), 1) * SWEEP);
   protected readonly valueArc = computed(() =>
@@ -264,7 +275,7 @@ export class Knob {
   }));
   protected readonly hovered = signal(false);
   protected readonly reading = computed(
-    () => this.readout() !== null && (this.hovered() || this.grabbed() !== null),
+    () => this.reads() !== null && (this.hovered() || this.grabbed() !== null),
   );
 
   grab(event: PointerEvent) {
@@ -288,7 +299,7 @@ export class Knob {
   /** Where a drag of `moved` from `from` brings a magnetic knob: its middle is a stretch
    * of the drag wide, crossed before the knob turns on. */
   private through(from: number, moved: number): number {
-    const middle = this.defaultValue();
+    const middle = this.home();
     const half = MAGNET / 2;
     // the drag measured as if the middle were a stretch: from where it started on it
     const start = from < middle ? from - half : from > middle ? from + half : middle;

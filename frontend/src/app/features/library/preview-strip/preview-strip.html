@@ -33,9 +33,7 @@
     small
     label="PHONES"
     [labelTitle]="'Headphone volume' | t"
-    [defaultValue]="knobs.headphones.home"
-    [readout]="read(knobs.headphones)"
-    [value]="knobs.headphones.at"
+    [state]="knobs.headphones"
     (valueChange)="mixer.setHeadphoneLevel($event)"
   />
 }

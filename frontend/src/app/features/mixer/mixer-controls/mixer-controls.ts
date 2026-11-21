@@ -6,8 +6,7 @@ import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
 import { segments } from '../../../shared/meter';
-import { readout } from '../../../shared/readout';
-import type { KnobState, LiveSource } from '../../../core/models/backend';
+import type { LiveSource } from '../../../core/models/backend';
 
 const METER_SEGMENTS = 12;
 
@@ -44,9 +43,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             [small]="!PHONE"
             label="LEVEL"
             [labelTitle]="'Master level' | t"
-            [defaultValue]="knobs.main.home"
-            [readout]="read(knobs.main)"
-            [value]="knobs.main.at"
+            [state]="knobs.main"
             (valueChange)="mixer.setMainGain($event)"
           />
           <app-knob
@@ -54,9 +51,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             bipolar
             label="BAL"
             [labelTitle]="'Master balance' | t"
-            [defaultValue]="knobs.balance.home"
-            [readout]="read(knobs.balance)"
-            [value]="knobs.balance.at"
+            [state]="knobs.balance"
             (valueChange)="mixer.setBalance($event)"
           />
           @if (mixer.boothInUse() !== null) {
@@ -64,9 +59,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
               [small]="!PHONE"
               label="BOOTH"
               [labelTitle]="'Booth level' | t"
-              [defaultValue]="knobs.booth.home"
-              [readout]="read(knobs.booth)"
-              [value]="knobs.booth.at"
+              [state]="knobs.booth"
               (valueChange)="mixer.setBoothGain($event)"
             />
           }
@@ -128,18 +121,14 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
             [small]="!PHONE"
             label="CUE/MST"
             [labelTitle]="'Headphones: cued decks or master' | t"
-            [defaultValue]="knobs.cueMix.home"
-            [readout]="read(knobs.cueMix)"
-            [value]="knobs.cueMix.at"
+            [state]="knobs.cueMix"
             (valueChange)="mixer.setCueMix($event)"
           />
           <app-knob
             [small]="!PHONE"
             label="PHONES"
             [labelTitle]="'Headphone volume' | t"
-            [defaultValue]="knobs.headphones.home"
-            [readout]="read(knobs.headphones)"
-            [value]="knobs.headphones.at"
+            [state]="knobs.headphones"
             (valueChange)="mixer.setHeadphoneLevel($event)"
           />
           <button
@@ -211,9 +200,7 @@ const LIVE_TEXTS: Record<LiveSource, Record<'label' | 'on' | 'cue' | 'level', Te
               [small]="!PHONE"
               label="LEVEL"
               [labelTitle]="live.levelTitle"
-              [defaultValue]="knobs[live.source].home"
-              [readout]="read(knobs[live.source])"
-              [value]="knobs[live.source].at"
+              [state]="knobs[live.source]"
               (valueChange)="mixer.setLiveLevel(live.source, $event)"
             />
           </div>
@@ -282,7 +269,6 @@ export class MixerControls {
   protected readonly mixer = inject(MixerService);
   private readonly engine = inject(EngineService);
   protected readonly PHONE = PHONE;
-  protected readonly read = (knob: KnobState) => readout(knob.reads);
 
   /** The live sources plugged in, on inputs the turntables leave free. */
   protected readonly lives = computed(() =>
