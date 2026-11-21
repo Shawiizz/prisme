@@ -6,7 +6,7 @@ use crate::library_service::LibraryService;
 use crate::preferences::{DeckCount, KeyPreference, Preferences, UiPreferences, VinylSync};
 use crate::shortcuts;
 use crate::state::{lock, AppState};
-use crate::stems_service::StemsService;
+use crate::stems_service::{self, StemsService};
 use crate::tag_writer::TagWriter;
 use prisme_control::Target;
 use serde::Deserialize;
@@ -106,9 +106,7 @@ impl Setting {
             Setting::StemsOnLoad(on) => p.library.separate_on_load = Some(on),
             Setting::StemsGpu(on) => p.library.stems_gpu = on,
             Setting::StemsFast(on) => {
-                let then = if on == p.library.stems_fast { Then::Nothing } else { Then::Rechoose };
-                p.library.stems_fast = on;
-                return Ok(then);
+                return Ok(if stems_service::choose_fast(p, on) { Then::Rechoose } else { Then::Nothing });
             }
             Setting::Language(language) => {
                 if language.as_deref().is_some_and(|l| !UiPreferences::LANGUAGES.contains(&l)) {

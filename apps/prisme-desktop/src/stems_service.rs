@@ -100,6 +100,12 @@ const MODELS: [Model; 3] = [
     },
 ];
 
+/// The small models chosen in `p` (`fast`), or the large ones: whether the choice changed, and
+/// other models take over.
+pub fn choose_fast(p: &mut Preferences, fast: bool) -> bool {
+    std::mem::replace(&mut p.library.stems_fast, fast) != fast
+}
+
 /// Of the installed models, those the separation uses: the ones the DJ chose (`fast`: the
 /// small one), never the others in their place, which take another time and memory than the
 /// DJ chose (the large ones sixteen times the small one's memory).
@@ -493,10 +499,7 @@ impl StemsService {
     pub fn download_for(&self, fast: bool) -> AppResult<()> {
         let state = self.app.state::<AppState>();
         let mut changed = false;
-        state.update_settings(|p| {
-            changed = p.library.stems_fast != fast;
-            p.library.stems_fast = fast;
-        });
+        state.update_settings(|p| changed = choose_fast(p, fast));
         if changed {
             self.rechosen();
         }
