@@ -4,6 +4,7 @@ use crate::actions::mixer;
 use crate::choices;
 use crate::dto::InputChannelsDto;
 use crate::error::{AppError, AppResult};
+use crate::preferences::MixerPreferences;
 use crate::state::{live_preferences, lock, AppState};
 use prisme_actions::switch::LiveSource;
 use prisme_engine::Command;
@@ -63,14 +64,11 @@ mod tests {
     }
 }
 
-/// How far the music can duck under the microphone (dB).
-pub const TALKOVER_DEPTHS: [f32; 4] = [-6.0, -12.0, -18.0, -24.0];
-
-/// How far the music ducks under the microphone (dB), one of [`TALKOVER_DEPTHS`]; kept for the
-/// next start.
+/// How far the music ducks under the microphone (dB), one of
+/// [`MixerPreferences::TALKOVER_DEPTHS`]; kept for the next start.
 #[tauri::command]
 pub fn set_talkover_depth(state: State<'_, AppState>, db: f32) -> AppResult<()> {
-    if !TALKOVER_DEPTHS.contains(&db) {
+    if !MixerPreferences::TALKOVER_DEPTHS.contains(&db) {
         return Err(AppError::Other(format!("no talkover of {db} dB")));
     }
     state.update_preferences(|p| p.mixer.talkover_depth_db = db);

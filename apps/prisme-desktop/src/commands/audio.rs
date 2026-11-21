@@ -1,13 +1,12 @@
 use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
-    AudioChangeDto, AudioDraftDto, AudioInfo, AudioInfoDto, AudioSettings, BackendChoiceDto, BackendDto,
-    BufferSizeDto, DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
+    AudioChangeDto, AudioDraftDto, AudioInfo, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto,
+    DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState, Section};
 use prisme_audio_io::{latency, AudioError, Backend, DeviceKind};
-use serde::Serialize;
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::{AppHandle, Manager, State};
@@ -102,29 +101,6 @@ pub fn timecode_formats() -> Vec<TimecodeMakerDto> {
     TimecodeMakerDto::of(prisme_timecode::FORMATS)
 }
 
-/// The audio as the settings show it.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioState"))]
-pub struct AudioStateDto {
-    /// The settings the DJ chose: the audio runs on the default devices while one of theirs is
-    /// missing.
-    pub settings: AudioSettings,
-    /// The audio running, if it does.
-    pub info: Option<AudioInfoDto>,
-}
-
-impl AudioStateDto {
-    pub fn of(state: &AppState) -> Self {
-        let settings = state.preferences.read(|p| p.audio.clone());
-        let info = lock(&state.session).as_ref().map(|s| {
-            let missing = (!s.settings.same_devices(&settings))
-                .then(|| settings.output_device.clone().unwrap_or_default());
-            AudioInfo { missing, ..s.info.clone() }.into()
-        });
-        Self { settings, info }
-    }
-}
-
 /// The audio settings drafted in the settings window, `change` made if any (see
 /// `AudioSettings::changed`), against those kept. Off the window's thread: a driver's devices
 /// may take a moment to list.
@@ -173,7 +149,7 @@ pub async fn apply_audio_settings(
             state.moved(Section::Audio);
         }
         if let Some(mode) = mix_mode.filter(|&mode| state.preferences.read(|p| p.mixer.mode) != mode) {
-            crate::commands::mixer::set_mix_mode(&state, mode)?;
+            crate::actions::mixer::set_mix_mode(&state, mode)?;
         }
         Ok(())
     })
@@ -295,7 +271,7 @@ fn restart<T>(
         state.simulate_turntable(simulated);
     }
     let timecodes = lock(&state.decks).map(|d| d.timecode);
-    let mut session = audio_host::start(settings, state.preferences.read(|p| p.dj.decks()), timecodes)?;
+    let mut session = audio_host::start(settings, state.decks_in_use(), timecodes)?;
     state.share_turntable_records(&session.info);
     state.restore(&mut session, &places);
     let info = session.info.clone();

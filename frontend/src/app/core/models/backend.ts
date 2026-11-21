@@ -2170,6 +2170,10 @@ export type TakenKey = {
   shift?: boolean;
 };
 
+/**
+ * An action a key or a controller can drive, as the interface lists it: for the keys, the
+ * controllers' mappings and the command palette.
+ */
 export type Target = {
   id: string;
   kind: ControlKind;

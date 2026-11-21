@@ -1,6 +1,6 @@
 //! The actions of the application, with one way in for all who ask for them
 //! ([`Actions::perform`]): the controllers from their threads, and the interface
-//! ([`perform_action`]). Each action keeps its order among those of its lane
+//! ([`Actions::perform_asked`]). Each action keeps its order among those of its lane
 //! (`prisme_actions::lane`): it is done at once on the thread asking for it while its lane has
 //! none waiting, else in turn by the lane's worker, as one opening a file always is; the actions
 //! one move drives keep their order whatever their lanes. What an action changes of the library
@@ -14,7 +14,7 @@
 pub mod browse;
 mod cues;
 pub mod deck;
-mod edits;
+pub mod edits;
 pub mod fx;
 pub mod general;
 mod keys;
@@ -625,7 +625,7 @@ impl Actions {
 
     /// The first deck in use without a track nor a load waiting, else deck A.
     fn free_deck(&self, state: &AppState) -> usize {
-        let decks = state.preferences.read(|p| p.dj.decks());
+        let decks = state.decks_in_use();
         let tracks = lock(&state.tracks);
         (0..decks).find(|&deck| tracks[deck].is_none() && !self.lanes.busy(Lane::Track(deck))).unwrap_or(0)
     }
@@ -880,63 +880,63 @@ fn interface_input(target: &Target, value: f32) -> Input {
     Input::of(value, target.kind() == Kind::Encoder, None)
 }
 
-/// Performs the action `target` driven to `value` (an encoder's `steps`, if it says so), as the
-/// interface asks: `confirmed`, the DJ said yes to what it replaces, the track it takes the one
-/// the DJ was asked about (`track`), else the one selected. The
-/// interface numbers its actions (`order`): each is sent in turn after those sent before it, a
-/// key let go after it was pressed; one that is not an action takes its turn all the same.
-#[tauri::command]
-pub async fn perform_action(
-    app: AppHandle,
-    target: String,
-    value: Option<f32>,
-    confirmed: bool,
-    track: Option<PathBuf>,
-    order: Order,
-) -> AppResult<()> {
-    crate::commands::blocking(move || {
-        let actions = app.state::<Actions>();
+impl Actions {
+    /// Does `work` in its turn among the interface's actions (`order`), then waits for the
+    /// answer it gives.
+    pub fn answered(&self, order: Order, work: impl FnOnce(Answer) -> AppResult<()>) -> AppResult<()> {
         let (answer, outcome) = mpsc::sync_channel(1);
-        actions.in_order(order, || -> AppResult<()> {
+        self.in_order(order, || work(Answer::To(answer)))?;
+        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
+    }
+
+    /// Performs the action `target` driven to `value` (an encoder's steps, if it says so), as
+    /// the interface asks: `confirmed`, the DJ said yes to what it replaces, the track it takes
+    /// the one the DJ was asked about (`track`), else the one selected. The interface numbers
+    /// its actions (`order`): each is sent in turn after those sent before it, a key let go
+    /// after it was pressed; one that is not an action takes its turn all the same.
+    pub fn perform_asked(
+        &self,
+        app: &AppHandle,
+        target: &str,
+        value: Option<f32>,
+        confirmed: bool,
+        track: Option<PathBuf>,
+        order: Order,
+    ) -> AppResult<()> {
+        self.answered(order, |answer| {
             let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
             let value = value.ok_or_else(|| AppError::Other(format!("{target} given no value")))?;
             let mut turn = InTurn::default();
             let mut send = |target: &Target, input, answer| {
-                let asked = actions.asked(Source::Interface { confirmed }, track.clone());
-                actions.send_asked(&app, target, input, asked, answer, &mut turn);
+                let asked = self.asked(Source::Interface { confirmed }, track.clone());
+                self.send_asked(app, target, input, asked, answer, &mut turn);
             };
-            match actions.keys.press(&target, value, actions.now_s()) {
-                Press::Act => send(&target, interface_input(&target, value), Answer::To(answer)),
-                Press::Wait => drop(answer.send(Ok(()))),
+            match self.keys.press(&target, value, self.now_s()) {
+                Press::Act => send(&target, interface_input(&target, value), answer),
+                Press::Wait => answer.give(app, Ok(())),
                 Press::Tap => {
-                    send(&target, Input::Value(1.0), Answer::To(answer));
+                    send(&target, Input::Value(1.0), answer);
                     send(&target, Input::Value(0.0), Answer::Told);
                 }
-                Press::Release(hold) => send(&hold, Input::Value(0.0), Answer::To(answer)),
+                Press::Release(hold) => send(&hold, Input::Value(0.0), answer),
                 Press::Held(hold) => {
-                    send(&hold, Input::Value(1.0), Answer::To(answer));
+                    send(&hold, Input::Value(1.0), answer);
                     send(&hold, Input::Value(0.0), Answer::Told);
                 }
             }
             Ok(())
-        })?;
-        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    })
-    .await
-}
+        })
+    }
 
-/// The interface's press of the key `target` lost (the key gone from under the pointer): let
-/// go, without what its release does, in its turn (`order`) after the press.
-#[tauri::command]
-pub async fn let_go_key(app: AppHandle, target: String, order: Order) -> AppResult<()> {
-    crate::commands::blocking(move || {
-        app.state::<Actions>().in_order(order, || {
+    /// The interface's press of the key `target` lost (the key gone from under the pointer):
+    /// let go, without what its release does, in its turn (`order`) after the press.
+    pub fn lose_key(&self, target: &str, order: Order) -> AppResult<()> {
+        self.in_order(order, || {
             let target: Target = target.parse().map_err(|e: Unknown| AppError::Other(e.to_string()))?;
-            app.state::<Actions>().keys.lost(&target);
+            self.keys.lost(&target);
             Ok(())
         })
-    })
-    .await
+    }
 }
 
 #[cfg(test)]

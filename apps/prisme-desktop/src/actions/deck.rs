@@ -1,9 +1,9 @@
 //! A deck's own actions: the jog wheels, played in time (a jog searching moves through the
 //! track quickly, under shift say), the tempo fader, and the deck leading the others.
 
+use super::edits::GridChange;
 use super::{fx, mixer, take_over, transport, Performing};
 use crate::auto_dj::Takeover;
-use crate::commands::edits::GridChange;
 use crate::dto::{RpmDto, StemMixDto, VinylChangeDto, VinylModeDto};
 use crate::error::{AppError, AppResult};
 use crate::preferences::{DeckPreferences, VinylSync};

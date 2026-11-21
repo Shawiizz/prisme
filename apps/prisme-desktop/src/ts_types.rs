@@ -1,13 +1,12 @@
 //! The page's types of what the backend sends it and takes from it, generated from those of
 //! Rust: written with `PRISME_WRITE_TYPES=1`, else compared with what the page has.
 
-use crate::commands::edits::GridChange;
+use crate::actions::edits::GridChange;
 use crate::commands::export::ExportListDto;
 use crate::commands::folders::DroppedDto;
 use crate::commands::new_version::NewVersionDto;
-use crate::commands::preferences::{Setting, TakenKeyDto};
+use crate::commands::preferences::Setting;
 use crate::commands::screens::SpanDto;
-use crate::commands::targets::TargetDto;
 use crate::commands::transport::PadPageDto;
 use crate::controllers::PluggedIn;
 use crate::dto::*;

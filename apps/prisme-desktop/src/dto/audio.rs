@@ -1,5 +1,6 @@
 //! The audio: its settings, the devices, the audio running and how well it keeps up.
 
+use crate::state::{lock, AppState};
 use prisme_audio_io::{Backend, StreamStats};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::Ordering;
@@ -257,6 +258,29 @@ pub struct AudioInfoDto {
 impl From<AudioInfo> for AudioInfoDto {
     fn from(info: AudioInfo) -> Self {
         Self { turntables: info.simulated || info.input_channels >= 2, info }
+    }
+}
+
+/// The audio as the settings show it.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioState"))]
+pub struct AudioStateDto {
+    /// The settings the DJ chose: the audio runs on the default devices while one of theirs is
+    /// missing.
+    pub settings: AudioSettings,
+    /// The audio running, if it does.
+    pub info: Option<AudioInfoDto>,
+}
+
+impl AudioStateDto {
+    pub fn of(state: &AppState) -> Self {
+        let settings = state.preferences.read(|p| p.audio.clone());
+        let info = lock(&state.session).as_ref().map(|s| {
+            let missing = (!s.settings.same_devices(&settings))
+                .then(|| settings.output_device.clone().unwrap_or_default());
+            AudioInfo { missing, ..s.info.clone() }.into()
+        });
+        Self { settings, info }
     }
 }
 

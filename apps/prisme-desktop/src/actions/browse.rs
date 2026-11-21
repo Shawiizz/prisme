@@ -810,7 +810,7 @@ pub fn go(state: &AppState) -> Option<LibraryAction> {
     if lock(&state.library).browser.focus() == Focus::Lists {
         return Some(LibraryAction::ListOpen);
     }
-    let decks = state.preferences.read(|p| p.dj.decks());
+    let decks = state.decks_in_use();
     (0..decks)
         .find(|&deck| !state.deck_status(deck).is_ok_and(|s| prisme_actions::view::plays(&s)))
         .map(LibraryAction::Load)

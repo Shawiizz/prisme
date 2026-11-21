@@ -1,4 +1,4 @@
-use crate::actions::{deck, transport};
+use crate::actions::{deck, transport, Actions, Order};
 use crate::audio_host::layer_partner;
 use crate::auto_dj::{AutoDj, Takeover};
 use crate::commands::audio::start_audio;
@@ -9,6 +9,7 @@ use crate::state::{lock, AppState};
 use prisme_actions::screen::Drive;
 use prisme_engine::Command;
 use prisme_timecode::TimecodeFormat;
+use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
 /// The track dragged by hand to `seconds` on the scrolling waveform at `at_ms` on the
@@ -148,6 +149,27 @@ fn replace_decoder(state: &AppState, deck: usize) -> AppResult<()> {
 #[tauri::command]
 pub fn set_tempo_range(state: State<'_, AppState>, deck: Option<usize>, range: f64) -> AppResult<()> {
     deck::set_tempo_range(&state, deck, range)
+}
+
+/// Loads the track at `path` on `deck`, or on the first deck without a track (deck A if none):
+/// a row of the library, a track dropped, one the command palette found; `confirmed`, the DJ said
+/// yes to what it replaces. Sent in turn with the interface's actions (`order`).
+#[tauri::command]
+pub async fn load_track(
+    app: AppHandle,
+    path: String,
+    deck: Option<usize>,
+    confirmed: bool,
+    order: Order,
+) -> AppResult<()> {
+    blocking(move || {
+        let actions = app.state::<Actions>();
+        actions.answered(order, |answer| {
+            actions.load_track(&app, PathBuf::from(path), deck, confirmed, answer);
+            Ok(())
+        })
+    })
+    .await
 }
 
 #[cfg(test)]

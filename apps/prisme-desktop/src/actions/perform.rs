@@ -370,7 +370,7 @@ impl Performing<'_> {
             }
             // every deck in use
             MixerAction::SamplerGain => {
-                let decks = state.preferences.read(|p| p.dj.decks());
+                let decks = state.decks_in_use();
                 (0..decks).try_for_each(|deck| sampler::set_sampler_gain(state, deck, at))
             }
             // a key let go

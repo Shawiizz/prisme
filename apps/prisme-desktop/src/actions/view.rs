@@ -70,7 +70,7 @@ pub fn view_with(
 /// when asked, the engine's state of a deck only.
 impl Sees for Performing<'_> {
     fn decks_in_use(&self) -> usize {
-        self.state.preferences.read(|p| p.dj.decks())
+        self.state.decks_in_use()
     }
 
     fn deck(&self, deck: usize) -> DeckView {

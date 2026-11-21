@@ -1,18 +1,73 @@
-//! What the actions change of a deck's track in the library: the beat grid corrected, at once
-//! on the decks and kept in the library in turn (see `commands::edits`).
+//! Corrections of a loaded track's beat grid and key: applied at once to every deck playing the
+//! track and to the engine, then stored in the library in turn (see `Actions::keep`) and shown
+//! in its lists; the decks playing the track show them with their tracks (`Section::Tracks`).
 
-use super::Performing;
-use crate::commands::edits::{change_grid, GridChange};
+use super::{Actions, Performing};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
+use crate::state::{lock, AppState};
 use prisme_actions::input::Given;
+use prisme_actions::sync::grid_shift_to;
+use prisme_actions::view::mixed_with;
+use prisme_analysis::Key;
 use prisme_control::DeckAction;
+use prisme_engine::Command;
+use prisme_library::{GridEdit, TrackEdits};
+use serde::Deserialize;
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
+use tracing::error;
 
 /// A step of a beat grid moved (s), and stretched (BPM).
 const GRID_STEP_S: f64 = 0.005;
 const GRID_STEP_BPM: f64 = 0.01;
+
+#[derive(Debug, Clone, Copy, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub enum GridChange {
+    /// Another tempo, anchored on the first beat.
+    Bpm { bpm: f64 },
+    /// Double or half time.
+    Scale { factor: f64 },
+    /// Moves the grid (later when positive).
+    Shift { seconds: f64 },
+    /// Puts a beat where the deck is.
+    BeatHere,
+    /// Moves the grid for its beats to fall on those of the deck it is mixed with, both playing.
+    Align,
+    /// Back to the analysis.
+    Reset,
+}
+
+/// A [`GridChange`] as the deck it is made on resolves it: a beat put at a place, a grid
+/// shifted onto another deck's beats by so many seconds.
+#[derive(Debug, Clone, Copy)]
+enum Regrid {
+    Bpm(f64),
+    Scale(f64),
+    Shift(f64),
+    BeatAt(f64),
+    Reset,
+}
+
+impl GridChange {
+    /// What it does to the grid of the track on `deck`: nothing for an alignment the decks do
+    /// not allow.
+    fn resolved(self, state: &AppState, deck: usize) -> AppResult<Option<Regrid>> {
+        Ok(Some(match self {
+            GridChange::Bpm { bpm } => Regrid::Bpm(bpm),
+            GridChange::Scale { factor } => Regrid::Scale(factor),
+            GridChange::Shift { seconds } => Regrid::Shift(seconds),
+            GridChange::BeatHere => Regrid::BeatAt(state.deck_status(deck)?.position_s),
+            GridChange::Align => match shift_to_other(state, deck)? {
+                Some(seconds) => Regrid::Shift(seconds),
+                None => return Ok(None),
+            },
+            GridChange::Reset => Regrid::Reset,
+        }))
+    }
+}
 
 impl Performing<'_> {
     /// The library, reached through the application.
@@ -54,6 +109,96 @@ fn grid_change(action: DeckAction, given: Given, bpm: impl FnOnce() -> Option<f6
         (DeckAction::GridSlower, _) => stretch(-1.0),
         _ => None,
     }
+}
+
+/// Corrects the beat grid of the track on `deck` by `change`.
+pub fn change_grid(
+    app: &AppHandle,
+    state: &AppState,
+    library: &Arc<LibraryService>,
+    deck: usize,
+    change: GridChange,
+) -> AppResult<()> {
+    let Some(regrid) = change.resolved(state, deck)? else { return Ok(()) };
+    edit(app, state, library, deck, |track_grid, edits| {
+        let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
+        let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
+        edits.grid = match regrid {
+            Regrid::Bpm(bpm) => {
+                Some(with_bpm(track_grid.unwrap_or(GridEdit { bpm, first_beat_s: 0.0 }), bpm)?)
+            }
+            Regrid::Scale(factor) => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
+            Regrid::Shift(seconds) => Some(grid()?.shifted(seconds)),
+            Regrid::BeatAt(position_s) => Some(grid()?.with_beat_at(position_s)),
+            Regrid::Reset => None,
+        };
+        Ok(())
+    })
+}
+
+/// The key of the track on `deck` corrected to `key`, or back to the one detected.
+pub fn change_key(
+    app: &AppHandle,
+    state: &AppState,
+    library: &Arc<LibraryService>,
+    deck: usize,
+    key: Option<Key>,
+) -> AppResult<()> {
+    edit(app, state, library, deck, |_, edits| {
+        edits.key = key;
+        Ok(())
+    })
+}
+
+/// How far to move the grid of the track on `deck` onto the beats of the deck it is mixed with,
+/// both playing on a grid.
+fn shift_to_other(state: &AppState, deck: usize) -> AppResult<Option<f64>> {
+    let status = state.engine_status()?;
+    let Some(bpm) = state.with_track(deck, |t| t.grid().map(|g| g.bpm))? else { return Ok(None) };
+    let other = mixed_with(&status, deck);
+    Ok(grid_shift_to(&status.decks[deck], &status.decks[other], bpm))
+}
+
+/// Applies `change` to the edits of the track on `deck` (given its grid with them), on every
+/// deck playing the track, the engine and the interface (told of `deck` too: a controller may
+/// have asked), then stores them. The decks playing a file all have its edits: they change
+/// together, under one lock.
+fn edit(
+    app: &AppHandle,
+    state: &AppState,
+    library: &Arc<LibraryService>,
+    deck: usize,
+    change: impl FnOnce(Option<GridEdit>, &mut TrackEdits) -> AppResult<()>,
+) -> AppResult<()> {
+    AppState::deck_exists(deck)?;
+    let (path, edits, updated) = {
+        let mut tracks = lock(&state.tracks);
+        let track = tracks[deck].as_ref().ok_or(AppError::NoTrack(deck))?;
+        let (path, mut edits) = (track.path.clone(), track.edits);
+        change(edits.apply(track.detected).tempo.map(GridEdit::from), &mut edits)?;
+        let updated: Vec<_> = tracks
+            .iter_mut()
+            .enumerate()
+            .filter_map(|(on, track)| {
+                let track = track.as_mut().filter(|t| t.path == path)?;
+                track.edits = edits;
+                Some((on, track.grid()))
+            })
+            .collect();
+        (path, edits, updated)
+    };
+    for (on, grid) in updated {
+        state.send_if_running(Command::SetBeatGrid { deck: on, grid })?;
+    }
+    let library = library.clone();
+    app.state::<Actions>().keep(move || match library.db.save_edits(&path, &edits) {
+        Ok(()) => {
+            library.announce(&path);
+            library.write_tags_soon();
+        }
+        Err(e) => error!("the corrections of {} not kept: {e}", path.display()),
+    });
+    Ok(())
 }
 
 #[cfg(test)]

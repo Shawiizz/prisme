@@ -297,7 +297,7 @@ pub struct LiveSwitches {
     pub cue: bool,
 }
 
-/// What the routing reads of the preferences (see `commands::mixer::routing_of`).
+/// What the routing reads of the preferences (see `RoutingStateDto::of`).
 fn routed(p: &Preferences) -> impl PartialEq {
     let MixerPreferences { mode, headphones, booth, mic, aux, .. } = p.mixer;
     (mode, headphones, booth, mic.input, aux.input, p.dj.decks())
@@ -1040,9 +1040,14 @@ impl AppState {
         decks
     }
 
+    /// The decks in use: two, or four (a preference).
+    pub fn decks_in_use(&self) -> usize {
+        self.preferences.read(|p| p.dj.decks())
+    }
+
     /// Whether `deck` is one of the decks in use (two, or four).
     pub fn deck_in_use(&self, deck: usize) -> AppResult<()> {
-        if deck < self.preferences.read(|p| p.dj.decks()) {
+        if deck < self.decks_in_use() {
             Ok(())
         } else {
             Err(AppError::InvalidDeck(deck))

@@ -1,13 +1,16 @@
 //! The decks: their tracks, their settings, what the screen shows of them at each frame.
 
-use super::{ChannelStripDto, FxChainDto, RpmDto, SignalDto, VinylDto, VinylModeDto};
-use prisme_actions::knobs::StripKnobs;
+use super::{AudioInfo, ChannelStripDto, FxChainDto, RpmDto, SignalDto, VinylDto, VinylModeDto};
+use crate::audio_host::{deck_pair, layer_partner};
+use crate::sampler;
+use crate::state::{lock, AppState};
+use prisme_actions::knobs::{self, StripKnobs};
 use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
 use prisme_actions::stems::{Separation as SeparationDto, StemMix as StemMixDto};
 use prisme_actions::view::View;
 use prisme_actions::{light, screen};
-use prisme_engine::{LoopStatus, StemTracks};
+use prisme_engine::{LoopStatus, Rpm, StemTracks, MAX_DECKS};
 use prisme_library::{Cue, CueSlot};
 use prisme_timecode::SignalState;
 use serde::Serialize;
@@ -208,6 +211,54 @@ pub struct DeckSettingsDto {
     pub repeat: bool,
     /// Silenced in the master, after its fader (still heard in the headphones).
     pub mute: bool,
+}
+
+impl DeckSettingsDto {
+    /// The decks' settings as the interface shows them, `view` showing their knobs.
+    pub fn all(state: &AppState, view: &View) -> Vec<Self> {
+        let ranges = state.preferences.read(|p| std::array::from_fn::<_, MAX_DECKS, _>(|d| p.tempo_range(d)));
+        let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+        let samplers = lock(&state.samplers);
+        let laid_out = info.as_ref().map_or(view.decks_in_use, |info| info.decks);
+        let inputs = info.as_ref().map(|info| info.input_channels);
+        let turntables = info.as_ref().is_some_and(|info| info.simulated || info.input_channels >= 2);
+        state
+            .decks_laid_out(info.as_ref().map(AudioInfo::layout))
+            .iter()
+            .zip(samplers.iter())
+            .enumerate()
+            .map(|(deck, (d, samples))| Self {
+                pitch: d.pitch,
+                volume: d.volume,
+                cue: d.cue,
+                vinyl_enabled: d.vinyl_enabled,
+                vinyl_mode: d.vinyl_mode,
+                rpm: d.rpm,
+                lead_in_s: d.lead_in_s,
+                record_lead_in_s: Rpm::from(d.rpm).music_s(d.timecode.lead_in_s),
+                swap_channels: d.swap_channels,
+                timecode: d.timecode.id,
+                key_lock: d.key_lock,
+                fader_start: d.fader_start,
+                tempo_range: ranges[deck],
+                strip: d.strip,
+                knobs: knobs::strip(view, deck),
+                fx: d.fx,
+                samples: samples.iter().map(|s| s.as_ref().map(|s| sampler::name(&s.path))).collect(),
+                sampler_gain: d.sampler_gain,
+                size_beats: d.size_beats,
+                passthrough: d.passthrough,
+                records: turntables || d.vinyl_enabled || d.passthrough,
+                input: inputs.map(|inputs| 2 * deck_pair(deck, laid_out, inputs)),
+                layered_on: inputs
+                    .and_then(|inputs| layer_partner(deck, laid_out, inputs))
+                    .filter(|&partner| partner < deck),
+                side: d.side.unwrap_or(prisme_control::Side::of_deck(deck)),
+                repeat: d.repeat,
+                mute: d.mute,
+            })
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]

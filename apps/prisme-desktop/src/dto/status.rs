@@ -1,14 +1,10 @@
 //! What the status stream sends: the state at a frame, and the sections that moved.
 
 use super::{
-    AudioHealthDto, AutoDjStatusDto, DeckPadsDto, DeckSettingsDto, DeckStatusDto, FoldersStateDto,
-    LibraryListsDto, LibraryViewDto, MixerStateDto, RecordingStatusDto, RoutingStateDto, StemsStateDto,
-    TrackInfoDto,
+    AudioHealthDto, AudioStateDto, AutoDjStatusDto, ControllersStateDto, DeckPadsDto, DeckSettingsDto,
+    DeckStatusDto, FoldersStateDto, LibraryListsDto, LibraryViewDto, MixerStateDto, PreferencesDto,
+    RecordingStatusDto, RoutingStateDto, StemsStateDto, TrackInfoDto,
 };
-use crate::commands::audio::AudioStateDto;
-use crate::commands::controllers::ControllersStateDto;
-use crate::commands::mixer::{decks_of, mixer_state_of, routing_of};
-use crate::commands::preferences::PreferencesDto;
 use crate::state::{lock, AppState, Section};
 use prisme_actions::meter::Levels;
 use prisme_actions::screen;
@@ -101,11 +97,11 @@ impl ControlStateDto {
                 Section::Mixer => {
                     let (quantize, pitch_range) =
                         state.preferences.read(|p| (p.dj.quantize, p.dj.pitch_range));
-                    controls.mixer = Some(mixer_state_of(state, view));
+                    controls.mixer = Some(MixerStateDto::of(state, view));
                     (controls.quantize, controls.pitch_range) = (Some(quantize), Some(pitch_range));
                 }
-                Section::Routing => controls.routing = Some(routing_of(state, view.decks_in_use)),
-                Section::Decks => controls.decks = Some(decks_of(state, view)),
+                Section::Routing => controls.routing = Some(RoutingStateDto::of(state, view.decks_in_use)),
+                Section::Decks => controls.decks = Some(DeckSettingsDto::all(state, view)),
                 Section::Tracks => {
                     let tracks = lock(&state.tracks)
                         .iter()
@@ -136,8 +132,7 @@ impl ControlStateDto {
             // the actions of the decks not in use leave the mappings shown
             if matches!(section, Section::Controllers | Section::Settings) {
                 let shown = lock(&state.controllers).clone();
-                controls.controllers =
-                    Some(ControllersStateDto::of(shown, crate::commands::targets::decks(state)));
+                controls.controllers = Some(ControllersStateDto::of(shown, state.decks_in_use()));
             }
         }
         controls

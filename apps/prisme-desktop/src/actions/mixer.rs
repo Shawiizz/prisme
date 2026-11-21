@@ -4,7 +4,7 @@
 
 use super::take_over;
 use crate::auto_dj::{AutoDj, Takeover};
-use crate::dto::CrossfaderCurveDto;
+use crate::dto::{CrossfaderCurveDto, MixModeDto};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
 use prisme_actions::switch::LiveSource;
@@ -12,6 +12,19 @@ use prisme_actions::{engine_band, engine_live, engine_side};
 use prisme_control::{Band, Side};
 use prisme_engine::Command;
 use prisme_library::CueSlot;
+
+/// External or software mixer, kept for the next start: the mode in use follows (an external
+/// mixer needs an output pair per deck). Applied with the audio settings.
+pub fn set_mix_mode(state: &AppState, mode: MixModeDto) -> AppResult<()> {
+    state.update_preferences(|p| p.mixer.mode = mode);
+    route(state)
+}
+
+/// Applies the routing the preferences give to the running audio, if any.
+pub fn route(state: &AppState) -> AppResult<()> {
+    let Some(info) = lock(&state.session).as_ref().map(|s| s.info.clone()) else { return Ok(()) };
+    state.send(Command::SetRouting { routing: state.routing(&info) })
+}
 
 /// A channel fader this low is closed: fader start stops its deck there.
 const FADER_CLOSED: f32 = 1e-3;
@@ -138,7 +151,7 @@ pub fn set_deck_cue(state: &AppState, deck: usize, enabled: bool) -> AppResult<(
 
 /// `deck` alone in the headphones, of the decks in use.
 pub fn solo_cue(state: &AppState, deck: usize) -> AppResult<()> {
-    let decks = state.preferences.read(|p| p.dj.decks());
+    let decks = state.decks_in_use();
     (0..decks).try_for_each(|d| set_deck_cue(state, d, d == deck))
 }
 

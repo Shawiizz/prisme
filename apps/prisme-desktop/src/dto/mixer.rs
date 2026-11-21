@@ -1,7 +1,12 @@
 //! The mixer: its knobs and switches, the routing, the live sources, the recording.
 
-use crate::choices::{BoothChoice, LiveNote, OutputNote};
-use prisme_actions::knobs::MixerKnobs;
+use crate::actions::general;
+use crate::audio_host::deck_pair;
+use crate::choices::{self, BoothChoice, LiveNote, OutputNote};
+use crate::state::{free_inputs, live_channels, live_preferences, lock, AppState, EXTERNAL_MIXER_OUTPUTS};
+use prisme_actions::knobs::{self, MixerKnobs};
+use prisme_actions::switch::LiveSource;
+use prisme_actions::view::View;
 use prisme_engine::{InputChannels, MixMode};
 use serde::{Deserialize, Serialize};
 
@@ -220,6 +225,24 @@ pub struct MixerStateDto {
     pub last_recording: Option<RecordingDto>,
 }
 
+impl MixerStateDto {
+    /// The mixer of `state`, its knobs as `view` shows them.
+    pub fn of(state: &AppState, view: &View) -> Self {
+        let mixer = state.preferences.read(|p| p.mixer);
+        Self {
+            knobs: knobs::mixer(view),
+            split_cue: mixer.split_cue,
+            crossfader_curve: mixer.crossfader_curve,
+            crossfader_reverse: mixer.crossfader_reverse,
+            limiter: mixer.limiter,
+            talkover: mixer.talkover,
+            talkover_depth_db: mixer.talkover_depth_db,
+            record_source: mixer.record_source,
+            last_recording: lock(&state.recorded).clone(),
+        }
+    }
+}
+
 /// Where the mixer is heard on the running device, and the live inputs it takes.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -251,6 +274,61 @@ pub struct RoutingStateDto {
     pub aux: LiveStateDto,
     /// What can be recorded on the running device.
     pub record_options: Vec<RecordOptionDto>,
+}
+
+impl RoutingStateDto {
+    /// Where the mixer of `state` is heard on the running device (laid out for `decks_in_use`
+    /// without one), and the live inputs it takes.
+    pub fn of(state: &AppState, decks_in_use: usize) -> Self {
+        let mixer = state.preferences.read(|p| p.mixer);
+        let info = lock(&state.session).as_ref().map(|s| s.info.clone());
+        let routing = info.as_ref().map(|info| state.routing(info));
+        let switches = *lock(&state.live);
+        let free = info.as_ref().map(free_inputs).unwrap_or_default();
+        let live = |source: LiveSource| {
+            let chosen = live_preferences(&mixer, source).input;
+            let other = live_preferences(&mixer, source.other()).input;
+            let switches = switches[source as usize];
+            let in_use = live_channels(chosen, &free).is_some();
+            LiveStateDto {
+                input: chosen,
+                in_use,
+                choices: choices::inputs(&free, other, chosen, source == LiveSource::Mic),
+                note: info.as_ref().and_then(|_| choices::live_note(chosen, in_use, &free)),
+                on: switches.on,
+                cue: switches.cue,
+            }
+        };
+        let outputs = info.as_ref().map_or(0, |info| info.output_channels);
+        let internal = routing.map_or(mixer.mode, |r| r.mode.into()) == MixModeDto::Internal;
+        let headphones_in_use = routing.and_then(|r| r.headphones);
+        let booth_in_use = routing.and_then(|r| r.booth);
+        let laid_out = info.as_ref().map_or(decks_in_use, |info| info.decks);
+        Self {
+            mode: mixer.mode,
+            internal,
+            fallback: (mixer.mode == MixModeDto::External && internal && info.is_some())
+                .then_some(EXTERNAL_MIXER_OUTPUTS),
+            deck_outputs: (0..laid_out).map(|deck| 2 * deck_pair(deck, laid_out, outputs)).collect(),
+            headphones: mixer.headphones,
+            headphones_in_use,
+            headphones_choices: choices::headphones(outputs, mixer.headphones),
+            headphones_note: info.as_ref().map(|_| match headphones_in_use {
+                Some(first) => OutputNote::On { first },
+                None => OutputNote::NotHeard,
+            }),
+            booth: mixer.booth,
+            booth_in_use,
+            booth_choices: choices::booth(outputs, headphones_in_use.filter(|_| internal), mixer.booth),
+            booth_note: info
+                .as_ref()
+                .filter(|_| internal)
+                .and_then(|_| choices::booth_note(booth_in_use, mixer.booth, headphones_in_use)),
+            mic: live(LiveSource::Mic),
+            aux: live(LiveSource::Aux),
+            record_options: general::record_options(internal, info.as_ref()),
+        }
+    }
 }
 
 /// A source the Rec menu offers.

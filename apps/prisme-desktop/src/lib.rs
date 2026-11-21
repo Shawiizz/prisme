@@ -326,9 +326,6 @@ fn start_services(app: &tauri::App, library: &Arc<LibraryService>) {
 /// The commands the page may invoke, by module.
 fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
     tauri::generate_handler![
-        actions::let_go_key,
-        actions::loads::load_track,
-        actions::perform_action,
         commands::audio::apply_audio_settings,
         commands::audio::audio_backends,
         commands::audio::change_audio_draft,
@@ -362,6 +359,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::crates::update_smart_crate,
         commands::decks::hand,
         commands::decks::jog,
+        commands::decks::load_track,
         commands::decks::seek_deck,
         commands::decks::set_deck_mode,
         commands::decks::set_record,
@@ -413,6 +411,8 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::mixer::set_headphones_output,
         commands::mixer::set_limiter,
         commands::new_version::check_update,
+        commands::perform::let_go_key,
+        commands::perform::perform_action,
         commands::preferences::get_preferences,
         commands::preferences::reset_keys,
         commands::preferences::set_keys,

@@ -273,6 +273,11 @@ impl AutoDjPreferences {
     }
 }
 
+impl MixerPreferences {
+    /// How far the music can duck under the microphone (dB).
+    pub const TALKOVER_DEPTHS: [f32; 4] = [-6.0, -12.0, -18.0, -24.0];
+}
+
 impl Default for AutoDjPreferences {
     fn default() -> Self {
         Self { fade_beats: 16, fade_s: 10.0 }

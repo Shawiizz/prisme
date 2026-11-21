@@ -1,9 +1,10 @@
 //! Tracks put on the decks and taken off, sounds put in the samplers, a track previewed in the
 //! headphones: what is loaded or previewed is the track selected in the library as the action
-//! was sent, or the one the interface named ([`load_track`]). The track of a deck that plays
-//! leaves it once the DJ says so, or never if the DJ chose so (see [`Performing::may_replace`]).
+//! was sent, or the one the interface named (`commands::decks::load_track`). The track of a
+//! deck that plays leaves it once the DJ says so, or never if the DJ chose so (see
+//! [`Performing::may_replace`]).
 
-use super::{deck, take_over, Actions, Answer, Order, Performing, Source};
+use super::{deck, take_over, Performing, Source};
 use crate::auto_dj::Takeover;
 use crate::error::{AppError, AppResult};
 use crate::preview::Previews;
@@ -12,33 +13,10 @@ use prisme_actions::input::Given;
 use prisme_actions::view::plays;
 use prisme_control::{DeckAction, LibraryAction, Target};
 use prisme_engine::Command;
-use std::path::PathBuf;
-use tauri::{AppHandle, Manager};
+use tauri::Manager;
 
 /// How far a step of an encoder moves the preview (s).
 const PREVIEW_STEP_S: f64 = 4.0;
-
-/// Loads the track at `path` on `deck`, or on the first deck without a track (deck A if none):
-/// a row of the library, a track dropped, one the command palette found; `confirmed`, the DJ said
-/// yes to what it replaces. Sent in turn with the interface's actions (`order`).
-#[tauri::command]
-pub async fn load_track(
-    app: AppHandle,
-    path: String,
-    deck: Option<usize>,
-    confirmed: bool,
-    order: Order,
-) -> AppResult<()> {
-    crate::commands::blocking(move || {
-        let actions = app.state::<Actions>();
-        let (answer, outcome) = std::sync::mpsc::sync_channel(1);
-        actions.in_order(order, || {
-            actions.load_track(&app, PathBuf::from(path), deck, confirmed, Answer::To(answer));
-        });
-        outcome.recv().unwrap_or_else(|e| Err(AppError::Other(e.to_string())))
-    })
-    .await
-}
 
 impl Performing<'_> {
     /// A load of the library pressed: the selected track on a deck, played there or not, or on
