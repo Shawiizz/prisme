@@ -51,6 +51,12 @@ impl Svf {
     pub fn reset(&mut self) {
         *self = Self::default();
     }
+
+    /// As if its input had stayed at `x`: its low-pass gives `x`, its band-pass and
+    /// high-pass nothing.
+    pub fn hold(&mut self, x: f32) {
+        *self = Self { ic1: 0.0, ic2: x };
+    }
 }
 
 #[cfg(test)]
