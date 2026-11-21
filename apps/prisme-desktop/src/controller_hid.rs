@@ -271,9 +271,9 @@ impl Drop for Link {
 
 /// The port of `path` open, and whether its report descriptor numbers its reports.
 fn open_port(path: &Path) -> Result<(Box<dyn Port>, Option<bool>), String> {
-    match path {
+    match *path {
         #[cfg(desktop)]
-        Path::System(path) => {
+        Path::System(ref path) => {
             let device = with_api(false, |api| api.open_path(path))?.map_err(|e| e.to_string())?;
             let mut descriptor = [0; hidapi::MAX_REPORT_DESCRIPTOR_SIZE];
             let numbered = device
@@ -283,7 +283,7 @@ fn open_port(path: &Path) -> Result<(Box<dyn Port>, Option<bool>), String> {
             Ok((Box::new(device), numbered))
         }
         #[cfg(debug_assertions)]
-        Path::Simulated(id) => simulated::open(*id),
+        Path::Simulated(id) => simulated::open(id),
     }
 }
 
