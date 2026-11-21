@@ -505,3 +505,30 @@ fn a_record_in_absolute_mode_starts_and_stops_the_track_itself() {
     rig.run(0.01);
     assert!(rig.deck(0).playing, "a relative record leaves it its play");
 }
+
+#[test]
+fn a_record_in_relative_mode_carries_the_track_on_from_where_it_is_put() {
+    let mut rig = playing_deck(10.0);
+    rig.turntable(0, 30.0, 1.0);
+    rig.send(Command::SetVinylMode { deck: 0, mode: VinylMode::Relative });
+    rig.send(Command::SetVinylEnabled { deck: 0, enabled: true });
+    rig.run(0.2);
+    let jumps = [
+        Command::Seek { deck: 0, seconds: 40.0 },
+        Command::Jump { deck: 0, seconds: 20.0 },
+        Command::BeatJump { deck: 0, beats: 8.0 },
+    ];
+    for (jump, to) in jumps.into_iter().zip([40.0, 20.0, 24.5]) {
+        rig.send(jump);
+        let elapsed = rig.run(0.5);
+        assert_close(rig.deck(0).position_s, to + elapsed, 0.05);
+    }
+    // a roll plays round while held, the track coming back where the record took it
+    let from = rig.deck(0).position_s;
+    rig.send(Command::LoopRoll { deck: 0, beats: Some(0.5) });
+    let elapsed = rig.run(1.0);
+    assert!(rig.deck(0).looping.active);
+    rig.send(Command::LoopRoll { deck: 0, beats: None });
+    rig.run(0.01);
+    assert_close(rig.deck(0).position_s, from + elapsed, 0.05);
+}
