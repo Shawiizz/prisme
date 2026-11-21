@@ -1,7 +1,7 @@
 import { WritableSignal } from '@angular/core';
 import { deckLetter } from '../shared/time';
 import { Params, t } from './i18n/i18n';
-import type { BackendError } from './models/backend';
+import type { BackendError, CardAsked } from './models/backend';
 
 const onDeck = (p: Params) => ({ ...p, deck: deckLetter(Number(p['deck'])) });
 
@@ -52,6 +52,8 @@ const TEXTS: Record<string, (p: Params) => string> = {
     p['device']
       ? t('Audio device not found: {device}', p)
       : t('No sound card found: plug it in, and let Prisme use it if asked'),
+  usbAsked: (p) => cardAskedText({ card: String(p['card']), refused: false }),
+  usbRefused: (p) => cardAskedText({ card: String(p['card']), refused: true }),
   backendUnavailable: (p) => t('{backend} is not available on this computer', p),
   sampleRateMismatch: (p) =>
     t(
@@ -68,6 +70,13 @@ const TEXTS: Record<string, (p: Params) => string> = {
   foldersFixed: () => t('The folders of the library cannot be changed on this device'),
   mainFolderStays: () => t('The main folder stays: change it in the settings'),
 };
+
+/** A USB card the DJ is asked to let Prisme open, or refused it, in words. */
+export function cardAskedText({ card, refused }: CardAsked): string {
+  return refused
+    ? t('The card {card} was not allowed: choose it again in the settings', { card })
+    : t('Allow Prisme to use the card {card}', { card });
+}
 
 /** What failed, to show: a failure of the backend in the UI's language, anything else as it
  * says it. Worded as it happens: an error shown keeps its words if the language changes. */

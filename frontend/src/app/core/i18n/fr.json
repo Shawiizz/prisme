@@ -656,6 +656,8 @@
   "Unknown timecode {format}": "Timecode inconnu : {format}",
   "The engine is busy, try again": "Le moteur est occupé, réessayez",
   "Allow Prisme to listen to the inputs of the sound card, then apply again": "Autorisez Prisme à écouter les entrées de la carte son, puis appliquez à nouveau",
+  "Allow Prisme to use the card {card}": "Autorisez Prisme à utiliser la carte {card}",
+  "The card {card} was not allowed: choose it again in the settings": "La carte {card} n'a pas été autorisée : choisissez-la de nouveau dans les réglages",
   "The file downloaded is not the new version of Prisme": "Le fichier téléchargé n'est pas la nouvelle version de Prisme",
   "Already recording": "Un enregistrement est déjà en cours",
   "Genre not written into {file}": "Genre non écrit dans {file}",

@@ -6,7 +6,7 @@ import { decimal } from '../../shared/time';
 import { EngineService } from './engine.service';
 import { NoticeService } from '../../shared/notice/notice';
 import { t } from '../i18n/i18n';
-import { attempt } from '../errors';
+import { attempt, cardAskedText } from '../errors';
 import type {
   AudioBackend,
   AudioChange,
@@ -36,6 +36,11 @@ export class SettingsService {
   readonly settings = computed(() => this.engine.told().audio.settings);
   /** The audio running. */
   readonly info = computed(() => this.engine.told().audio.info);
+  /** The USB card the DJ is asked to let Prisme open, or refused it, in words. */
+  readonly asked = computed(() => {
+    const asked = this.engine.told().audio.asked;
+    return asked ? cardAskedText(asked) : null;
+  });
   private readonly notices = inject(NoticeService);
   /** The length of an audio period, `5.3 ms`, once the driver has called the engine. */
   readonly period = computed(() => {

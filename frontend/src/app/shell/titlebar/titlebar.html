@@ -12,7 +12,12 @@
   <div class="health" data-tauri-drag-region>
     @if (engine.audioRunning()) {
       @if (settings.info(); as info) {
-        @if (info.missing !== null) {
+        @if (settings.asked(); as asked) {
+          <span class="pr-chip pr-chip--warn device" [title]="asked">
+            <span class="pr-sig pr-sig--weak"></span>
+            <span class="pr-chip__text">{{ asked }}</span>
+          </span>
+        } @else if (info.missing !== null) {
           <span
             class="pr-chip pr-chip--warn device"
             [title]="
@@ -44,6 +49,11 @@
           <span class="pr-chip minor">{{ '{n} input ch' | t: { n: info.inputChannels } }}</span>
         }
       }
+    } @else if (settings.asked(); as asked) {
+      <span class="pr-chip pr-chip--alert device" [title]="asked">
+        <span class="pr-sig pr-sig--none"></span>
+        <span class="pr-chip__text">{{ asked }}</span>
+      </span>
     } @else if (engine.status()?.health?.deviceLost) {
       <span class="pr-chip pr-chip--alert device">
         <span class="pr-sig pr-sig--none"></span>

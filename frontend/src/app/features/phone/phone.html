@@ -1,6 +1,9 @@
 <header class="bar">
   @if (audio(); as audio) {
-    @if (missing() !== null) {
+    @if (asked(); as asked) {
+      <span class="pr-sig pr-sig--weak"></span>
+      <span class="audio missing">{{ asked }} · {{ audio }}</span>
+    } @else if (missing() !== null) {
       <span class="pr-sig pr-sig--weak"></span>
       <span class="audio missing"
         >{{
@@ -14,6 +17,9 @@
       <span class="pr-sig pr-sig--ok"></span>
       <span class="audio">{{ audio }}</span>
     }
+  } @else if (asked(); as asked) {
+    <span class="pr-sig pr-sig--none"></span>
+    <span class="audio missing">{{ asked }}</span>
   } @else {
     <span class="pr-sig pr-sig--none"></span>
     <span class="audio">{{

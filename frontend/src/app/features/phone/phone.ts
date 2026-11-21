@@ -73,6 +73,8 @@ export class Phone {
   /** The sound card chosen is missing, the default device playing meanwhile: its name, '' for
    * the first one its driver finds. */
   protected readonly missing = computed(() => this.settings.info()?.missing ?? null);
+  /** The USB card the DJ is asked to let Prisme open, or refused it, in words. */
+  protected readonly asked = this.settings.asked;
 
   /** The hands are elsewhere: on a controller open, or on the records that drive a deck. */
   private readonly preferences = inject(PreferencesService);
