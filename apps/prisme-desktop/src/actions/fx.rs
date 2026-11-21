@@ -21,9 +21,7 @@ fn set_slot(
     change: impl FnOnce(&mut FxDto),
     command: Command,
 ) -> AppResult<()> {
-    if slot >= FX_SLOTS {
-        return Err(AppError::Other(format!("no effect slot {}", slot + 1)));
-    }
+    check_fx_slot(slot)?;
     state.set_deck(deck, |d| change(&mut d.fx.slots[slot]), command)
 }
 
@@ -117,11 +115,18 @@ impl Performing<'_> {
 /// The slot of the chain of `deck` the screen's pads and knobs act on.
 pub fn show_fx_slot(state: &AppState, deck: usize, slot: usize) -> AppResult<()> {
     AppState::deck_exists(deck)?;
-    if slot >= FX_SLOTS {
-        return Err(AppError::Other(format!("no effect slot {slot}")));
-    }
+    check_fx_slot(slot)?;
     lock(&state.perform).decks[deck].fx_shown = slot;
     Ok(())
+}
+
+/// Whether a deck's chain has the slot `slot` (from 0).
+fn check_fx_slot(slot: usize) -> AppResult<()> {
+    if slot < FX_SLOTS {
+        Ok(())
+    } else {
+        Err(AppError::Other(format!("no effect slot {}", slot + 1)))
+    }
 }
 
 #[cfg(test)]
