@@ -103,7 +103,8 @@ impl InitMessage {
 
 /// A value shown on `control`: `source`'s position from 0 to 1 (`deck1.position` of its
 /// track, `deck1.turn` of its record at 33⅓, or a fader's: `deck1.fx.mix`), from `min` to
-/// `max`.
+/// `max`; nothing to show (no track, a stem not separated…), 0 if `min` and `max` are above
+/// it, else `min`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Output {
@@ -123,6 +124,17 @@ impl Output {
     pub fn value(&self, position: f32) -> u8 {
         let span = f32::from(self.max) - f32::from(self.min);
         (f32::from(self.min) + position.clamp(0.0, 1.0) * span).round() as u8
+    }
+
+    /// The value showing nothing: 0 below values from 1 up, which the controllers keep dark
+    /// there (a ring of 1 to 15 lights its first LED at 1, none at 0), else the start of its
+    /// travel.
+    pub fn off(&self) -> u8 {
+        if self.min.min(self.max) > 0 {
+            0
+        } else {
+            self.min
+        }
     }
 }
 
@@ -820,6 +832,17 @@ mod tests {
         )
         .unwrap();
         assert_eq!([0.0, 0.5, 1.0].map(|p| output.value(p)), [1, 11, 21]);
+    }
+
+    #[test]
+    fn an_output_shows_nothing_dark_below_its_values_else_at_the_start_of_its_travel() {
+        let off = |min, max| {
+            Output { min, max, ..serde_json::from_str::<Output>(r#"{ "source": "deck1.turn", "control": { "kind": "controlChange", "channel": 0, "number": 6 } }"#).unwrap() }.off()
+        };
+        assert_eq!(off(1, 15), 0, "a ring of 15 LEDs");
+        assert_eq!(off(29, 21), 0, "upside down");
+        assert_eq!(off(0, 127), 0);
+        assert_eq!(off(127, 0), 127, "upside down from 0");
     }
 
     #[test]

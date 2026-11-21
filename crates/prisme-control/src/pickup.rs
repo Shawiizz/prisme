@@ -23,6 +23,13 @@ impl Pickup {
         self.given = takes.then_some(position);
         takes
     }
+
+    /// The control moved to `position` without driving its setting, which could not move: it
+    /// picks the setting up again before it drives it.
+    pub fn lose(&mut self, position: f32) {
+        self.previous = Some(position);
+        self.given = None;
+    }
 }
 
 #[cfg(test)]
@@ -53,5 +60,15 @@ mod tests {
         // the screen moved it to 0.9 meanwhile
         assert!(!pickup.takes(0.62, 0.9));
         assert!(pickup.takes(0.95, 0.9));
+    }
+
+    #[test]
+    fn a_control_moved_while_its_setting_could_not_move_picks_it_up_again() {
+        let mut pickup = Pickup::default();
+        assert!(pickup.takes(0.5, 0.5));
+        pickup.lose(0.6);
+        pickup.lose(0.1);
+        assert!(!pickup.takes(0.12, 0.5), "the setting stayed at 0.5");
+        assert!(pickup.takes(0.55, 0.5), "crossed it");
     }
 }

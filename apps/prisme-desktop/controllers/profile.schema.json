@@ -687,7 +687,7 @@
       "type": "object"
     },
     "Output": {
-      "description": "A value shown on `control`: `source`'s position from 0 to 1 (`deck1.position` of its\ntrack, `deck1.turn` of its record at 33⅓, or a fader's: `deck1.fx.mix`), from `min` to\n`max`.",
+      "description": "A value shown on `control`: `source`'s position from 0 to 1 (`deck1.position` of its\ntrack, `deck1.turn` of its record at 33⅓, or a fader's: `deck1.fx.mix`), from `min` to\n`max`; nothing to show (no track, a stem not separated…), 0 if `min` and `max` are above\nit, else `min`.",
       "properties": {
         "control": {
           "$ref": "#/$defs/Control"

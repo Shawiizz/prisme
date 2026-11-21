@@ -3,6 +3,7 @@
 //! tempo fader stands, the time left, who drives it, what its keys may do and light, its stems;
 //! and the strip comparing two decks' beats.
 
+use crate::available::available;
 use crate::light::{ending, light, State};
 use crate::pads::Pads;
 use crate::scales::Tempo;
@@ -61,7 +62,7 @@ pub struct StemKnob {
     pub on: bool,
     /// Its change waits for the next bar.
     pub waiting: bool,
-    /// Separated where the deck plays.
+    /// It can be turned: its part separated where the deck plays.
     pub ready: bool,
 }
 
@@ -221,7 +222,7 @@ pub fn stem_knobs(view: &View, deck: usize) -> impl Iterator<Item = StemKnob> + 
             level: track.stem_mix.level(part),
             on: track.stem_mix.playing(part),
             waiting: part_in(status.stems_waiting, part),
-            ready: part_in(status.stems_here, part),
+            ready: available(view, &Target::Deck(deck, DeckAction::StemLevel(part))),
         })
     })
 }
@@ -266,8 +267,8 @@ pub fn drive(sees: &impl Sees, deck: usize) -> Drive {
 }
 
 /// Whether something else than its fader holds the tempo of `deck`: its record, or the sync.
-pub fn tempo_held(view: &View, deck: usize) -> bool {
-    view.decks[deck].vinyl || view.deck_status(deck).sync.locked
+pub fn tempo_held(seen: &impl Sees, deck: usize) -> bool {
+    seen.deck(deck).vinyl || seen.status(deck).sync.locked
 }
 
 fn tempo_fader(view: &View, deck: usize) -> TempoFader {

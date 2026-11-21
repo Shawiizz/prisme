@@ -2,6 +2,7 @@
 //! they drive: the rules of each action, and what its light and its fader show of the
 //! application at a moment (its [`view::View`]).
 
+pub mod available;
 pub mod cue;
 pub mod hold;
 pub mod input;

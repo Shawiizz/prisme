@@ -1,6 +1,7 @@
 //! Where the fader of an action stands, read from what the actions see ([`Sees`]), and what a
 //! value a profile shows on a controller is: a fader's position, or a deck's track measured.
 
+use crate::available::available;
 use crate::input::KEY_STEPS;
 use crate::scales::{balance_knob, eq_knob, filter_knob, headphone_knob, live_knob, trim_knob, Tempo};
 use crate::view::{band_index, Sees, View};
@@ -34,11 +35,14 @@ pub fn position(target: &Target, seen: &impl Sees) -> Option<f32> {
     }
 }
 
-/// The value of `source` as `view` shows it: a fader's position, or a deck's track measured
-/// (none without a track, or on a deck not in use).
+/// The value of `source` as `view` shows it: a fader's position, or a deck's track measured;
+/// none while there is nothing to show: without a track, on a deck not in use, of an action
+/// that can do nothing (see [`available`]).
 pub fn output(source: &Source, view: &View) -> Option<f64> {
     let (deck, measure) = match source {
-        Source::Position(target) => return position(target, view).map(f64::from),
+        Source::Position(target) => {
+            return position(target, view).filter(|_| available(view, target)).map(f64::from)
+        }
         Source::Measured(deck, measure) => (*deck, *measure),
     };
     let status = view.deck_status(deck);
@@ -256,6 +260,27 @@ mod tests {
         }
         assert_eq!(at("deck1.key", &v), Some(18.5 / 25.0), "the middle of its semitone");
         assert_eq!(at("deck1.vocals.level", &v), Some(0.25));
+    }
+
+    #[test]
+    fn a_fader_that_can_do_nothing_shows_nothing_until_it_can() {
+        let mut v = loaded(view(), 0, 0.0, false);
+        if let Some(track) = &mut v.decks[0].track {
+            track.stem_mix = track.stem_mix.with_level(StemPart::Vocals, 0.25);
+        }
+        assert_eq!(shown("deck1.vocals.level", &v), None, "not separated");
+        assert_eq!(at("deck1.vocals.level", &v), Some(0.25), "where it stands, for a pickup");
+        if let Some(track) = &mut v.decks[0].track {
+            track.separation = crate::stems::Separation::Full;
+        }
+        v.status.decks[0].stems_here = 0b1111;
+        assert_eq!(shown("deck1.vocals.level", &v), Some(0.25));
+        assert_eq!(shown("deck1.key", &view()), None, "no track");
+        assert_eq!(shown("deck1.key", &v), Some(0.5));
+        assert_eq!(shown("deck1.pitch", &v), Some(0.5));
+        v.status.decks[0].sync.locked = true;
+        assert_eq!(shown("deck1.pitch", &v), None, "the sync holds the tempo");
+        assert_eq!(shown("deck3.volume", &v), None, "not in use");
     }
 
     #[test]

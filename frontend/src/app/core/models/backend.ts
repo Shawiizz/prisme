@@ -2019,7 +2019,7 @@ export type StemKnob = {
    */
   waiting: boolean;
   /**
-   * Separated where the deck plays.
+   * It can be turned: its part separated where the deck plays.
    */
   ready: boolean;
 };

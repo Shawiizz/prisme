@@ -12,6 +12,7 @@ use crate::controller_hid::{self, simulated};
 use crate::state::lock;
 use prisme_actions::input::Input;
 use prisme_control::hid::{self, HidInfo};
+use prisme_control::StemPart;
 use prisme_session::JsonFile;
 use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Receiver};
@@ -48,29 +49,33 @@ fn load_id(bench: &Bench) -> Option<u64> {
     lock(&bench.state.tracks)[0].as_ref().map(|t| t.load_id)
 }
 
-/// A Hercules DJControl Jogvision on its MIDI port.
-struct Jogvision {
+/// A MIDI controller on its port, played by its shipped profile.
+struct Midi {
+    port: &'static str,
     controllers: Arc<Controllers>,
     bench: Arc<Bench>,
 }
 
-impl Jogvision {
-    const PORT: &str = "DJControl Jogvision";
+/// A Hercules DJControl Jogvision's port.
+const JOGVISION: &str = "DJControl Jogvision";
+/// A Behringer CMD DV-1's port.
+const DV1: &str = "CMD DV-1";
 
-    fn plugged() -> Self {
-        let controllers = controllers(Self::PORT);
+impl Midi {
+    fn plugged(port: &'static str) -> Self {
+        let controllers = controllers(port);
         let bench = Arc::new(Bench::new());
-        let jog = JogSteps::new(controllers.jog_steps_per_turn(Self::PORT));
-        controllers.opened(&bench, Self::PORT, Self::PORT.into(), jog, Link::Sent(Vec::new()));
-        Self { controllers, bench }
+        let jog = JogSteps::new(controllers.jog_steps_per_turn(port));
+        controllers.opened(&bench, port, port.into(), jog, Link::Sent(Vec::new()));
+        Self { port, controllers, bench }
     }
 
     /// The controller sends `message`, as its port gives it; once it is performed, the engine
     /// runs a moment.
     fn send(&self, message: &[u8]) {
         let event = prisme_control::parse(message).unwrap();
-        let steps = self.controllers.jog_steps_per_turn(Self::PORT);
-        self.controllers.receive(&self.bench, Self::PORT, steps, event, 0.0);
+        let steps = self.controllers.jog_steps_per_turn(self.port);
+        self.controllers.receive(&self.bench, self.port, steps, event, 0.0);
         self.bench.actions.settle();
         self.bench.run(0.01);
     }
@@ -85,7 +90,7 @@ impl Jogvision {
     fn sent(&self) -> Vec<Vec<u8>> {
         self.controllers.tick(&self.bench.view(), None, 0.0);
         let mut connections = lock(&self.controllers.connections);
-        let connection = connections.iter_mut().find(|c| c.device == Self::PORT).unwrap();
+        let connection = connections.iter_mut().find(|c| c.device == self.port).unwrap();
         match &mut connection.link {
             Link::Sent(sent) => std::mem::take(sent),
             _ => unreachable!("a controller of the tests"),
@@ -111,7 +116,7 @@ const POSITION: u8 = 97;
 
 #[test]
 fn a_midi_controller_plays_its_deck_and_lights_it_with_the_interface_asleep() {
-    let jogvision = Jogvision::plugged();
+    let jogvision = Midi::plugged(JOGVISION);
     let bench = &jogvision.bench;
     assert_eq!(told(bench), Vec::<String>::new());
     let first = jogvision.sent();
@@ -177,6 +182,47 @@ fn a_midi_controller_plays_its_deck_and_lights_it_with_the_interface_asleep() {
     let mut told = told(bench);
     told.dedup();
     assert_eq!(told, [DONE_EVENT], "the volume moved, for the interface to show");
+}
+
+/// The DV-1's encoder over the vocals of deck A, its ring (both on CC 32 of channel 7), and the
+/// key under it muting them (note 32).
+const VOCALS: [u8; 2] = [0xb6, 32];
+const VOCALS_KEY: [u8; 2] = [0x96, 32];
+
+#[test]
+fn a_stem_cannot_move_until_the_track_is_separated_its_ring_and_its_key_dark_meanwhile() {
+    let dv1 = Midi::plugged(DV1);
+    let bench = &dv1.bench;
+    bench.load(0, 10.0, None);
+    let vocals = || {
+        bench
+            .state
+            .with_track(0, |t| (t.stem_mix.level(StemPart::Vocals), t.stem_mix.playing(StemPart::Vocals)))
+            .unwrap()
+    };
+    let sent = dv1.sent();
+    let last =
+        |sent: &[Vec<u8>], control: [u8; 2]| sent.iter().rev().find(|m| m[..2] == control).map(|m| m[2]);
+    assert_eq!(last(&sent, VOCALS), Some(0), "the ring dark");
+    assert_eq!(last(&sent, VOCALS_KEY), Some(0), "the key orange");
+
+    // two steps to the left, the key pressed: nothing moves, nothing is said
+    dv1.send(&[VOCALS[0], VOCALS[1], 63]);
+    dv1.send(&[VOCALS[0], VOCALS[1], 63]);
+    dv1.send(&[VOCALS_KEY[0], VOCALS_KEY[1], 0x7f]);
+    dv1.send(&[0x86, VOCALS_KEY[1], 0]);
+    assert_eq!(vocals(), (1.0, true));
+    assert!(bench.told().iter().all(|(event, _)| event != FAILED_EVENT), "nothing refused");
+    assert_eq!(dv1.sent(), Vec::<Vec<u8>>::new(), "dark still");
+
+    // separated: the ring shows the level, the key lights, both drive them
+    crate::actions::deck::separated(bench, 0, &[prisme_engine::Stem::Vocals]);
+    let sent = dv1.sent();
+    assert_eq!(last(&sent, VOCALS), Some(15), "at full level");
+    assert_eq!(last(&sent, VOCALS_KEY), Some(1), "blue: it plays");
+    dv1.send(&[VOCALS[0], VOCALS[1], 63]);
+    assert!((vocals().0 - 0.96).abs() < 1e-6, "{:?}", vocals());
+    assert_eq!(dv1.shown(VOCALS), Some(14));
 }
 
 /// A Traktor Kontrol S4 MK2, simulated: its reports read by the thread a real one is read by.

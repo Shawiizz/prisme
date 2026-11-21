@@ -1,7 +1,9 @@
 //! What the light of an action shows, read from a [`View`]: on or off, or a state of its own
 //! (a cue paused, a sample loaded or playing, the end of a track soon), and the colour of a
-//! hot cue. A key a record holding its deck in place refuses stays dark (see `record`).
+//! hot cue. A key whose action can do nothing stays dark (see `available`), and one a record
+//! holding its deck in place refuses (see `record`).
 
+use crate::available::available;
 use crate::cue::at_cue;
 use crate::pads::{plays_loop, slice_at, ROLL_BEATS};
 use crate::record::refuses;
@@ -75,8 +77,8 @@ impl Light {
     }
 }
 
-/// The light of `target` as `view` shows it, if it has one; off for one of a deck not in use,
-/// and for a key its record refuses.
+/// The light of `target` as `view` shows it, if it has one; off for one that can do nothing
+/// (of a deck not in use, a stem not separated…) and for a key its record refuses.
 pub fn light(target: &Target, view: &View) -> Option<Light> {
     let light = match (Switch::of(target), target) {
         (Some((switch, turn)), _) => Some(Light::lit(shows(turn, switch.is_on(view)))),
@@ -93,10 +95,11 @@ pub fn light(target: &Target, view: &View) -> Option<Light> {
         (None, Target::AutoDj(AutoDjAction::Toggle)) => Some(Light::lit(view.auto_dj)),
         _ => None,
     }?;
-    let dark = match *target {
-        Target::Deck(deck, action) => !view.shows(deck) || dark_under_record(view, deck, action),
-        _ => target.deck().is_some_and(|deck| !view.shows(deck)),
-    };
+    let dark = !available(view, target)
+        || match *target {
+            Target::Deck(deck, action) => dark_under_record(view, deck, action),
+            _ => target.deck().is_some_and(|deck| !view.shows(deck)),
+        };
     Some(if dark { Light::OFF } else { light })
 }
 
@@ -151,7 +154,7 @@ fn deck_light(deck: usize, action: DeckAction, view: &View) -> Option<Light> {
         DeckAction::ReverseHeld => status.speed < 0.0,
         DeckAction::SlipHeld => status.slip_mode,
         DeckAction::SyncLeader => status.sync.leader,
-        DeckAction::Stem(part) => track.is_some_and(|t| t.separation.has(part) && t.stem_mix.playing(part)),
+        DeckAction::Stem(part) => track.is_some_and(|t| t.stem_mix.playing(part)),
         DeckAction::Sample(slot, SampleAction::Trigger | SampleAction::Smart) => {
             return Some(Light::of(match sample(slot) {
                 (true, _) => State::Playing,
@@ -486,16 +489,24 @@ mod tests {
     }
 
     #[test]
-    fn a_stem_is_lit_while_its_part_plays() {
+    fn a_stem_is_lit_while_its_part_plays_dark_until_it_is_separated_where_the_deck_plays() {
         let mut v = loaded(view(), 0, 0.0, false);
         assert_eq!(state("deck1.vocals", &v), OFF, "not separated");
         if let Some(track) = &mut v.decks[0].track {
             track.separation = Separation::Vocals;
             track.stem_mix = track.stem_mix.toggled(StemPart::Instrumental);
         }
+        assert_eq!(state("deck1.vocals", &v), OFF, "not separated there yet");
+        v.status.decks[0].stems_here = 0b1001;
         assert_eq!(state("deck1.vocals", &v), ON);
         assert_eq!(state("deck1.instrumental", &v), OFF);
         assert_eq!(state("deck1.drums", &v), OFF, "not a part of this separation");
+    }
+
+    #[test]
+    fn the_keys_of_a_key_are_dark_without_a_track() {
+        assert_eq!(state("deck1.key.0", &view()), OFF);
+        assert_eq!(state("deck1.key.0", &loaded(view(), 0, 0.0, false)), ON);
     }
 
     #[test]

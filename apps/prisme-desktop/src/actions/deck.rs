@@ -431,6 +431,23 @@ impl Performing<'_> {
     }
 }
 
+/// The track on `deck` separated into `stems`, played so by the engine.
+#[cfg(test)]
+pub(crate) fn separated(bench: &crate::actions::bench::Bench, deck: usize, stems: &[prisme_engine::Stem]) {
+    let all = {
+        let mut tracks = lock(&bench.state.tracks);
+        let track = tracks[deck].as_mut().unwrap();
+        let samples = vec![0.0; track.audio.frames() * 2];
+        let stem = std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, samples));
+        for &s in stems {
+            track.stems[s as usize] = Some(stem.clone());
+        }
+        track.stems.clone()
+    };
+    bench.state.send(Command::SetStems { deck, stems: all }).unwrap();
+    bench.run(0.01);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -641,22 +658,88 @@ mod tests {
         assert_ne!(shift, 0);
     }
 
+    fn playing(bench: &Bench, part: StemPart) -> bool {
+        bench.state.with_track(0, |t| t.stem_mix.playing(part)).unwrap()
+    }
+
     #[test]
     fn a_stem_is_muted_and_played_again_on_a_separated_track_alone() {
         let bench = Bench::new();
         bench.load(0, 1.0, None);
         press(&bench, "deck1.vocals");
+        assert!(playing(&bench, StemPart::Vocals), "not separated");
+        separated(&bench, 0, &[prisme_engine::Stem::Vocals]);
+        press(&bench, "deck1.vocals");
+        assert!(!playing(&bench, StemPart::Vocals));
+        press(&bench, "deck1.vocals");
+        assert!(playing(&bench, StemPart::Vocals));
+    }
+
+    #[test]
+    fn a_stem_turned_or_muted_without_its_part_changes_nothing_its_ring_and_key_off_until_it_is_there() {
+        use prisme_actions::light::{light, State};
+        use prisme_actions::position::output;
+        let bench = Bench::new();
+        bench.load(0, 1.0, None);
+        let dv1 = |id: &str, input| bench.moved("CMD DV-1", id, input).unwrap();
+        let turn = |steps| Input::Steps { steps, step: Some(0.04) };
+        let level = || bench.state.with_track(0, |t| t.stem_mix.level(StemPart::Vocals)).unwrap();
+        let shown = |bench: &Bench| {
+            let view = bench.view();
+            let ring = output(&"deck1.vocals.level".parse().unwrap(), &view);
+            (ring, light(&"deck1.vocals".parse().unwrap(), &view).map(|l| l.state))
+        };
+        dv1("deck1.vocals.level", turn(-3.0));
+        dv1("deck1.vocals", Input::Value(1.0));
+        dv1("deck1.vocals", Input::Value(0.0));
+        assert_eq!((level(), playing(&bench, StemPart::Vocals)), (1.0, true), "not separated");
+        assert_eq!(shown(&bench), (None, Some(State::Off)));
         assert!(
-            bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap(),
-            "not separated"
+            bench.told().iter().all(|(event, _)| event != crate::actions::FAILED_EVENT),
+            "nothing refused"
         );
-        let stem = std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, vec![0.0; 2]));
-        lock(&bench.state.tracks)[0].as_mut().unwrap().stems[prisme_engine::Stem::Vocals as usize] =
-            Some(stem);
-        press(&bench, "deck1.vocals");
-        assert!(!bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap());
-        press(&bench, "deck1.vocals");
-        assert!(bench.state.with_track(0, |t| t.stem_mix.playing(StemPart::Vocals)).unwrap());
+
+        separated(&bench, 0, &[prisme_engine::Stem::Vocals]);
+        assert_eq!(shown(&bench), (Some(1.0), Some(State::On)), "back as it is");
+        dv1("deck1.vocals.level", turn(-3.0));
+        assert!((level() - 0.88).abs() < 1e-6, "{}", level());
+        dv1("deck1.vocals", Input::Value(1.0));
+        assert!(!playing(&bench, StemPart::Vocals));
+    }
+
+    #[test]
+    fn the_key_and_the_place_of_a_deck_without_a_track_change_nothing() {
+        let bench = Bench::new();
+        let dv1 = |id: &str, input| bench.moved("CMD DV-1", id, input);
+        assert!(dv1("deck1.key", Input::Steps { steps: 2.0, step: Some(0.04) }).is_ok());
+        assert!(dv1("deck1.key.up", Input::Value(1.0)).is_ok());
+        assert!(dv1("deck1.position", Input::Value(0.5)).is_ok());
+        bench.load(0, 10.0, None);
+        dv1("deck1.key", Input::Steps { steps: 1.0, step: Some(0.04) }).unwrap();
+        assert_eq!(bench.state.with_track(0, |t| t.key_shift).unwrap(), 1);
+    }
+
+    #[test]
+    fn the_tempo_held_by_the_sync_takes_no_fader_which_picks_it_up_again_once_free() {
+        let bench = Bench::new();
+        bench.load(0, 10.0, Some(120.0));
+        let pitch = || lock(&bench.state.decks)[0].pitch;
+        let fader = |at: f32| bench.moved("DDJ", "deck1.pitch", Input::Value(at)).unwrap();
+        fader(0.5);
+        set_sync_locked(&bench.state, 0, true).unwrap();
+        bench.run(0.01);
+        assert!(bench.status(0).sync.locked);
+        fader(0.9);
+        fader(0.1);
+        bench.moved("CMD DV-1", "deck1.tempo", Input::Steps { steps: 3.0, step: None }).unwrap();
+        bench.moved("CMD DV-1", "deck1.tempo.up", Input::Value(1.0)).unwrap();
+        assert_eq!(pitch(), 1.0, "held by the sync");
+        set_sync_locked(&bench.state, 0, false).unwrap();
+        bench.run(0.01);
+        fader(0.12);
+        assert_eq!(pitch(), 1.0, "far from where the tempo stands");
+        fader(0.55);
+        assert!(pitch() > 1.0, "picked up as it crossed it");
     }
 
     #[test]

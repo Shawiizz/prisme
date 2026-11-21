@@ -1,5 +1,6 @@
 //! What the controllers show at each tick of the clock: their lights, the values and levels they
-//! show, the lights that blink.
+//! show (a value with nothing to show, its action unable to do anything, shown off), the lights
+//! that blink.
 
 use super::{coloured, light_of, Blink, Connection, Controllers, Levels, Lighting, Lit, Shade, PRESSED};
 use crate::actions::Host;
@@ -122,9 +123,8 @@ impl Controllers {
             }
             let value_of = |source: &prisme_control::SourceId| output(source.named()?, view);
             for output in profile.outputs.iter().filter(|o| shown(&o.when)) {
-                if let Some(value) = value_of(&output.source) {
-                    connection.light(output.control, Shade::Steady(output.value(value as f32)));
-                }
+                let value = value_of(&output.source).map_or(output.off(), |v| output.value(v as f32));
+                connection.light(output.control, Shade::Steady(value));
             }
             connection.displayed.resize(profile.displays.len(), None);
             for (at, display) in profile.displays.iter().enumerate().filter(|(_, d)| shown(&d.when)) {

@@ -100,6 +100,15 @@ impl Inputs {
         }
     }
 
+    /// `input` of a control of `device` given nothing, `target` unable to do anything: a fader
+    /// moved meanwhile picks its setting up again before it drives it. An encoder's steps short
+    /// of a whole one stay as they were.
+    pub fn lose(&mut self, device: &str, target: &Target, input: Input) {
+        if let (Input::Value(value), Kind::Fader) = (input, target.kind()) {
+            self.memory(device, target).pickup.lose(value);
+        }
+    }
+
     /// The name of `device` is copied once, on its first move, not on each.
     fn memory(&mut self, device: &str, target: &Target) -> &mut ControlMemory {
         if !self.devices.contains_key(device) {

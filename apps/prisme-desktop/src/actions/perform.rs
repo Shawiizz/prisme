@@ -6,6 +6,7 @@ use crate::commands::audio::turn_turntables_on;
 use crate::dto::{AudioSettings, CrossfaderCurveDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, Section};
+use prisme_actions::available::available;
 use prisme_actions::input::{Given, Input, KEY_STEPS};
 use prisme_actions::pads::ROLL_BEATS;
 use prisme_actions::position::FX_PERIODS;
@@ -24,9 +25,10 @@ use prisme_engine::Command;
 use transport::{PITCH_BEND, SMALL_BEND, TEMPO_STEP};
 
 impl Performing<'_> {
-    /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light;
-    /// refused if its deck's record holds it in place and it would move its track, but a key let
-    /// go, which lets go of what it held.
+    /// Performs `target` driven by `input`: nothing on a deck not in use, nor for a light, nor
+    /// for an action that can do nothing as its deck stands (see `available`), whose control
+    /// picks its setting up again once it can; refused if its deck's record holds it in place
+    /// and it would move its track. A key let go goes through, letting go of what it held.
     pub(super) fn perform(&self, target: &Target, input: Input) -> AppResult<()> {
         if target.kind() == Kind::Light
             || target.deck().is_some_and(|deck| self.state.deck_in_use(deck).is_err())
@@ -35,6 +37,12 @@ impl Performing<'_> {
         }
         if let Target::Deck(deck, action) = *target {
             if action.kind() != Kind::Button || input.amount() > 0.0 {
+                if !available(self, target) {
+                    if let Source::Controller(moved) = self.source() {
+                        lock(&self.actions.inputs).lose(&moved.device, target, input);
+                    }
+                    return Ok(());
+                }
                 transport::record_allows(self.state, deck, action)?;
             }
         }
@@ -245,11 +253,10 @@ impl Performing<'_> {
                 _ => Ok(()),
             },
             // a track's key, 12 semitones down to 12 up
-            DeckAction::Key if state.has_track(deck) => {
+            DeckAction::Key => {
                 let step = self.memory().faders.give_stepped(&target, at, KEY_STEPS);
                 deck::set_key_shift(state, deck, step as i8 - 12)
             }
-            DeckAction::Key => Ok(()),
             DeckAction::SamplerGain => sampler::set_sampler_gain(state, deck, at),
             DeckAction::StemLevel(part) => deck::set_stem_level(state, deck, part, at),
             DeckAction::FxKnob(knob) => self.deck_fader(deck, self.fx_knob(deck, knob), at),
