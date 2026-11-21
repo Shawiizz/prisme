@@ -204,233 +204,15 @@ pub fn run() {
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
-            #[cfg(desktop)]
-            fit_window(app);
-            #[cfg(windows)]
-            browser_keys_off(app);
-            #[cfg(any(windows, target_os = "macos"))]
-            file_drop::listen(app);
-            #[cfg(windows)]
-            commands::update::clear_leftovers(app.handle());
-            #[cfg(target_os = "android")]
-            commands::apk::clear_leftovers(app.handle());
-            #[cfg(target_os = "ios")]
-            fill_the_screen(app);
-            if !keep_awake::run_at_full_speed() {
-                warn!("the system may slow Prisme down when its window is behind others");
-            }
+            prepare_window(app);
             let data_dir = dev_startup::data_dir()
                 .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
-            app.manage(AppState::new(open_json(data_dir.as_deref(), "preferences.json")));
-            app.manage(Actions::start());
-            app.manage(commands::audio::ListedDevices::default());
-            app.manage(status_stream::StatusStream::default());
-            if let Some(data_dir) = data_dir.as_deref() {
-                controller_profiles::install(data_dir);
-            }
-            app.manage(Controllers::new(open_json(data_dir.as_deref(), "controllers.json")));
-            Controllers::keep_profiles_up_to_date(app.handle().clone());
-            let (chosen, added) = app
-                .state::<AppState>()
-                .preferences
-                .read(|p| (p.library.music_folder.clone(), p.library.folders.clone()));
-            let root = folders::music_root(chosen.as_deref());
-            // iOS lets Prisme read its own documents only: no folder is added next to them
-            let added = if cfg!(target_os = "ios") {
-                Vec::new()
-            } else {
-                added.into_iter().map(Into::into).collect()
-            };
-            let library = Arc::new(LibraryService::open(app.handle(), data_dir.as_deref(), root, added));
-            app.manage(library.clone());
-            app.manage(TagWriter::start(app.handle().clone()));
-            app.manage(preview::Previews::default());
-            let models = models_dir(app, data_dir.as_deref());
-            // a phone lets Prisme read the shared music, not write beside it
-            #[cfg(mobile)]
-            prisme_stems::track::store_under(models.with_file_name("stems"));
-            app.manage(stems_service::StemsService::new(app.handle().clone(), models));
-            app.state::<stems_service::StemsService>().show();
-            stems_service::look_for_gpu(app.handle().clone());
-
-            app.manage(CrashRecovery::new(open_json(data_dir.as_deref(), "session.json")));
-            let restored = app.state::<CrashRecovery>().decks_to_restore();
-
-            #[cfg(target_os = "android")]
-            usb_android::install();
-            let state = app.state::<AppState>();
-            dev_startup::preload_tracks(app.handle(), &state, &library);
-            CrashRecovery::preload(app.handle(), &state, &library, &restored);
-            start_saved_audio(&state);
-            CrashRecovery::seek(&state, &restored);
-            CrashRecovery::start(app.handle().clone());
-            if let Some(gain) = dev_startup::master_gain() {
-                let _ = state.send(prisme_engine::Command::SetMasterGain { gain });
-            }
-            audio_watchdog::start(app.handle().clone());
-            #[cfg(desktop)]
-            keep_awake::while_playing(app.handle().clone());
-            history::start(app.handle().clone());
-            let auto_dj = state.preferences.read(|p| p.auto_dj);
-            app.manage(auto_dj::AutoDj::new(app.handle().clone(), auto_dj));
-            app.state::<auto_dj::AutoDj>().tell();
-            auto_dj::AutoDj::start(app.handle().clone());
-            sampler::load_saved(app.handle().clone());
-            let controllers = app.state::<Controllers>();
-            controllers.open_at_start(app.handle());
-            Controllers::watch(app.handle().clone());
-            app.manage(MidiClock::new(controllers.setup().clock_output));
-            MidiClock::start(app.handle().clone());
-            clock::start(app.handle().clone());
-            app.state::<TagWriter>().wake();
-            #[cfg(target_os = "android")]
-            android_jni::install(app.handle());
-            library.show_folders();
-            library.browse();
-            library.start();
-            library.watch();
+            let library = manage_states(app, data_dir.as_deref());
+            restore_session(app, &library);
+            start_services(app, &library);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            commands::audio::audio_backends,
-            commands::audio::set_hidden,
-            commands::audio::list_devices,
-            commands::audio::timecode_formats,
-            commands::audio::apply_audio_settings,
-            commands::audio::measure_latency,
-            commands::audio::latency_channels,
-            commands::audio::change_audio_draft,
-            commands::screens::screen_below,
-            commands::screens::span_screens,
-            commands::stems::download_stems_model,
-            commands::stems::download_stems_models,
-            commands::stems::separate_library,
-            commands::stems::cancel_separation,
-            commands::preview::toggle_preview,
-            commands::preview::seek_preview,
-            commands::preview::preview_waveform,
-            commands::tracks::watch_waveform,
-            commands::tracks::stem_activity,
-            commands::decks::hand,
-            commands::decks::seek_deck,
-            commands::decks::jog,
-            commands::decks::set_vinyl,
-            commands::decks::set_vinyl_swap,
-            commands::decks::set_timecode,
-            commands::decks::set_record,
-            commands::decks::set_deck_mode,
-            commands::decks::set_tempo_range,
-            commands::mixer::set_headphones_output,
-            commands::mixer::set_limiter,
-            commands::mixer::set_booth_output,
-            commands::live::set_live_input,
-            commands::live::set_talkover_depth,
-            commands::transport::anchor_slicer,
-            commands::transport::pad_pages,
-            commands::transport::show_fx_slot,
-            commands::edits::edit_grid,
-            commands::edits::tap_tempo,
-            commands::edits::set_key,
-            commands::edits::key_choices,
-            commands::folders::sort_dropped,
-            commands::folders::audio_extensions,
-            commands::folders::set_music_folder,
-            commands::folders::add_music_folder,
-            commands::folders::remove_music_folder,
-            commands::folders::show_in_file_manager,
-            commands::folders::storage_places,
-            commands::recording::show_recording,
-            commands::folders::list_dir,
-            commands::library::rescan_library,
-            commands::library::search_library,
-            commands::library::library_open,
-            commands::library::library_up,
-            commands::library::library_filter,
-            commands::library::library_scope,
-            commands::library::library_sort,
-            commands::library::library_select,
-            commands::library::library_compare_with,
-            commands::library::library_viewport,
-            commands::library::library_menu,
-            commands::library::separate_tracks,
-            commands::library::library_remove,
-            commands::crates::update_smart_crate,
-            commands::marks::rate_track,
-            commands::prepare::place_in_prepare,
-            actions::loads::load_track,
-            commands::library::remove_tracks,
-            commands::crates::create_crate,
-            commands::crates::create_smart_crate,
-            commands::crates::rename_crate,
-            commands::crates::delete_crate,
-            commands::crates::add_to_crate,
-            commands::history::delete_history_session,
-            commands::history::export_history,
-            commands::marks::set_track_color,
-            commands::marks::set_track_genre,
-            commands::library::library_genres,
-            commands::import::serato_folder,
-            commands::import::import_serato,
-            commands::import::import_rekordbox,
-            commands::export::export_m3u,
-            commands::export::export_rekordbox,
-            commands::sampler::load_sample,
-            commands::sampler::take_sample_off,
-            commands::controllers::look_for_controllers,
-            commands::targets::list_targets,
-            commands::controllers::set_controller_enabled,
-            commands::controllers::choose_controller_profile,
-            commands::controllers::decline_controller,
-            commands::controllers::waiting_controllers,
-            commands::audio::decline_card,
-            commands::controllers::learn_control,
-            commands::controllers::set_control_encoding,
-            commands::controllers::cancel_learning,
-            commands::controllers::forget_control,
-            actions::perform_action,
-            actions::let_go_key,
-            commands::controllers::reload_controller_profiles,
-            commands::controllers::update_controller_profiles,
-            commands::controllers::export_controller_profile,
-            commands::controllers::open_controller_profiles_folder,
-            commands::diagnostics::save_diagnostics,
-            #[cfg(debug_assertions)]
-            commands::simulated::simulate_hid_plug,
-            #[cfg(debug_assertions)]
-            commands::simulated::simulate_hid_unplug,
-            #[cfg(debug_assertions)]
-            commands::simulated::simulate_hid_report,
-            #[cfg(debug_assertions)]
-            commands::simulated::simulate_hid_set,
-            #[cfg(debug_assertions)]
-            commands::simulated::simulated_hid_written,
-            #[cfg(debug_assertions)]
-            commands::round_trip::ping,
-            commands::controllers::midi_outputs,
-            commands::controllers::set_midi_clock_output,
-            commands::recording::start_recording,
-            commands::recording::stop_recording,
-            commands::prepare::add_to_prepare,
-            commands::auto_dj::set_auto_dj_fade,
-            commands::preferences::get_preferences,
-            commands::preferences::set_preference,
-            commands::preferences::set_keys,
-            commands::preferences::reset_keys,
-            commands::new_version::check_update,
-            #[cfg(desktop)]
-            commands::update::download_update,
-            #[cfg(desktop)]
-            commands::update::install_update,
-            #[cfg(target_os = "android")]
-            commands::apk::download_apk,
-            #[cfg(target_os = "android")]
-            commands::apk::install_apk,
-            #[cfg(target_os = "android")]
-            commands::apk::allow_installs,
-            status_stream::subscribe_status,
-            scope_stream::subscribe_scope,
-            scope_stream::unsubscribe_scope,
-        ])
+        .invoke_handler(invoke_handler())
         .build(tauri::generate_context!())
         .expect("error while building Prisme")
         .run(|app, event| {
@@ -438,6 +220,251 @@ pub fn run() {
                 close(app);
             }
         });
+}
+
+/// The window as the platform needs it, before anything shows in it.
+fn prepare_window(app: &tauri::App) {
+    #[cfg(desktop)]
+    fit_window(app);
+    #[cfg(windows)]
+    browser_keys_off(app);
+    #[cfg(any(windows, target_os = "macos"))]
+    file_drop::listen(app);
+    #[cfg(windows)]
+    commands::update::clear_leftovers(app.handle());
+    #[cfg(target_os = "android")]
+    commands::apk::clear_leftovers(app.handle());
+    #[cfg(target_os = "ios")]
+    fill_the_screen(app);
+    if !keep_awake::run_at_full_speed() {
+        warn!("the system may slow Prisme down when its window is behind others");
+    }
+}
+
+/// The states the commands and the threads share, read from `data_dir`: the library's is
+/// returned too, opened on the music folders.
+fn manage_states(app: &tauri::App, data_dir: Option<&Path>) -> Arc<LibraryService> {
+    app.manage(AppState::new(open_json(data_dir, "preferences.json")));
+    app.manage(Actions::start());
+    app.manage(commands::audio::ListedDevices::default());
+    app.manage(status_stream::StatusStream::default());
+    if let Some(data_dir) = data_dir {
+        controller_profiles::install(data_dir);
+    }
+    app.manage(Controllers::new(open_json(data_dir, "controllers.json")));
+    Controllers::keep_profiles_up_to_date(app.handle().clone());
+    let (chosen, added) = app
+        .state::<AppState>()
+        .preferences
+        .read(|p| (p.library.music_folder.clone(), p.library.folders.clone()));
+    let root = folders::music_root(chosen.as_deref());
+    // iOS lets Prisme read its own documents only: no folder is added next to them
+    let added =
+        if cfg!(target_os = "ios") { Vec::new() } else { added.into_iter().map(Into::into).collect() };
+    let library = Arc::new(LibraryService::open(app.handle(), data_dir, root, added));
+    app.manage(library.clone());
+    app.manage(TagWriter::start(app.handle().clone()));
+    app.manage(preview::Previews::default());
+    let models = models_dir(app, data_dir);
+    // a phone lets Prisme read the shared music, not write beside it
+    #[cfg(mobile)]
+    prisme_stems::track::store_under(models.with_file_name("stems"));
+    app.manage(stems_service::StemsService::new(app.handle().clone(), models));
+    app.state::<stems_service::StemsService>().show();
+    stems_service::look_for_gpu(app.handle().clone());
+    app.manage(CrashRecovery::new(open_json(data_dir, "session.json")));
+    library
+}
+
+/// The decks as the last run left them if it crashed (else as the dev start asks), and the
+/// audio started on them.
+fn restore_session(app: &tauri::App, library: &LibraryService) {
+    let restored = app.state::<CrashRecovery>().decks_to_restore();
+    #[cfg(target_os = "android")]
+    usb_android::install();
+    let state = app.state::<AppState>();
+    dev_startup::preload_tracks(app.handle(), &state, library);
+    CrashRecovery::preload(app.handle(), &state, library, &restored);
+    start_saved_audio(&state);
+    CrashRecovery::seek(&state, &restored);
+    CrashRecovery::start(app.handle().clone());
+    if let Some(gain) = dev_startup::master_gain() {
+        if let Err(e) = state.send(prisme_engine::Command::SetMasterGain { gain }) {
+            warn!("the master gain asked not set: {e}");
+        }
+    }
+}
+
+/// The threads that watch, play and tell: the audio's watchdog, the history, the Auto DJ, the
+/// controllers and the MIDI clock, the clock of the view, the library's analysis.
+fn start_services(app: &tauri::App, library: &Arc<LibraryService>) {
+    let state = app.state::<AppState>();
+    audio_watchdog::start(app.handle().clone());
+    #[cfg(desktop)]
+    keep_awake::while_playing(app.handle().clone());
+    history::start(app.handle().clone());
+    let auto_dj = state.preferences.read(|p| p.auto_dj);
+    app.manage(auto_dj::AutoDj::new(app.handle().clone(), auto_dj));
+    app.state::<auto_dj::AutoDj>().tell();
+    auto_dj::AutoDj::start(app.handle().clone());
+    sampler::load_saved(app.handle().clone());
+    let controllers = app.state::<Controllers>();
+    controllers.open_at_start(app.handle());
+    Controllers::watch(app.handle().clone());
+    app.manage(MidiClock::new(controllers.setup().clock_output));
+    MidiClock::start(app.handle().clone());
+    clock::start(app.handle().clone());
+    app.state::<TagWriter>().wake();
+    #[cfg(target_os = "android")]
+    android_jni::install(app.handle());
+    library.show_folders();
+    library.browse();
+    library.start();
+    library.watch();
+}
+
+/// The commands the page may invoke, by module.
+fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'static {
+    tauri::generate_handler![
+        actions::let_go_key,
+        actions::loads::load_track,
+        actions::perform_action,
+        commands::audio::apply_audio_settings,
+        commands::audio::audio_backends,
+        commands::audio::change_audio_draft,
+        commands::audio::decline_card,
+        commands::audio::latency_channels,
+        commands::audio::list_devices,
+        commands::audio::measure_latency,
+        commands::audio::set_hidden,
+        commands::audio::timecode_formats,
+        commands::auto_dj::set_auto_dj_fade,
+        commands::controllers::cancel_learning,
+        commands::controllers::choose_controller_profile,
+        commands::controllers::decline_controller,
+        commands::controllers::export_controller_profile,
+        commands::controllers::forget_control,
+        commands::controllers::learn_control,
+        commands::controllers::look_for_controllers,
+        commands::controllers::midi_outputs,
+        commands::controllers::open_controller_profiles_folder,
+        commands::controllers::reload_controller_profiles,
+        commands::controllers::set_control_encoding,
+        commands::controllers::set_controller_enabled,
+        commands::controllers::set_midi_clock_output,
+        commands::controllers::update_controller_profiles,
+        commands::controllers::waiting_controllers,
+        commands::crates::add_to_crate,
+        commands::crates::create_crate,
+        commands::crates::create_smart_crate,
+        commands::crates::delete_crate,
+        commands::crates::rename_crate,
+        commands::crates::update_smart_crate,
+        commands::decks::hand,
+        commands::decks::jog,
+        commands::decks::seek_deck,
+        commands::decks::set_deck_mode,
+        commands::decks::set_record,
+        commands::decks::set_tempo_range,
+        commands::decks::set_timecode,
+        commands::decks::set_vinyl,
+        commands::decks::set_vinyl_swap,
+        commands::diagnostics::save_diagnostics,
+        commands::edits::edit_grid,
+        commands::edits::key_choices,
+        commands::edits::set_key,
+        commands::edits::tap_tempo,
+        commands::export::export_m3u,
+        commands::export::export_rekordbox,
+        commands::folders::add_music_folder,
+        commands::folders::audio_extensions,
+        commands::folders::list_dir,
+        commands::folders::remove_music_folder,
+        commands::folders::set_music_folder,
+        commands::folders::show_in_file_manager,
+        commands::folders::sort_dropped,
+        commands::folders::storage_places,
+        commands::history::delete_history_session,
+        commands::history::export_history,
+        commands::import::import_rekordbox,
+        commands::import::import_serato,
+        commands::import::serato_folder,
+        commands::library::library_compare_with,
+        commands::library::library_filter,
+        commands::library::library_genres,
+        commands::library::library_menu,
+        commands::library::library_open,
+        commands::library::library_remove,
+        commands::library::library_scope,
+        commands::library::library_select,
+        commands::library::library_sort,
+        commands::library::library_up,
+        commands::library::library_viewport,
+        commands::library::remove_tracks,
+        commands::library::rescan_library,
+        commands::library::search_library,
+        commands::library::separate_tracks,
+        commands::live::set_live_input,
+        commands::live::set_talkover_depth,
+        commands::marks::rate_track,
+        commands::marks::set_track_color,
+        commands::marks::set_track_genre,
+        commands::mixer::set_booth_output,
+        commands::mixer::set_headphones_output,
+        commands::mixer::set_limiter,
+        commands::new_version::check_update,
+        commands::preferences::get_preferences,
+        commands::preferences::reset_keys,
+        commands::preferences::set_keys,
+        commands::preferences::set_preference,
+        commands::prepare::add_to_prepare,
+        commands::prepare::place_in_prepare,
+        commands::preview::preview_waveform,
+        commands::preview::seek_preview,
+        commands::preview::toggle_preview,
+        commands::recording::show_recording,
+        commands::recording::start_recording,
+        commands::recording::stop_recording,
+        commands::sampler::load_sample,
+        commands::sampler::take_sample_off,
+        commands::screens::screen_below,
+        commands::screens::span_screens,
+        commands::stems::cancel_separation,
+        commands::stems::download_stems_model,
+        commands::stems::download_stems_models,
+        commands::stems::separate_library,
+        commands::targets::list_targets,
+        commands::tracks::stem_activity,
+        commands::tracks::watch_waveform,
+        commands::transport::anchor_slicer,
+        commands::transport::pad_pages,
+        commands::transport::show_fx_slot,
+        scope_stream::subscribe_scope,
+        scope_stream::unsubscribe_scope,
+        status_stream::subscribe_status,
+        #[cfg(debug_assertions)]
+        commands::round_trip::ping,
+        #[cfg(debug_assertions)]
+        commands::simulated::simulate_hid_plug,
+        #[cfg(debug_assertions)]
+        commands::simulated::simulate_hid_report,
+        #[cfg(debug_assertions)]
+        commands::simulated::simulate_hid_set,
+        #[cfg(debug_assertions)]
+        commands::simulated::simulate_hid_unplug,
+        #[cfg(debug_assertions)]
+        commands::simulated::simulated_hid_written,
+        #[cfg(desktop)]
+        commands::update::download_update,
+        #[cfg(desktop)]
+        commands::update::install_update,
+        #[cfg(target_os = "android")]
+        commands::apk::allow_installs,
+        #[cfg(target_os = "android")]
+        commands::apk::download_apk,
+        #[cfg(target_os = "android")]
+        commands::apk::install_apk,
+    ]
 }
 
 /// What Prisme does as it quits: the actions sent before done, a while at most (a cue set
