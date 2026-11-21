@@ -19,7 +19,7 @@
 //! of all this, [`Shown`], is mirrored in `AppState::stems` as it changes.
 
 use crate::dto::{
-    ChoiceDto, DeckStemsDto, ModelRowDto, ModelStatusDto, SeparateDto, SeparationDto, StemMixDto,
+    ChoiceDto, DeckStemsDto, ModelId, ModelRowDto, ModelStatusDto, SeparateDto, SeparationDto, StemMixDto,
     StemsProgressDto, StemsStateDto,
 };
 use crate::error::{AppError, AppResult};
@@ -53,7 +53,7 @@ const SLOW_OVERLAP: f64 = 2.0;
 /// A separation model, converted by `crates/prisme-stems/tools/export_roformer.py --half` (or
 /// `export_bs_roformer.py`).
 struct Model {
-    id: &'static str,
+    id: ModelId,
     file: &'static str,
     url: &'static str,
     sha256: &'static str,
@@ -67,7 +67,7 @@ struct Model {
 const MODELS: [Model; 3] = [
     // the Mel-Band RoFormer vocals model of Kimberley Jensen (MIT licence)
     Model {
-        id: "vocals",
+        id: ModelId::Vocals,
         file: "roformer-vocals-f16-1.safetensors",
         url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-vocals-1/roformer-vocals-f16-1.safetensors",
         sha256: "90397548e9e427b2645ba33a71f5e3de3f1e01997f7c28fc4b0914fee7ba21ee",
@@ -78,7 +78,7 @@ const MODELS: [Model; 3] = [
     // the drums and bass of SYH99999's four-stem Mel-Band RoFormer (Apache 2.0 licence),
     // `--stems drums,bass --overlap 4`
     Model {
-        id: "drums-bass",
+        id: ModelId::DrumsBass,
         file: "roformer-drums-bass-f16-1.safetensors",
         url: "https://github.com/Shawiizz/prisme/releases/download/model-roformer-drums-bass-1/roformer-drums-bass-f16-1.safetensors",
         sha256: "b25942f2582deaac642b87697fff71a4a7e980358b85f27e5f8a00709944e3c1",
@@ -90,7 +90,7 @@ const MODELS: [Model; 3] = [
     // one pass of a model a sixteenth of the two others, for a phone or a computer without a
     // graphics card worth it; `--stems vocals,drums,bass`
     Model {
-        id: "four-fast",
+        id: ModelId::FourFast,
         file: "bs-roformer-four-f16-1.safetensors",
         url: "https://github.com/Shawiizz/prisme/releases/download/model-bs-roformer-four-1/bs-roformer-four-f16-1.safetensors",
         sha256: "fbdc57c3f02def5358feae39e5cb8e4ff01c4be86b2f89d97ae51059a04935e7",
@@ -606,11 +606,11 @@ impl StemsService {
     }
 
     /// Downloads the model `id` in the background; nothing if it is there or on its way.
-    pub fn download_model(&self, id: &str) -> AppResult<()> {
+    pub fn download_model(&self, id: ModelId) -> AppResult<()> {
         let model = MODELS
             .iter()
             .position(|m| m.id == id)
-            .ok_or_else(|| AppError::Other(format!("no separation model {id}")))?;
+            .ok_or_else(|| AppError::Other(format!("no separation model {id:?}")))?;
         {
             let download = &mut lock(&self.downloads)[model];
             if download.running || self.model_path(model).is_file() {
@@ -629,7 +629,7 @@ impl StemsService {
                 }
                 Ok(()) => {}
                 Err(e) => {
-                    error!("download of the {} model failed: {e}", MODELS[model].id);
+                    error!("download of the {:?} model failed: {e}", MODELS[model].id);
                     state[model].error = Some(e);
                 }
             }
@@ -679,7 +679,7 @@ async fn fetch_model(
         match fetch_rest(app, &client, model, &partial, downloads).await {
             Ok(()) => break,
             Err(e) if attempt < DOWNLOAD_ATTEMPTS => {
-                warn!("download of the {} model cut: {e}", MODELS[model].id)
+                warn!("download of the {:?} model cut: {e}", MODELS[model].id)
             }
             Err(e) => return Err(e),
         }
@@ -694,7 +694,7 @@ async fn fetch_model(
         return Err(format!("the downloaded model is damaged ({received} bytes)"));
     }
     std::fs::rename(&partial, target).map_err(|e| e.to_string())?;
-    info!("separation model {} installed in {}", MODELS[model].id, target.display());
+    info!("separation model {:?} installed in {}", MODELS[model].id, target.display());
     Ok(())
 }
 
@@ -1033,7 +1033,7 @@ impl Worker {
         });
         for (m, opened) in opened {
             let (network, device, fast) = opened?;
-            info!("separating with the {} model on {device}", MODELS[m].id);
+            info!("separating with the {:?} model on {device}", MODELS[m].id);
             self.update(|p| p.device = Some(device));
             let separator = Separator::new(network);
             separators[m] = Some(if fast { separator } else { separator.overlapping_at_most(SLOW_OVERLAP) });
@@ -1054,7 +1054,7 @@ impl Worker {
             return Err(StemsError::Model(format!("{} does not separate {stems:?}", MODELS[m].file)));
         }
         let on_gpu = gpu.map(|gpu| GpuNetwork::on(gpu, &weights)).transpose().unwrap_or_else(|e| {
-            warn!("separating with the {} model on the CPU: {e}", MODELS[m].id);
+            warn!("separating with the {:?} model on the CPU: {e}", MODELS[m].id);
             None
         });
         Ok(match on_gpu {
@@ -1370,10 +1370,10 @@ mod tests {
             dto.models.iter().map(|r| (r.status.id, r.ready)).collect::<Vec<_>>()
         };
         let nothing = shown([(false, None); 3]);
-        assert_eq!(rows(&nothing, false), [("vocals", true), ("drums-bass", false)]);
-        assert_eq!(rows(&nothing, true), [("four-fast", true)]);
+        assert_eq!(rows(&nothing, false), [(ModelId::Vocals, true), (ModelId::DrumsBass, false)]);
+        assert_eq!(rows(&nothing, true), [(ModelId::FourFast, true)]);
         let vocals = shown([(true, None), (false, None), (false, None)]);
-        assert_eq!(rows(&vocals, false), [("vocals", true), ("drums-bass", true)]);
+        assert_eq!(rows(&vocals, false), [(ModelId::Vocals, true), (ModelId::DrumsBass, true)]);
     }
 
     #[test]

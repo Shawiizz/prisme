@@ -1,8 +1,8 @@
 import { Signal, computed, inject } from '@angular/core';
-import { DeckMode, SignalState } from './models/engine';
 import { EngineService } from './services/engine.service';
 import { same } from './same';
 import { Text, t } from './i18n/i18n';
+import type { DeckMode, SignalState } from './models/backend';
 
 const SIGNAL_TITLE: Record<SignalState, string> = {
   get none() {

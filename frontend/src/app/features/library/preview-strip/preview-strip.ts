@@ -13,10 +13,11 @@ import { PreviewService } from '../../../core/services/preview.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { fitToDevicePixels, forgetCanvas } from '../../../shared/device-pixels';
 import { Knob } from '../../../shared/knob/knob';
-import { Knob as KnobView, readout } from '../../../shared/readout';
+import { readout } from '../../../shared/readout';
 import { Showing, everyFrame } from '../../../shared/frames';
 import { formatClock } from '../../../shared/time';
 import { WaveformOverlay, WaveformPainter } from '../../deck/deck-waveform/waveform-painter';
+import type { Knob as KnobView } from '../../../core/models/backend';
 
 const NOTHING_OVER: WaveformOverlay = { tempo: null, cues: [], loop: null };
 

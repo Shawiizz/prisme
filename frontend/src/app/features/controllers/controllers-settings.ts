@@ -3,18 +3,13 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ControlService, named } from '../../core/control/control.service';
 import { ControllerService } from '../../core/control/controller.service';
 import { Control } from '../../core/control/controls';
-import {
-  Controller,
-  ControllerMapping,
-  StepEncoding,
-  describeMapping,
-  shortName,
-} from '../../core/models/controllers';
+import { StepEncoding, describeMapping, shortName } from '../../core/models/controllers';
 import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
 import { PHONE } from '../../core/platform';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { matches, normalize } from '../settings/settings-catalog';
+import type { Controller, ControllerMapping } from '../../core/models/backend';
 
 /** Where a control is mapped on one controller. */
 interface Binding {

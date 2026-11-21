@@ -4,22 +4,10 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { EngineService } from './engine.service';
 import { errorText, isBackendError } from '../errors';
 import { ANDROID } from '../platform';
+import type { Apk, NewVersion } from '../models/backend';
 
 /** A look shows that it looks at least this long (ms): an answer at once would go unseen. */
 const LOOKING_MS = 1200;
-
-/** The APK of a release, and its size in bytes. */
-export interface Apk {
-  url: string;
-  size: number;
-}
-
-/** A newer version, as the backend found it: installed in place on a computer, its APK handed
- * to Android on a phone. */
-export interface NewVersion {
-  version: string;
-  apk: Apk | null;
-}
 
 /**
  * New versions published on GitHub, installed only when the DJ asks and no deck is playing

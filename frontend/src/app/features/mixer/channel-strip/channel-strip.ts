@@ -1,10 +1,11 @@
 import { Component, inject, input } from '@angular/core';
-import { BANDS, Band, StripKnobs } from '../../../core/models/engine';
+import { BANDS } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
-import { Knob as KnobView, readout } from '../../../shared/readout';
+import { readout } from '../../../shared/readout';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
+import type { Band, Knob as KnobView, StripKnobs } from '../../../core/models/backend';
 
 /** A deck's channel of the software mixer, before its fader: EQ with kills, trim, filter. The
  * three bands come first, side by side as on a mixer. */

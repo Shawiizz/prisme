@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 /// The timecode records of a maker.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TimecodeMaker"))]
 pub struct TimecodeMakerDto {
     pub name: &'static str,
     pub records: Vec<TimecodeRecordDto>,
@@ -16,6 +17,7 @@ pub struct TimecodeMakerDto {
 /// A timecode record (or CD), a format for each side when its sides differ.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TimecodeRecord"))]
 pub struct TimecodeRecordDto {
     pub name: &'static str,
     pub sides: Vec<TimecodeFormatDto>,
@@ -48,6 +50,7 @@ impl TimecodeMakerDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TimecodeFormat"))]
 pub struct TimecodeFormatDto {
     pub id: &'static str,
     pub maker: &'static str,
@@ -85,6 +88,7 @@ impl From<VinylModeDto> for VinylMode {
 /// put on and off by an action of the deck (`deckN.vinyl`).
 #[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "setting", content = "value")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "VinylChange"))]
 pub enum VinylChangeDto {
     Mode(VinylModeDto),
     Rpm(RpmDto),
@@ -93,6 +97,7 @@ pub enum VinylChangeDto {
 
 /// The speed the record turns at when the track plays at its own speed.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Rpm"))]
 pub enum RpmDto {
     #[default]
     #[serde(rename = "33")]

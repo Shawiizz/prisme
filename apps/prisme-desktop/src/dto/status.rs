@@ -44,6 +44,7 @@ pub struct StatusDto {
 /// by section (`state::Section`): those that did not change since last sent are left out.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ControlChanges", optional_fields))]
 pub struct ControlStateDto {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mixer: Option<MixerStateDto>,
@@ -159,6 +160,7 @@ pub struct PreviewStatusDto {
 /// for the preview asked last, if any.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "PreviewState"))]
 pub struct PreviewStateDto {
     pub track: Option<PreviewDto>,
     pub opening: Option<String>,
@@ -167,6 +169,7 @@ pub struct PreviewStateDto {
 /// A track previewed in the headphones.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "PreviewTrack"))]
 pub struct PreviewDto {
     /// What the status tells it by.
     pub id: u64,

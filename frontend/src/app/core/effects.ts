@@ -1,5 +1,5 @@
 import { Text, t } from './i18n/i18n';
-import { EffectKind } from './models/engine';
+import type { EffectKind } from './models/backend';
 
 /** The name of each beat effect, in full. */
 export const EFFECT_NAMES: Record<EffectKind, Text> = {

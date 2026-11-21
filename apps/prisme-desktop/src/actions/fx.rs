@@ -3,11 +3,12 @@
 //! shows.
 
 use super::Performing;
-use crate::dto::{FxDto, FxPartDto, SeparationDto};
+use crate::dto::{FxDto, SeparationDto};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use prisme_actions::engine_effect;
 use prisme_actions::position::fx_knob;
+use prisme_actions::stems::effect_parts;
 use prisme_control::{DeckAction, Effect, StemPart};
 use prisme_engine::{Command, FX_SLOTS};
 
@@ -62,8 +63,8 @@ pub fn set_fx_chain_enabled(state: &AppState, deck: usize, enabled: bool) -> App
 }
 
 /// The part of the track the chain is on, where separated (`None`: the whole deck).
-pub fn set_fx_part(state: &AppState, deck: usize, part: Option<FxPartDto>) -> AppResult<()> {
-    state.set_deck(deck, |d| d.fx.part = part, Command::SetFxParts { deck, parts: FxPartDto::parts(part) })
+pub fn set_fx_part(state: &AppState, deck: usize, part: Option<StemPart>) -> AppResult<()> {
+    state.set_deck(deck, |d| d.fx.part = part, Command::SetFxParts { deck, parts: effect_parts(part) })
 }
 
 /// The chain of `deck` on the next part of its track it can be on (as the track is separated),
@@ -71,11 +72,11 @@ pub fn set_fx_part(state: &AppState, deck: usize, part: Option<FxPartDto>) -> Ap
 pub fn next_fx_part(state: &AppState, deck: usize) -> AppResult<()> {
     let separation = state.with_track(deck, |t| t.separation()).unwrap_or(SeparationDto::None);
     let parts = separation.parts();
-    let next = match lock(&state.decks)[deck].fx.part.map(StemPart::from) {
+    let next = match lock(&state.decks)[deck].fx.part {
         None => parts.first(),
         Some(part) => parts.iter().position(|&p| p == part).and_then(|at| parts.get(at + 1)),
     };
-    set_fx_part(state, deck, next.map(|&part| FxPartDto::from(part)))
+    set_fx_part(state, deck, next.copied())
 }
 
 /// The effect `step` places after the slot's (before it, negative), on or off as it was.
@@ -127,7 +128,6 @@ pub fn show_fx_slot(state: &AppState, deck: usize, slot: usize) -> AppResult<()>
 mod tests {
     use crate::actions::bench::Bench;
     use crate::actions::Source;
-    use crate::dto::FxPartDto;
     use crate::state::lock;
     use prisme_actions::input::Input;
     use prisme_control::Effect;
@@ -240,9 +240,9 @@ mod tests {
         lock(&bench.state.tracks)[0].as_mut().unwrap().stems[prisme_engine::Stem::Vocals as usize] =
             Some(std::sync::Arc::new(prisme_media::TrackAudio::from_interleaved(48_000, vec![0.0; 2])));
         press(&bench, "deck1.fx.part");
-        assert_eq!(part(&bench), Some(FxPartDto::Vocals));
+        assert_eq!(part(&bench), Some(prisme_control::StemPart::Vocals));
         press(&bench, "deck1.fx.part");
-        assert_eq!(part(&bench), Some(FxPartDto::Instrumental));
+        assert_eq!(part(&bench), Some(prisme_control::StemPart::Instrumental));
         press(&bench, "deck1.fx.part");
         assert_eq!(part(&bench), None);
     }

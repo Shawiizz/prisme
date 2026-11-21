@@ -1,6 +1,6 @@
 import { Component, booleanAttribute, computed, input } from '@angular/core';
-import { MusicalKey } from '../../core/models/engine';
 import { keyHue } from '../camelot';
+import type { MusicalKey } from '../../core/models/backend';
 
 /** A key in its colour of the wheel (`.pr-key`): `fill` for the key a deck plays. */
 @Component({

@@ -86,6 +86,7 @@ pub const UI_ACTION_EVENT: &str = "ui-action";
 /// What the DJ is told of a controller plugged in while Prisme runs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum PluggedIn {
     /// Of a model Prisme knows: opened, ready to play.
     Opened { device: String, model: String },

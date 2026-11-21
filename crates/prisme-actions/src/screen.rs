@@ -53,7 +53,8 @@ pub struct Deck {
 }
 
 /// A part of a deck's separated track, as its knob shows it.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct StemKnob {
     pub part: StemPart,
     pub level: f32,

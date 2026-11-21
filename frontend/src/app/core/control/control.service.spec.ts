@@ -1,10 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { EngineStatus } from '../models/engine';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { ControlService } from './control.service';
+import type { EngineStatus } from '../models/backend';
 
 describe('ControlService', () => {
   let performed: unknown[];

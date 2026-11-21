@@ -1,6 +1,5 @@
 import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { GridChange } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackEditService } from '../../../core/services/track-edit.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
@@ -8,6 +7,7 @@ import { keyHue, musicalKeyName } from '../../../shared/camelot';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { PHONE } from '../../../core/platform';
 import { Sheet } from '../../../shared/sheet';
+import type { GridChange } from '../../../core/models/backend';
 
 /** How far the fine and the coarse arrows move the grid (s): finer than a controller's steps. */
 const FINE_SHIFT_S = 0.002;

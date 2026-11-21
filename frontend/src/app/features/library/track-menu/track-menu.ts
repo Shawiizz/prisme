@@ -12,7 +12,6 @@ import {
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { StemsService } from '../../../core/services/stems.service';
-import { LibraryMenu } from '../../../core/models/library';
 import { TRACK_COLORS, hexColor } from '../../../shared/track-colors';
 import { deckLetter } from '../../../shared/time';
 import { t } from '../../../core/i18n/i18n';
@@ -20,6 +19,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { PHONE } from '../../../core/platform';
 import { lastName } from '../../../core/folders';
 import { errorText } from '../../../core/errors';
+import type { LibraryMenu } from '../../../core/models/backend';
 
 export type TrackMenuPanel = 'main' | 'crates' | 'color' | 'genre';
 

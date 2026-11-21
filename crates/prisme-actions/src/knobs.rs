@@ -9,6 +9,7 @@ use serde::Serialize;
 
 /// A knob of the screen.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Knob {
     /// Where it stands, from 0 to 1.
     pub at: f32,
@@ -19,6 +20,7 @@ pub struct Knob {
 
 /// The knobs of a deck's channel: trim, EQ (low, mid, high) and filter.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct StripKnobs {
     pub trim: Knob,
     pub eq: [Knob; 3],
@@ -27,6 +29,7 @@ pub struct StripKnobs {
 
 /// A fader of the screen that reads nothing under it.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Fader {
     /// Where it stands, from 0 to 1.
     pub at: f32,
@@ -37,6 +40,7 @@ pub struct Fader {
 /// The knobs of the mixer beside its channels, and its crossfader.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct MixerKnobs {
     /// The crossfader, from 0 (left) to 1, back in the middle.
     pub crossfader: Fader,

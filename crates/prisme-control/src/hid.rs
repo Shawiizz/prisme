@@ -13,6 +13,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 /// A value in a report: a key's bit, a fader's 12 bits, a counter's byte, a light's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "HidField"))]
 pub struct Field {
     /// The id of its report, 0 for a device that does not number its reports.
     #[serde(default, skip_serializing_if = "is_zero")]

@@ -4,7 +4,8 @@ import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { labelText } from '../i18n/i18n';
-import { Control, Target } from './controls';
+import { Control } from './controls';
+import type { Target } from '../models/backend';
 
 /** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
 const pressed =

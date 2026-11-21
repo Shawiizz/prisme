@@ -1,5 +1,5 @@
 import { language, t } from '../core/i18n/i18n';
-import { MusicalKey } from '../core/models/engine';
+import type { MusicalKey } from '../core/models/backend';
 
 /** Hue of a key chip (`--h` of `.pr-key`): one per number of the Camelot wheel, see
  * tokens.css. */

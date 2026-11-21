@@ -32,6 +32,7 @@ pub struct Preferences {
 /// How the interface shows itself, chosen in it.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct UiPreferences {
     /// One of [`UiPreferences::LANGUAGES`], else the system's.
     pub language: Option<String>,
@@ -50,6 +51,7 @@ impl UiPreferences {
 /// modifiers held: Control is Command on a Mac.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Key"))]
 pub struct KeyPreference {
     pub code: String,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -147,6 +149,7 @@ impl Default for DeckPreferences {
 /// What SYNC does on a record in relative mode.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "VinylSyncMode"))]
 pub enum VinylSync {
     #[default]
     Once,
@@ -155,6 +158,7 @@ pub enum VinylSync {
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct DjPreferences {
     pub vinyl_sync: VinylSync,
     pub quantize: bool,
@@ -203,6 +207,7 @@ impl DjPreferences {
 /// reads as two.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "usize", into = "usize")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(as = "usize"))]
 pub enum DeckCount {
     #[default]
     Two,
@@ -347,6 +352,7 @@ impl Default for MixerPreferences {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct LibraryPreferences {
     /// The music folder chosen, else the system's (see `folders::music_root`).
     pub music_folder: Option<String>,
@@ -370,6 +376,7 @@ pub struct LibraryPreferences {
     /// The same as saved before it could be left open, when on was what nobody chose (see
     /// [`LibraryPreferences::settle`]).
     #[serde(rename = "separateOnLoad", skip_serializing)]
+    #[cfg_attr(test, ts(skip))]
     separate_on_load_before: Option<bool>,
     /// The separation runs on the graphics chip when there is one worth it (else on the
     /// processor alone, minutes a track).

@@ -71,6 +71,8 @@ mod stems_service;
 mod tag_writer;
 mod track_loading;
 mod track_waveform;
+#[cfg(test)]
+mod ts_types;
 #[cfg(target_os = "android")]
 mod usb_android;
 

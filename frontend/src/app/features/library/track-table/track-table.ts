@@ -10,7 +10,6 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { LibraryRow, LibraryView, SortColumn } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { PreferencesService } from '../../../core/services/preferences.service';
@@ -30,6 +29,7 @@ import { KeyboardService } from '../../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { lastName, parentOf, shortPath } from '../../../core/folders';
 import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover';
+import type { LibraryRow, LibraryView, SortColumn } from '../../../core/models/backend';
 
 const STARS = [1, 2, 3, 4, 5];
 /** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */

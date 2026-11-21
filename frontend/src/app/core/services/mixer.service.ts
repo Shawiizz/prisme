@@ -1,20 +1,20 @@
 import { Injectable, computed, inject } from '@angular/core';
-import {
+import { EngineService } from './engine.service';
+import { same } from '../same';
+import type {
   Band,
   ChannelStrip,
   CrossfaderCurve,
-  MixerKnobs,
-  StripKnobs,
   HeadphonesOutput,
   InputChannels,
   LiveSource,
   LiveState,
+  MixerKnobs,
   MixMode,
-  RoutingState,
   RecordSource,
-} from '../models/engine';
-import { EngineService } from './engine.service';
-import { same } from '../same';
+  RoutingState,
+  StripKnobs,
+} from '../models/backend';
 
 /**
  * Where the decks are heard: a hardware mixer, or the software mixer (channel strips,

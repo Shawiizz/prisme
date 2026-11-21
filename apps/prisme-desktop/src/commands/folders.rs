@@ -13,6 +13,7 @@ use tauri::{AppHandle, Manager, State};
 /// rest taken for folders.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Dropped"))]
 pub struct DroppedDto {
     pub tracks: Vec<String>,
     pub folders: Vec<String>,

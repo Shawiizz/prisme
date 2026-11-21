@@ -1,5 +1,5 @@
-import { LibraryView } from '../../../core/models/library';
 import { cursorMoved } from './track-table';
+import type { LibraryView } from '../../../core/models/backend';
 
 const view = (cursor: number, cursorMoves: number, listed = 1): LibraryView => ({
   seq: 1,

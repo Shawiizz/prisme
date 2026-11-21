@@ -18,6 +18,7 @@ const FAKE_SPLIT: &str = "PRISME_FAKE_SPLIT";
 /// The window spread over both screens.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Span"))]
 pub struct SpanDto {
     /// Where the screen below starts in the window (CSS px).
     split: f64,

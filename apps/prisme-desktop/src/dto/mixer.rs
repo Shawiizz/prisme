@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "MixMode"))]
 pub enum MixModeDto {
     /// Each deck on its own outputs, to a hardware mixer.
     #[default]
@@ -28,6 +29,7 @@ impl From<MixMode> for MixModeDto {
 /// the preview.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "HeadphonesOutput"))]
 pub enum HeadphonesOutputDto {
     /// Outputs 3-4 of a DJ interface (four outputs, or ASIO); nowhere on a computer's
     /// surround outputs, where 3-4 are the centre and the subwoofer of the room.
@@ -42,6 +44,7 @@ pub enum HeadphonesOutputDto {
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "CrossfaderCurve"))]
 pub enum CrossfaderCurveDto {
     /// Equal power, for blending.
     #[default]
@@ -62,6 +65,7 @@ impl From<CrossfaderCurveDto> for prisme_engine::CrossfaderCurve {
 /// What a recording takes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RecordSource"))]
 pub enum RecordSourceDto {
     /// The software mixer's master.
     Master,
@@ -81,6 +85,7 @@ impl From<RecordSourceDto> for prisme_engine::RecordSource {
 /// A recording ended: where it went, and what could not be written.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Recording"))]
 pub struct RecordingDto {
     /// Its first file.
     pub path: String,
@@ -101,6 +106,7 @@ pub struct RecordingDto {
 /// Why a recording was not written whole.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RecordingFailure"))]
 pub enum RecordingFailureDto {
     DiskFull,
     /// Its file could not be written: a drive gone, a file locked.
@@ -129,6 +135,7 @@ impl RecordingDto {
 /// A channel of the software mixer, before its fader. Gains are linear.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ChannelStrip"))]
 pub struct ChannelStripDto {
     pub trim: f32,
     /// Low, mid, high.
@@ -156,6 +163,7 @@ impl From<MixModeDto> for MixMode {
 /// The input channels a live source comes in on: one, heard in the middle, or a stereo pair.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "InputChannels"))]
 pub struct InputChannelsDto {
     /// The first (0-based).
     pub first: usize,
@@ -177,6 +185,7 @@ impl From<InputChannelsDto> for InputChannels {
 /// A live source of the software mixer as the backend knows it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LiveState"))]
 pub struct LiveStateDto {
     /// The input channels chosen.
     pub input: Option<InputChannelsDto>,
@@ -193,6 +202,7 @@ pub struct LiveStateDto {
 /// The mixer as the interface shows it: its knobs, the DJ's preferences of it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "MixerState"))]
 pub struct MixerStateDto {
     /// The knobs beside the channels and the crossfader, as the screen shows them.
     pub knobs: MixerKnobs,
@@ -213,6 +223,7 @@ pub struct MixerStateDto {
 /// Where the mixer is heard on the running device, and the live inputs it takes.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RoutingState"))]
 pub struct RoutingStateDto {
     /// The mode the user chose.
     pub mode: MixModeDto,
@@ -245,6 +256,7 @@ pub struct RoutingStateDto {
 /// A source the Rec menu offers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RecordOption"))]
 pub struct RecordOptionDto {
     pub source: RecordSourceDto,
     /// A turntable comes into these inputs: its timecode would be recorded.

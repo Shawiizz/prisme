@@ -1,5 +1,5 @@
-import { DeckStatus } from './models/engine';
 import { followPlayhead } from './playhead';
+import type { DeckStatus } from './models/backend';
 
 function deck(positionS: number, speed: number, loaded = true): DeckStatus {
   return { loaded, positionS, speed } as DeckStatus;

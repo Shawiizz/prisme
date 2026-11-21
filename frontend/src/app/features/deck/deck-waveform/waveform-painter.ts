@@ -1,6 +1,7 @@
-import { Cue, LoopStatus, Tempo, Waveform } from '../../../core/models/engine';
+import { Waveform } from '../../../core/models/engine';
 import { palette } from '../../../shared/palette';
 import { hexColor } from '../../../shared/track-colors';
+import type { Cue, LoopStatus, Tempo } from '../../../core/models/backend';
 
 /** What is drawn over the waveform. */
 export interface WaveformOverlay {

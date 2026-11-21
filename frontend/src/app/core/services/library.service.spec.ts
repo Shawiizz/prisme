@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { LibraryView, LibraryWindow } from '../models/library';
 import { LibraryService } from './library.service';
+import type { LibraryView, LibraryWindow } from '../models/backend';
 
 const window = (seq: number, first: number): LibraryWindow => ({ seq, first, rows: [] });
 

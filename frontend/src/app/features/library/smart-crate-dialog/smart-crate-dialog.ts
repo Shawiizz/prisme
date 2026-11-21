@@ -1,10 +1,10 @@
 import { Component, inject, input, linkedSignal, output, signal } from '@angular/core';
-import { Crate, Rule, SmartRules, TextField } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
 import { errorText } from '../../../core/errors';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../../shared/overlay';
+import type { Crate, Rule, SmartRules, TextField } from '../../../core/models/backend';
 
 type Choice = TextField | 'bpm' | 'year' | 'key';
 

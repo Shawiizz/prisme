@@ -11,7 +11,6 @@ import {
 import { LibraryService } from '../../../core/services/library.service';
 import { AutoDjService } from '../../../core/services/auto-dj.service';
 import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
-import { Crate, MusicFolder } from '../../../core/models/library';
 import { FileDropService, fileDropAttribute } from '../../../core/services/file-drop.service';
 import { shortPath } from '../../../core/folders';
 import { PHONE } from '../../../core/platform';
@@ -22,6 +21,7 @@ import { SmartCrateDialog } from '../smart-crate-dialog/smart-crate-dialog';
 import { locale, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { dragSize, saveSize, savedSize } from '../../../shared/resize';
+import type { Crate, MusicFolder } from '../../../core/models/backend';
 
 type Deletable = 'crate' | 'session';
 type DropTarget = number | 'prepare';

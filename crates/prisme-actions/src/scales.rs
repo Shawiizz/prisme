@@ -95,6 +95,7 @@ pub fn headphone_knob(gain: f32) -> f32 {
 /// What a knob reads under it: its setting as the DJ reads it, which the screen only words.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Readout {
     /// A gain in dB, to a tenth; `None` silent.
     Db(Option<f32>),

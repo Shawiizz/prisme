@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 /// one of its HID reports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "PhysicalControl"))]
 pub enum Control {
     /// A note: buttons and pads.
     Note(Midi),
@@ -19,6 +20,7 @@ pub enum Control {
 
 /// Where a MIDI message goes.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Midi {
     /// 0 to 15.
     #[schemars(range(max = 15))]

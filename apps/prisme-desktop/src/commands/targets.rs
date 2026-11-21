@@ -8,6 +8,7 @@ use tauri::State;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Target"))]
 pub struct TargetDto {
     pub id: String,
     pub kind: Kind,

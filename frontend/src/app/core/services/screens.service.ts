@@ -2,6 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { PHONE } from '../platform';
 import { PreferencesService } from './preferences.service';
+import type { Span } from '../models/backend';
 
 /**
  * A screen under the main one, as on a laptop with two screens: Prisme can spread over
@@ -25,8 +26,6 @@ export class ScreensService {
 
   /** Spreads over the screen below or no longer: the backend keeps the choice. */
   async spread(on: boolean): Promise<void> {
-    this.span.set(
-      await invoke<{ split: number; zoom: number } | null>('span_screens', { span: on }),
-    );
+    this.span.set(await invoke<Span | null>('span_screens', { span: on }));
   }
 }

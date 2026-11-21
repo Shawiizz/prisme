@@ -1,4 +1,5 @@
 import { computed, signal } from '@angular/core';
+import type { Label } from '../models/backend';
 
 export type Language = 'en' | 'fr';
 export const LANGUAGES: { id: Language; name: string }[] = [
@@ -38,7 +39,7 @@ export async function showLanguage(chosen: string | null) {
   document.documentElement.lang = language;
 }
 
-export type Params = Record<string, string | number>;
+export type Params = Record<string, string | number | boolean | null>;
 
 /** A text of the UI kept in a constant, in the language of the moment it is read:
  * `() => t('…')`. */
@@ -51,13 +52,6 @@ export type Text = () => string;
  */
 export function t(text: string, params?: Params): string {
   return fill(current().texts[text] || text, params);
-}
-
-/** A name the backend gives: its English text, the key of its translations, its placeholders
- * filled from `params` (a label among them translated too). */
-export interface Label {
-  key: string;
-  params?: Record<string, string | number | Label>;
 }
 
 /** `label` in the UI's language. */

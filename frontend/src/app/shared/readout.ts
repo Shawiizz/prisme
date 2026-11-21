@@ -1,25 +1,5 @@
 import { decimal } from './time';
-
-/** What a knob reads under it, as the backend reads its setting (`scales::Readout`). */
-export type Readout =
-  { db: number | null } | { percent: number } | { balance: number } | { filter: number };
-
-/** A knob of the screen as the backend shows it (`knobs::Knob`). */
-export interface Knob {
-  /** Where it stands, from 0 to 1. */
-  at: number;
-  reads: Readout;
-  /** Where a double click puts it back. */
-  home: number;
-}
-
-/** A fader of the screen that reads nothing under it (`knobs::Fader`). */
-export interface Fader {
-  /** Where it stands, from 0 to 1. */
-  at: number;
-  /** Where a double click puts it back. */
-  home: number;
-}
+import type { Readout } from '../core/models/backend';
 
 /** "+3.0 dB", "−∞ dB", "42 %", "L = R", "R 20 %", "LPF 35 %". */
 export function readout(reads: Readout): string {

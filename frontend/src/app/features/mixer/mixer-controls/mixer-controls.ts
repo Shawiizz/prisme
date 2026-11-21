@@ -1,5 +1,4 @@
 import { Component, computed, inject } from '@angular/core';
-import { LiveSource } from '../../../core/models/engine';
 import { PHONE } from '../../../core/platform';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
@@ -7,7 +6,8 @@ import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Knob } from '../../../shared/knob/knob';
 import { segments } from '../../../shared/meter';
-import { Knob as KnobView, percent, readout } from '../../../shared/readout';
+import { percent, readout } from '../../../shared/readout';
+import type { Knob as KnobView, LiveSource } from '../../../core/models/backend';
 
 const METER_SEGMENTS = 12;
 

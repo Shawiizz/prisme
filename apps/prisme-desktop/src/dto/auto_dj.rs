@@ -6,6 +6,7 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AutoDjState"))]
 pub enum AutoDjStateDto {
     #[default]
     Off,
@@ -17,6 +18,7 @@ pub enum AutoDjStateDto {
 /// Why the Auto DJ stopped, paused or left a track out.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AutoDjReason"))]
 pub enum AutoDjReasonDto {
     ExternalMixer,
     Records,
@@ -33,6 +35,7 @@ pub enum AutoDjReasonDto {
 /// The Auto DJ as the interface shows it.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AutoDjStatus"))]
 pub struct AutoDjStatusDto {
     pub state: AutoDjStateDto,
     pub reason: Option<AutoDjReasonDto>,

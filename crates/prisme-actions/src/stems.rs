@@ -2,12 +2,13 @@
 //! but the vocals), and how the deck plays each.
 
 use prisme_control::StemPart;
-use prisme_engine::Stem;
+use prisme_engine::{Parts, Stem};
 use serde::{Deserialize, Serialize};
 
 /// How far a track is separated, the further the greater.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Separation {
     #[default]
     None,
@@ -51,6 +52,7 @@ impl Separation {
 /// A part's level: where its knob stands (0 to 1), kept while it is muted.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct StemLevel {
     pub level: f32,
     pub on: bool,
@@ -77,6 +79,7 @@ impl StemLevel {
 /// How a deck plays each part of the track.
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct StemMix {
     pub vocals: StemLevel,
     pub drums: StemLevel,
@@ -94,6 +97,18 @@ fn stems_of(part: StemPart) -> &'static [usize] {
         StemPart::Bass => &[2],
         StemPart::Melody => &[3],
         StemPart::Instrumental => &[1, 2, 3],
+    }
+}
+
+/// The parts of a deck's track its effects are on for `part` (none: the whole deck).
+pub fn effect_parts(part: Option<StemPart>) -> Parts {
+    match part {
+        None => Parts::NONE,
+        Some(StemPart::Vocals) => Parts::of(Stem::Vocals),
+        Some(StemPart::Drums) => Parts::of(Stem::Drums),
+        Some(StemPart::Bass) => Parts::of(Stem::Bass),
+        Some(StemPart::Melody) => Parts::OTHER,
+        Some(StemPart::Instrumental) => Parts::of(Stem::Drums).and(Parts::of(Stem::Bass)).and(Parts::OTHER),
     }
 }
 

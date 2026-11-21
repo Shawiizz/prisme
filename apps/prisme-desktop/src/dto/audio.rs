@@ -6,6 +6,7 @@ use std::sync::atomic::Ordering;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioDevice"))]
 pub struct DeviceDto {
     pub name: String,
     /// "input" or "output"
@@ -20,6 +21,7 @@ pub struct DeviceDto {
 /// The audio settings drafted in the settings, as the backend shapes them.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioDraft"))]
 pub struct AudioDraftDto {
     pub draft: AudioSettings,
     /// It differs from the settings kept: Apply restarts the audio.
@@ -44,6 +46,7 @@ impl AudioDraftDto {
 /// A period of the audio: so many frames, so long at the device's rate.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "BufferSize"))]
 pub struct BufferSizeDto {
     pub frames: u32,
     pub ms: f64,
@@ -68,6 +71,7 @@ impl BufferSizeDto {
 /// An audio driver the settings offer.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "BackendChoice"))]
 pub struct BackendChoiceDto {
     pub backend: BackendDto,
     /// One device for the outputs and, with turntables on it, the inputs (an ASIO driver, a USB
@@ -77,6 +81,7 @@ pub struct BackendChoiceDto {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioBackend"))]
 pub enum BackendDto {
     Wasapi,
     Asio,
@@ -124,6 +129,7 @@ impl From<Backend> for BackendDto {
 /// Audio settings chosen by the user.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AudioSettings {
     pub backend: BackendDto,
     pub output_device: Option<String>,
@@ -135,12 +141,14 @@ pub struct AudioSettings {
     /// The record of every turntable, in files from before each had its own (see
     /// [`Preferences::settle`](crate::preferences::Preferences::settle)).
     #[serde(rename = "timecodeFormat", skip_serializing)]
+    #[cfg_attr(test, ts(skip))]
     pub(crate) timecode_before: Option<String>,
 }
 
 /// A change of the audio settings, drafted in the settings window until applied.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "setting", content = "value")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioChange"))]
 pub enum AudioChangeDto {
     /// Another driver has other devices: its defaults, its buffer size.
     Backend(BackendDto),
@@ -195,6 +203,7 @@ impl AudioSettings {
 /// A sound card just plugged in, offered to the DJ with the settings that use it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CardOffer {
     pub name: String,
     pub settings: AudioSettings,
@@ -203,6 +212,7 @@ pub struct CardOffer {
 /// A round trip measured from an output to an input.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Latency"))]
 pub struct LatencyDto {
     pub round_trip_ms: f64,
     pub sample_rate: u32,
@@ -210,6 +220,7 @@ pub struct LatencyDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AudioInfo {
     pub backend: BackendDto,
     pub device: String,
@@ -234,6 +245,7 @@ impl AudioInfo {
 /// The audio running, as the settings show it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioInfo"))]
 pub struct AudioInfoDto {
     #[serde(flatten)]
     pub info: AudioInfo,
@@ -251,6 +263,7 @@ impl From<AudioInfo> for AudioInfoDto {
 /// The channels a latency measurement may join, counted from 1.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LatencyChannels"))]
 pub struct LatencyChannelsDto {
     pub outputs: usize,
     pub inputs: usize,

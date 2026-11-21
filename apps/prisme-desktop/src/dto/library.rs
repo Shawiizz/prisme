@@ -9,6 +9,7 @@ use std::path::Path;
 /// The list browsed, as the interface names it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TrackSource"))]
 pub enum SourceDto {
     Folder { path: String },
     Prepare,
@@ -73,16 +74,29 @@ macro_rules! mirrored {
     };
 }
 
-mirrored!(ScopeDto = Scope { List, Library });
+mirrored!(
+    #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SearchScope"))]
+    ScopeDto = Scope { List, Library }
+);
 
-mirrored!(ColumnDto = Column { Order, Title, Artist, Album, Genre, Year, Bpm, Key, Rating, Plays, Mix });
+mirrored!(
+    #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SortColumn"))]
+    ColumnDto = Column { Order, Title, Artist, Album, Genre, Year, Bpm, Key, Rating, Plays, Mix }
+);
 
-mirrored!(PickDto = Pick { Only, Toggle, Range, Context });
+mirrored!(
+    #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RowPick"))]
+    PickDto = Pick { Only, Toggle, Range, Context }
+);
 
-mirrored!(FocusDto = Focus { Tracks, Lists });
+mirrored!(
+    #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryFocus"))]
+    FocusDto = Focus { Tracks, Lists }
+);
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibrarySort"))]
 pub struct SortDto {
     pub column: ColumnDto,
     pub descending: bool,
@@ -91,6 +105,7 @@ pub struct SortDto {
 /// A list of the side panel a controller points at.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Shelf"))]
 pub enum ShelfDto {
     Prepare,
     Crate { id: i64 },
@@ -100,6 +115,7 @@ pub enum ShelfDto {
 /// window it asked for (`library_viewport`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryView"))]
 pub struct LibraryViewDto {
     /// Moved by every change of what is shown and of the window: the highest is the latest.
     pub seq: u64,
@@ -130,8 +146,8 @@ pub struct LibraryViewDto {
     pub pointed: ShelfDto,
     /// The deck the tracks are compared with.
     pub reference: usize,
-    /// Why the music folder shown at start could not be read (an `AppError`).
-    pub unread: Option<serde_json::Value>,
+    /// Why the music folder shown at start could not be read.
+    pub unread: Option<crate::error::ErrorDto>,
     pub window: LibraryWindowDto,
 }
 
@@ -139,6 +155,7 @@ pub struct LibraryViewDto {
 /// it.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "FolderView"))]
 pub struct FolderViewDto {
     pub path: String,
     pub root: Option<String>,
@@ -148,6 +165,7 @@ pub struct FolderViewDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Folder"))]
 pub struct FolderDto {
     pub name: String,
     pub path: String,
@@ -164,6 +182,7 @@ impl FolderDto {
 /// The rows of the window, from its `first`.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryWindow"))]
 pub struct LibraryWindowDto {
     pub seq: u64,
     pub first: usize,
@@ -174,6 +193,7 @@ pub struct LibraryWindowDto {
 /// goes with the rest of the application.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryRow"))]
 pub struct LibraryRowDto {
     pub path: String,
     /// When it was played, in a set: a track played twice is two rows.
@@ -217,6 +237,7 @@ pub struct LibraryRowDto {
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckMark"))]
 pub struct DeckMarkDto {
     pub deck: usize,
     pub playing: bool,
@@ -225,6 +246,7 @@ pub struct DeckMarkDto {
 /// The lists the library keeps, as the side panel shows them.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryLists"))]
 pub struct LibraryListsDto {
     pub crates: Vec<CrateDto>,
     pub sessions: Vec<HistorySessionDto>,
@@ -238,6 +260,7 @@ pub struct LibraryListsDto {
 /// A track by its path, its title, and what tells it apart in a list: its tempo, its key.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "NamedTrack"))]
 pub struct NamedTrackDto {
     pub path: String,
     pub title: String,
@@ -257,6 +280,7 @@ impl NamedTrackDto {
 /// What the menu of tracks can do with them: the selection's, or a row's.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "LibraryMenu"))]
 pub struct LibraryMenuDto {
     /// How many tracks it acts on, and the first.
     pub count: usize,
@@ -330,6 +354,7 @@ impl SmartRulesDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Crate"))]
 pub struct CrateDto {
     pub id: i64,
     pub name: String,
@@ -341,6 +366,7 @@ pub struct CrateDto {
 /// What an import brought.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ImportSummary"))]
 pub struct ImportSummaryDto {
     pub tracks: usize,
     pub cues: usize,
@@ -358,6 +384,7 @@ impl From<prisme_import::ImportSummary> for ImportSummaryDto {
 /// What an export to rekordbox wrote.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ExportSummary"))]
 pub struct ExportSummaryDto {
     pub tracks: usize,
     pub lists: usize,
@@ -365,6 +392,7 @@ pub struct ExportSummaryDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "HistorySession"))]
 pub struct HistorySessionDto {
     pub id: i64,
     pub started_at_ms: i64,
@@ -386,6 +414,7 @@ impl From<&prisme_library::Crate> for CrateDto {
 /// How far the analysis of the music folders is.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AnalysisProgress"))]
 pub struct ProgressDto {
     pub total: usize,
     pub done: usize,
@@ -404,6 +433,7 @@ impl From<prisme_library::AnalysisProgress> for ProgressDto {
 /// A folder looked into to add it to the music folders: the folders in it, and how many tracks.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DirListing"))]
 pub struct DirListingDto {
     pub path: String,
     /// The music folder it is or is in, the deepest.
@@ -416,6 +446,7 @@ pub struct DirListingDto {
 /// The music folders, and how far their analysis is.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "FoldersState"))]
 pub struct FoldersStateDto {
     /// The main one first.
     pub folders: Vec<MusicFolderDto>,
@@ -432,6 +463,7 @@ pub struct FoldersStateDto {
 /// folder).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "MusicFolder"))]
 pub struct MusicFolderDto {
     pub path: String,
     pub main: bool,
@@ -442,6 +474,7 @@ pub struct MusicFolderDto {
 /// What holds a [`StoragePlaceDto`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum StoragePlaceKind {
     /// The phone's own storage.
     Phone,
@@ -457,6 +490,7 @@ pub enum StoragePlaceKind {
 /// (`3A2F-1C0B`, `C:`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StoragePlace"))]
 pub struct StoragePlaceDto {
     pub kind: StoragePlaceKind,
     pub name: String,

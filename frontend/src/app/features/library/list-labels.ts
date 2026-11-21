@@ -1,6 +1,6 @@
-import { LibraryView, TrackSource } from '../../core/models/library';
 import { Text, t } from '../../core/i18n/i18n';
 import { errorText } from '../../core/errors';
+import type { LibraryView, TrackSource } from '../../core/models/backend';
 
 /** What an empty list says; the prepare list's names the key that adds to it, if it has one. */
 const EMPTY_LIST: Record<TrackSource['kind'], (key: string | null) => string> = {

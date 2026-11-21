@@ -1,5 +1,5 @@
-import { LibraryView } from '../../core/models/library';
 import { emptyText } from './list-labels';
+import type { LibraryView } from '../../core/models/backend';
 
 describe('emptyText', () => {
   const view = (changes: Partial<LibraryView>) =>

@@ -1,4 +1,4 @@
-import { DeckStatus } from './models/engine';
+import type { DeckStatus } from './models/backend';
 
 /** A playhead as drawn: at `positionS` at `at` (performance.now()), moving at `speed`. */
 export interface Playhead {

@@ -18,6 +18,7 @@ use tauri::{AppHandle, Manager, State};
 /// The controllers as the interface shows them.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ControllersState"))]
 pub struct ControllersStateDto {
     #[serde(flatten)]
     pub listed: ControllersDto,
@@ -45,12 +46,14 @@ impl ControllersStateDto {
 
 /// An action the controllers in use drive, and what drives it on each.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Mapped"))]
 pub struct MappedDto {
     pub target: TargetDto,
     pub devices: Vec<DeviceMappingsDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeviceMappings"))]
 pub struct DeviceMappingsDto {
     pub device: String,
     pub mappings: Vec<Mapping>,

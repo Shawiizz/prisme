@@ -7,6 +7,7 @@ use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct SmartRules {
     /// Every rule must match; otherwise one is enough.
     pub match_all: bool,
@@ -15,6 +16,7 @@ pub struct SmartRules {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum TextField {
     Title,
     Artist,
@@ -27,6 +29,7 @@ pub enum TextField {
 /// Bounds are inclusive; a missing bound is open.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Rule {
     /// The field contains the text, ignoring case.
     Text {

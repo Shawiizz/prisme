@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 /// when it names neither.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct LightValues(BTreeMap<String, LightValue>);
 
 /// A light's value in a state: steady, two in turn, or a whole message of its own (for the
@@ -15,6 +16,7 @@ pub struct LightValues(BTreeMap<String, LightValue>);
 /// light, its bytes: the red, green and blue of a light of three colours).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum LightValue {
     Steady(u8),
     /// Each of the two values for `ms` milliseconds.

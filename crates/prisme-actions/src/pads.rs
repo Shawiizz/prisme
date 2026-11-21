@@ -29,6 +29,7 @@ pub fn plays_loop(looping: &LoopStatus, beats: f64) -> bool {
 /// A page of a deck's pads on the screen whose pads each perform an action of the deck.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "PadPage"))]
 pub enum Page {
     Loops,
     Roll,

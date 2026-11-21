@@ -1,2 +1,2 @@
-# written by the backend's tests (status_stream::types)
-src/app/core/models/status.ts
+# written by the backend's tests (ts_types)
+src/app/core/models/backend.ts

@@ -6,7 +6,7 @@ use prisme_actions::switch::LiveSource;
 use prisme_audio_io::latency::LatencyError;
 use prisme_audio_io::AudioError;
 use prisme_media::MediaError;
-use serde::ser::{Serialize, SerializeStruct, Serializer};
+use serde::{Serialize, Serializer};
 use serde_json::{json, Value};
 
 #[derive(Debug, thiserror::Error)]
@@ -193,14 +193,28 @@ fn audio_code(e: &AudioError) -> (&'static str, Value) {
     }
 }
 
+/// An error as the interface is sent it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "BackendError"))]
+pub struct ErrorDto {
+    pub code: &'static str,
+    /// What the interface needs to word it.
+    #[cfg_attr(test, ts(type = "Record<string, string | number | boolean | null>"))]
+    pub params: Value,
+    /// Its English message.
+    pub message: String,
+}
+
+impl From<&AppError> for ErrorDto {
+    fn from(e: &AppError) -> Self {
+        let (code, params) = e.code();
+        Self { code, params, message: e.to_string() }
+    }
+}
+
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let (code, params) = self.code();
-        let mut error = s.serialize_struct("AppError", 3)?;
-        error.serialize_field("code", code)?;
-        error.serialize_field("params", &params)?;
-        error.serialize_field("message", &self.to_string())?;
-        error.end()
+        ErrorDto::from(self).serialize(s)
     }
 }
 

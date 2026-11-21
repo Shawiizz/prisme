@@ -1,18 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { StemPart, partId } from '../stem-parts';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import {
-  ControlChanges,
-  ControlState,
-  MAX_DECKS,
-  DeckSettings,
-  EngineStatus,
-  StatusChanges,
-  TrackInfo,
-  VinylChange,
-  Waveform,
-  decodeWaveform,
-} from '../models/engine';
+import { ControlState, MAX_DECKS, StatusChanges, Waveform, decodeWaveform } from '../models/engine';
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { same, sameItems } from '../same';
@@ -20,6 +8,14 @@ import { withChanges } from '../told';
 import { deckLetter } from '../../shared/time';
 import { t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
+import type {
+  ControlChanges,
+  DeckSettings,
+  EngineStatus,
+  StemPart,
+  TrackInfo,
+  VinylChange,
+} from '../models/backend';
 
 /** How long a refusal stays said. */
 const REFUSAL_MS = 5000;
@@ -95,21 +91,14 @@ export class EngineService {
   }
 
   /** The sections the backend changed of what the app mirrors (`changed`, the first time all
-   * of them): the decks' settings, their tracks (a new load's waveform followed), the DJ's
-   * quantize and tempo range. The sections not sent, and what is the same, stay as they are,
-   * for the views that follow them. */
+   * of them), each whole: the decks' settings, their tracks (a new load's waveform followed),
+   * the DJ's quantize and tempo range. The sections not sent, and the decks and tracks that
+   * are the same, stay as they are, for the views that follow them. */
   private applyControls(changed: ControlChanges) {
-    const before = this.controls();
-    const mixer = changed.mixer && { ...before?.mixer, ...changed.mixer };
     const decks = changed.decks?.map((d, deck) =>
-      d === null || same(d, this.decks()[deck]) ? this.decks()[deck] : d,
+      same(d, this.decks()[deck]) ? this.decks()[deck] : d,
     );
-    const controls = {
-      ...before,
-      ...changed,
-      ...(mixer && { mixer }),
-      ...(decks && { decks }),
-    } as ControlState;
+    const controls = { ...this.controls(), ...changed, ...(decks && { decks }) } as ControlState;
     if (decks?.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
     if (changed.tracks) {
       const before = this.tracks();
@@ -142,12 +131,12 @@ export class EngineService {
   /** Mutes or plays a part of the track on `deck` (until the next load), on the next bar
    * with quantize. */
   toggleStem(deck: number, part: StemPart) {
-    return this.press(deck, partId(part));
+    return this.press(deck, part);
   }
 
   /** Sets how loud a part of the track on `deck` plays (0 to 1, until the next load). */
   setStemLevel(deck: number, part: StemPart, level: number) {
-    return this.perform(`deck${deck + 1}.${partId(part)}.level`, level);
+    return this.perform(`deck${deck + 1}.${part}.level`, level);
   }
 
   setKeyLock(deck: number, enabled: boolean) {

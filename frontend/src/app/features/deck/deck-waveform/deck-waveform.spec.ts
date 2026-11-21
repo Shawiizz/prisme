@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { DeckSettings, TrackInfo } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
+import type { DeckSettings, TrackInfo } from '../../../core/models/backend';
 
 describe('DeckWaveform', () => {
   /** What the canvases' observer, made once as the module loads, is told of their sizes. */

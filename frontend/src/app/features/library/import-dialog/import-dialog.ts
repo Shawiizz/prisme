@@ -1,8 +1,9 @@
 import { Component, inject, output, signal } from '@angular/core';
-import { ImportService, ImportSummary } from '../../../core/services/import.service';
+import { ImportService } from '../../../core/services/import.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { errorText } from '../../../core/errors';
 import { Dismiss, overlay } from '../../../shared/overlay';
+import type { ImportSummary } from '../../../core/models/backend';
 
 /** Import from Serato or rekordbox, with what it brought. */
 @Component({

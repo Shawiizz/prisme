@@ -104,6 +104,7 @@ pub fn timecode_formats() -> Vec<TimecodeMakerDto> {
 
 /// The audio as the settings show it.
 #[derive(Debug, Clone, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioState"))]
 pub struct AudioStateDto {
     /// The settings the DJ chose: the audio runs on the default devices while one of theirs is
     /// missing.

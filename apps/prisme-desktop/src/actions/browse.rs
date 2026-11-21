@@ -10,7 +10,7 @@ use crate::dto::{
     LibraryViewDto, LibraryWindowDto, NamedTrackDto, RowStemsDto, SeparationDto, ShelfDto, SortDto,
     SourceDto,
 };
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, ErrorDto};
 use crate::folders;
 use crate::state::{lock, AppState};
 use crate::stems_service::stored_separation;
@@ -40,7 +40,7 @@ pub struct Library {
     /// As the clock last read it (see [`Around`]).
     pub around: Around,
     /// Why the music folder shown at start could not be read, until a list is read.
-    unread: Option<serde_json::Value>,
+    unread: Option<ErrorDto>,
     /// When the interface asked for the window shown, on its clock.
     window_asked: f64,
 }
@@ -303,9 +303,9 @@ pub fn start(state: &AppState, db: &LibraryDb, roots: Vec<PathBuf>) {
     if last.is_none_or(|last| open(state, db, Source::Folder(last)).is_err()) {
         if let Err(e) = open(state, db, Source::Folder(main.clone())) {
             error!("the music folder not listed: {e}");
-            let why = serde_json::to_value(&e).ok();
+            let why = ErrorDto::from(&e);
             state.browse(|l| {
-                l.unread = why;
+                l.unread = Some(why);
                 l.browser.show(Source::Folder(main), Vec::new());
             });
         }
@@ -921,7 +921,7 @@ mod tests {
         start(&bench.state, &bench.library, vec![root.clone()]);
         let view = lock(&bench.state.library).view();
         assert!(matches!(view.source, SourceDto::Folder { .. }), "{:?}", view.source);
-        assert!(view.unread.is_some_and(|why| why["code"].is_string()));
+        assert!(view.unread.is_some_and(|why| !why.code.is_empty()));
         std::fs::remove_file(&root).unwrap();
         std::fs::create_dir(&root).unwrap();
         refresh(&bench.state, &bench.library).unwrap();

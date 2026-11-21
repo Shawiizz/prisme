@@ -3,10 +3,10 @@ import { errorText } from '../../core/errors';
 import { folderName, stepsFrom } from '../../core/folders';
 import { t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
-import { DirListing, StoragePlace } from '../../core/models/library';
 import { LibraryService } from '../../core/services/library.service';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Sheet } from '../../shared/sheet';
+import type { DirListing, StoragePlace } from '../../core/models/backend';
 
 /** What a place is called: by what holds it, a drive by its own name. */
 const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> = {

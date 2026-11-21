@@ -1,8 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Band, CrossfaderCurve, EFFECT_KINDS, LiveSource } from '../models/engine';
-import { StemPart } from '../stem-parts';
 import { AutoDjService } from './auto-dj.service';
 import { EngineService } from './engine.service';
 import { FxService } from './fx.service';
@@ -11,6 +9,7 @@ import { MixerService } from './mixer.service';
 import { PerformanceService } from './performance.service';
 import { PreviewService } from './preview.service';
 import { SamplerService } from './sampler.service';
+import type { Band, CrossfaderCurve, EffectKind, LiveSource, StemPart } from '../models/backend';
 
 /** The ids of the actions a controller can be given: those the backend performs. */
 const TARGETS = new Set<string>(
@@ -24,7 +23,17 @@ const TARGETS = new Set<string>(
 const DECKS = [0, 1, 2, 3];
 const SLOTS = [0, 1, 2];
 const BANDS: Band[] = ['low', 'mid', 'high'];
-const PARTS: StemPart[] = ['vocals', 'drums', 'bass', 'other', 'instrumental'];
+const PARTS: StemPart[] = ['vocals', 'drums', 'bass', 'melody', 'instrumental'];
+const EFFECTS: EffectKind[] = [
+  'echo',
+  'pingPong',
+  'reverb',
+  'flanger',
+  'phaser',
+  'filter',
+  'gate',
+  'bitcrusher',
+];
 const SOURCES: LiveSource[] = ['mic', 'aux'];
 const CURVES: CrossfaderCurve[] = ['smooth', 'sharp'];
 /** The keys of a deck the screen presses by name, its pads aside (the backend names those). */
@@ -98,7 +107,7 @@ describe('the actions the screen sends', () => {
         mixer.toggleKill(deck, band);
       });
       SLOTS.forEach((slot) => {
-        EFFECT_KINDS.forEach((kind) => fx.press(deck, slot, kind));
+        EFFECTS.forEach((kind) => fx.press(deck, slot, kind));
         fx.setMix(deck, slot, 0.5);
         fx.setAmount(deck, slot, 0.5);
         fx.setParam2(deck, slot, 0.5);

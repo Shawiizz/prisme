@@ -1,6 +1,6 @@
 import { Text, t } from './i18n/i18n';
-import { Recording, RecordingFailure } from './models/engine';
 import { formatClock } from '../shared/time';
+import type { Recording, RecordingFailure } from './models/backend';
 
 const FAILURE: Record<RecordingFailure, Text> = {
   diskFull: () => t('the disk is full'),

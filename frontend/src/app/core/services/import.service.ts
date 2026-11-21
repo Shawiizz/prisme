@@ -2,17 +2,7 @@ import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
-
-/** What an import brought (see `ImportSummaryDto`). */
-export interface ImportSummary {
-  /** Tracks that got cues, a grid, a colour or a rating. */
-  tracks: number;
-  cues: number;
-  grids: number;
-  crates: number;
-  /** Files named by the import that are not on this computer. */
-  missing: number;
-}
+import type { ImportSummary } from '../models/backend';
 
 /**
  * Import from Serato and rekordbox. Nothing already set in Prisme is overwritten, so

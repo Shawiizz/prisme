@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Recording } from './models/engine';
 import { recordingNotice } from './recording-notice';
+import type { Recording } from './models/backend';
 
 const FIRST = 'C:\\Users\\dj\\Documents\\Prisme Recordings\\Prisme 2026-11-16 21h30m05.wav';
 const PHONE_FIRST =

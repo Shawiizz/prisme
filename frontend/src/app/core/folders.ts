@@ -1,5 +1,5 @@
 import { t } from './i18n/i18n';
-import { MusicFolder } from './models/library';
+import type { MusicFolder } from './models/backend';
 
 /** A folder on the way to another, as the address bar of a file manager shows it. */
 export interface PathStep {

@@ -139,6 +139,21 @@ impl<'de, T: FromStr> Deserialize<'de> for Id<T> {
     }
 }
 
+/// Written as its id.
+#[cfg(feature = "ts")]
+impl<T> ts_rs::TS for Id<T> {
+    type WithoutGenerics = Self;
+    type OptionInnerType = Self;
+
+    fn name(_: &ts_rs::Config) -> String {
+        "string".to_owned()
+    }
+
+    fn inline(cfg: &ts_rs::Config) -> String {
+        Self::name(cfg)
+    }
+}
+
 /// Written as its id: the schema of a profile names the actions apart (`schema`).
 impl<T> JsonSchema for Id<T> {
     fn schema_name() -> Cow<'static, str> {

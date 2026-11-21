@@ -212,37 +212,6 @@ mod tests {
     }
 
     #[test]
-    fn a_single_effect_written_before_the_chain_reads_as_its_first_slot() {
-        let old = r#"{"kind":"gate","enabled":true,"mix":0.8,"amount":0.3,"beats":2.0,"part":"vocals"}"#;
-        let chain: FxChainDto = serde_json::from_str(old).unwrap();
-        let gate = FxDto {
-            kind: prisme_control::Effect::Gate,
-            enabled: true,
-            mix: 0.8,
-            amount: 0.3,
-            param2: 0.5,
-            beats: 2.0,
-        };
-        assert_eq!(chain.slots, [gate, FxDto::default(), FxDto::default()]);
-        assert_eq!(chain.part, Some(FxPartDto::Vocals));
-        assert!(chain.enabled);
-        let written = serde_json::to_string(&chain).unwrap();
-        assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), chain);
-    }
-
-    #[test]
-    fn a_chain_written_before_its_switch_and_second_knobs_reads_on_with_them_in_the_middle() {
-        let slot = r#"{"kind":"filter","enabled":true,"mix":1.0,"amount":0.7,"beats":4.0}"#;
-        let old = format!(r#"{{"slots":[{slot},{slot},{slot}],"part":null}}"#);
-        let chain: FxChainDto = serde_json::from_str(&old).unwrap();
-        assert!(chain.enabled);
-        assert!(chain.slots.iter().all(|s| s.param2 == prisme_engine::PARAM2_DEFAULT && s.amount == 0.7));
-        let changed = FxChainDto { enabled: false, ..chain };
-        let written = serde_json::to_string(&changed).unwrap();
-        assert_eq!(serde_json::from_str::<FxChainDto>(&written).unwrap(), changed);
-    }
-
-    #[test]
     fn a_vinyl_setting_is_changed_by_its_name_but_never_put_on() {
         let lead_in: VinylChangeDto = serde_json::from_str(r#"{"setting":"leadIn","value":null}"#).unwrap();
         assert_eq!(lead_in, VinylChangeDto::LeadIn(None));

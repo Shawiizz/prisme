@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { EngineStatus } from '../models/engine';
 import { EngineService } from './engine.service';
 import { UpdateService } from './update.service';
+import type { EngineStatus } from '../models/backend';
 
 /** The backend's refusal while a deck plays. */
 const DECKS_PLAY = { code: 'decksPlay', params: {}, message: 'a deck plays' };

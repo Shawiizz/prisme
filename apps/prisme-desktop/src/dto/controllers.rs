@@ -5,6 +5,7 @@ use serde::Serialize;
 /// A controller, MIDI or HID.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Controller"))]
 pub struct ControllerDto {
     /// Its MIDI port's name, or the name Prisme gives a HID device.
     pub name: String,
@@ -34,6 +35,7 @@ pub struct ControllerDto {
 /// The controllers plugged in and those in use that are not.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Controllers"))]
 pub struct ControllersDto {
     pub controllers: Vec<ControllerDto>,
     /// A controller is open: controls can be learnt.
@@ -43,6 +45,7 @@ pub struct ControllersDto {
 /// A controller in use opened again: its device, and the model it is.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Opened"))]
 pub struct OpenedDto {
     pub device: String,
     pub model: String,
@@ -50,6 +53,7 @@ pub struct OpenedDto {
 
 /// A profile the DJ may choose for a controller.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "OfferedProfile"))]
 pub struct OfferedProfileDto {
     pub file: String,
     pub name: String,
@@ -58,6 +62,7 @@ pub struct OfferedProfileDto {
 /// The controller models Prisme knows, and where the DJ's own profiles go.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ControllerProfiles"))]
 pub struct ControllerProfilesDto {
     pub profiles: Vec<ControllerProfileDto>,
     /// The models known (their variants aside): all of them, those updated since, the DJ's own.
@@ -72,6 +77,7 @@ pub struct ControllerProfilesDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ControllerProfile"))]
 pub struct ControllerProfileDto {
     pub file: String,
     pub name: String,
@@ -88,6 +94,7 @@ pub struct ControllerProfileDto {
 /// How many models come from where, their variants aside.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ProfileCounts"))]
 pub struct ProfileCountsDto {
     pub all: usize,
     pub updated: usize,
@@ -107,6 +114,7 @@ impl ProfileCountsDto {
 /// whole steps.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "UiAction"))]
 pub struct UiActionDto {
     pub target: String,
     pub value: f32,

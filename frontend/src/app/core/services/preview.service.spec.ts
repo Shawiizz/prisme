@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { ControlState, PreviewTrack } from '../models/engine';
+import { ControlState } from '../models/engine';
 import { EngineService } from './engine.service';
 import { PreviewService } from './preview.service';
+import type { PreviewTrack } from '../models/backend';
 
 describe('PreviewService', () => {
   afterEach(() => clearMocks());

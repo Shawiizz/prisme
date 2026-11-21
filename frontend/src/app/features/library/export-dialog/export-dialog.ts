@@ -1,10 +1,11 @@
 import { Component, computed, inject, output, signal } from '@angular/core';
-import { ExportService, ExportSummary, ListRef } from '../../../core/services/export.service';
+import { ExportService, ListRef } from '../../../core/services/export.service';
 import { LibraryService } from '../../../core/services/library.service';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { errorText } from '../../../core/errors';
 import { Dismiss, overlay } from '../../../shared/overlay';
+import type { ExportSummary } from '../../../core/models/backend';
 
 /** A list the export can carry, as the dialog shows it. */
 interface Choice {

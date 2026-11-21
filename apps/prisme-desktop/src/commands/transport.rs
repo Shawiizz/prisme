@@ -8,12 +8,14 @@ use tauri::State;
 
 /// A page of a deck's pads on the screen.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "PadPageNames"))]
 pub struct PadPageDto {
     pub page: Page,
     pub pads: Vec<PadDto>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "PadName"))]
 pub struct PadDto {
     /// Its action, of whichever deck (`loop.0.25`).
     pub action: String,

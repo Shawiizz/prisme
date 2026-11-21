@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { DeckSettings, EngineStatus, FX_SLOTS, FxSettings } from '../../../core/models/engine';
+import { FX_SLOTS } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { DeckPads } from './deck-pads';
+import type { DeckSettings, EngineStatus, FxSettings } from '../../../core/models/backend';
 
 describe('DeckPads', () => {
   let calls: string[];

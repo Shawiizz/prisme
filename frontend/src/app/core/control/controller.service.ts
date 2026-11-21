@@ -2,20 +2,14 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
-import {
-  Controller,
-  ControllerMapping,
-  Opened,
-  PluggedIn,
-  StepEncoding,
-  UiAction,
-} from '../models/controllers';
+import { StepEncoding } from '../models/controllers';
 import { EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
 import { errorText } from '../errors';
 import { t } from '../i18n/i18n';
 import { NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
+import type { Controller, ControllerMapping, Opened, PluggedIn, UiAction } from '../models/backend';
 
 /**
  * Controllers, MIDI and HID, as the backend shows them (`controls.controllers`): it performs

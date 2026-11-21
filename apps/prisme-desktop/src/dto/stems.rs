@@ -1,11 +1,12 @@
 //! The separation into stems: its models and its queue.
 
 use prisme_actions::stems::Separation as SeparationDto;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 /// The separation queue.
 #[derive(Debug, Clone, Default, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StemsProgress"))]
 pub struct StemsProgressDto {
     pub running: bool,
     /// Tracks left, the one being separated included.
@@ -19,12 +20,22 @@ pub struct StemsProgressDto {
     pub device: Option<String>,
 }
 
+/// A separation model: the vocals one, the drums and bass one, and a small one, faster.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub enum ModelId {
+    Vocals,
+    DrumsBass,
+    FourFast,
+}
+
 /// A separation model: installed, or how far its download is.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ModelStatus"))]
 pub struct ModelStatusDto {
-    /// `vocals` or `drums-bass`.
-    pub id: &'static str,
+    pub id: ModelId,
     pub installed: bool,
     pub downloading: Option<f64>,
     pub error: Option<String>,
@@ -34,6 +45,7 @@ pub struct ModelStatusDto {
 /// The separation as the interface shows it (`stems_service::Shown`).
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StemsState"))]
 pub struct StemsStateDto {
     pub progress: StemsProgressDto,
     /// The tracks the queue held: those done, failed, and left.
@@ -63,6 +75,7 @@ pub struct StemsStateDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ModelRow"))]
 pub struct ModelRowDto {
     #[serde(flatten)]
     pub status: ModelStatusDto,
@@ -73,6 +86,7 @@ pub struct ModelRowDto {
 /// A choice of models: what it has left to download, and why its download failed.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ModelChoice"))]
 pub struct ChoiceDto {
     /// `None` once it is installed.
     pub bytes_left: Option<u64>,
@@ -82,6 +96,7 @@ pub struct ChoiceDto {
 /// What became of tracks to separate.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Separated"))]
 pub enum SeparateDto {
     Queued,
     /// No model is installed: they are offered for them.
@@ -91,6 +106,7 @@ pub enum SeparateDto {
 /// How far a row's track is separated, as its column shows it.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "RowStems"))]
 pub enum RowStemsDto {
     /// Being separated, so far (0 to 1).
     Separating {

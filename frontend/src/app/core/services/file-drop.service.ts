@@ -7,6 +7,7 @@ import { lastName } from '../folders';
 import { PHONE } from '../platform';
 import { LibraryService } from './library.service';
 import { errorText } from '../errors';
+import type { Dropped } from '../models/backend';
 
 /** Where files from the file manager are dropped. */
 export type FileDropTarget =
@@ -79,13 +80,6 @@ function draggedTypes(items: DataTransferItemList): FileDrag {
     folders: types.includes(''),
     name: null,
   };
-}
-
-/** The files and folders dropped, as the backend sorts them: anything not a track may be a
- * folder. */
-interface Dropped {
-  tracks: string[];
-  folders: string[];
 }
 
 function sortDropped(paths: string[]): Promise<Dropped> {

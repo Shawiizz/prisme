@@ -1,7 +1,7 @@
 import { computed, effect, inject, signal, untracked } from '@angular/core';
 import { folderName, stepsFrom } from '../../../core/folders';
-import { Folder, MusicFolder } from '../../../core/models/library';
 import { LibraryService } from '../../../core/services/library.service';
+import type { Folder, MusicFolder } from '../../../core/models/backend';
 
 const EXPANDED_KEY = 'prisme.sidebar.expanded';
 

@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { GridChange, MusicalKey } from '../models/engine';
 import { EngineService } from './engine.service';
+import type { GridChange, MusicalKey } from '../models/backend';
 
 /** Corrections of a loaded track's beat grid and key (kept by the library): the decks playing
  * the track show them as the backend tells it. */

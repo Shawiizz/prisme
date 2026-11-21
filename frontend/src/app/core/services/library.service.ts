@@ -1,22 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import {
-  AnalysisProgress,
-  DirListing,
-  HistorySession,
-  LibraryMenu,
-  LibraryRow,
-  LibraryView,
-  LibraryWindow,
-  MusicFolder,
-  Pick,
-  SearchScope,
-  SmartRules,
-  SortColumn,
-  StoragePlace,
-  TrackSource,
-} from '../models/library';
 import { EngineService } from './engine.service';
 import { ExportService, ListRef } from './export.service';
 import { HistoryService } from './history.service';
@@ -25,6 +9,22 @@ import { folderName } from '../folders';
 import { t } from '../i18n/i18n';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import { same } from '../same';
+import type {
+  AnalysisProgress,
+  DirListing,
+  HistorySession,
+  LibraryMenu,
+  LibraryRow,
+  LibraryView,
+  LibraryWindow,
+  MusicFolder,
+  RowPick,
+  SearchScope,
+  SmartRules,
+  SortColumn,
+  StoragePlace,
+  TrackSource,
+} from '../models/backend';
 
 const NO_WINDOW: LibraryWindow = { seq: -1, first: 0, rows: [] };
 
@@ -155,7 +155,7 @@ export class LibraryService {
 
   /** Picks `row` as `pick` says: alone, added or taken out (Ctrl), up to it (Shift), or alone
    * unless it is in the selection (a right click, a drag). */
-  select(row: LibraryRow, pick: Pick) {
+  select(row: LibraryRow, pick: RowPick) {
     const { path, playedAtMs } = row;
     return this.attempt(() => this.engine.ordered('library_select', { path, playedAtMs, pick }));
   }

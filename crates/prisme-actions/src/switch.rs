@@ -25,6 +25,7 @@ pub enum Switch {
 /// A live source of the software mixer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum LiveSource {
     Mic,
     Aux,

@@ -1,8 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { ControlState, Cue, DeckSettings, TrackInfo, Waveform } from '../models/engine';
+import { ControlState, Waveform } from '../models/engine';
 import { EngineService } from './engine.service';
 import { ConfirmService } from '../../shared/confirm/confirm';
+import type { Cue, DeckSettings, TrackInfo } from '../models/backend';
 
 describe('EngineService', () => {
   let engine: EngineService;
@@ -136,6 +137,7 @@ describe('EngineService', () => {
     const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
     const level = { level: 1, on: true };
     const stemMix = { vocals: level, drums: level, bass: level, other: level };
+    const pads = { fxFocus: null, fxShown: 0 };
 
     const settings = [1, 1, 1, 1].map((pitch) => ({ pitch }) as DeckSettings);
 
@@ -147,7 +149,7 @@ describe('EngineService', () => {
         loading: [false, false, false, false],
         quantize: true,
         pitchRange: 0.16,
-        perform: [],
+        perform: [pads, pads, pads, pads],
         preview: { track: null, opening: null },
         ...changes,
       };
@@ -175,21 +177,20 @@ describe('EngineService', () => {
       expect(engine.tracks()[1]).toBe(track);
     });
 
-    it('takes of the mixer and the decks what changed of them, the rest kept as it was', () => {
-      engine['applyControls'](controls({ mixer: { limiter: true } as never }));
+    it('takes the decks that changed, the others kept as they were', () => {
+      engine['applyControls'](controls({}));
       const before = engine.decks();
       const moved = { pitch: 1.02 } as DeckSettings;
-      engine['applyControls']({ mixer: { talkover: true }, decks: [null, moved, null, null] });
+      engine['applyControls']({ decks: [{ ...before[0] }, moved, before[2], before[3]] });
       expect(engine.decks()[1]).toBe(moved);
       expect(engine.decks()[0]).toBe(before[0]);
       expect(engine.controls()!.decks).toEqual(engine.decks());
-      expect(engine.controls()!.mixer).toEqual({ limiter: true, talkover: true });
     });
 
     it('keeps the sections the backend did not send again', () => {
       engine['applyControls'](controls({}));
       const { tracks, preview } = engine.controls()!;
-      const perform = [{ cut: 2, roll: null, fxFocus: null, fxShown: 0 }];
+      const perform: ControlState['perform'] = [pads, pads, pads, { fxFocus: 2, fxShown: 2 }];
       engine['applyControls']({ perform });
       expect(engine.controls()!.perform).toBe(perform);
       expect(engine.controls()!.tracks).toBe(tracks);
@@ -202,7 +203,7 @@ describe('EngineService', () => {
       mockIPC((command, args) => {
         if (command === 'watch_waveform') watched.push(args);
       });
-      const loading = [false, true, false, false];
+      const loading: ControlState['loading'] = [false, true, false, false];
       engine['applyControls'](controls({ loading }));
       expect(engine.loading()).toEqual(loading);
       const loaded = { loadId: 8, deck: 1, keyShift: 0, stemMix, cues: [] } as unknown as TrackInfo;

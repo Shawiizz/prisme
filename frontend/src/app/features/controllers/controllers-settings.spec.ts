@@ -1,11 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { vi } from 'vitest';
-import { Target } from '../../core/control/controls';
-import { Controller } from '../../core/models/controllers';
 import { ControlState } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
 import { ControllersSettings, found } from './controllers-settings';
+import type { Controller, Target } from '../../core/models/backend';
 
 const VCI_100: Controller = {
   name: 'VCI-100',

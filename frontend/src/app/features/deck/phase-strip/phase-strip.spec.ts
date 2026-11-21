@@ -1,7 +1,8 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { ControlState, EngineStatus, PhaseReading } from '../../../core/models/engine';
+import { ControlState } from '../../../core/models/engine';
 import { EngineService } from '../../../core/services/engine.service';
+import type { EngineStatus, PhaseReading } from '../../../core/models/backend';
 
 describe('PhaseStrip', () => {
   afterEach(() => {

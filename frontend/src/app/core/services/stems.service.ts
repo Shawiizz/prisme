@@ -1,8 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { ModelId, StemsState } from '../models/stems';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
+import type { ModelId, Separated, StemsState } from '../models/backend';
 
 /**
  * Stem separation, done in the background by the backend, as it tells it: the models (each
@@ -31,7 +31,7 @@ export class StemsService {
   async separate(paths: string[] | null) {
     try {
       this.error.set(null);
-      const outcome = await this.engine.ordered<'queued' | 'needsModels'>('separate_tracks', {
+      const outcome = await this.engine.ordered<Separated>('separate_tracks', {
         paths,
       });
       if (outcome === 'needsModels') this.offered.set(true);

@@ -19,6 +19,7 @@ use tracing::error;
 
 #[derive(Debug, Clone, Copy, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum GridChange {
     /// Another tempo, anchored on the first beat.
     Bpm { bpm: f64 },

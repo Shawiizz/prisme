@@ -1,6 +1,6 @@
 //! The decks: their tracks, their settings, what the screen shows of them at each frame.
 
-use super::{ChannelStripDto, FxChainDto, FxPartDto, RpmDto, SignalDto, VinylDto, VinylModeDto};
+use super::{ChannelStripDto, FxChainDto, RpmDto, SignalDto, VinylDto, VinylModeDto};
 use prisme_actions::knobs::StripKnobs;
 use prisme_actions::pads::Pads;
 use prisme_actions::perform::DeckPerform;
@@ -39,6 +39,7 @@ pub fn whole_waveform_bytes(w: &prisme_analysis::Waveform) -> Vec<u8> {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Tempo"))]
 pub struct TempoDto {
     pub bpm: f64,
     pub first_beat_s: f64,
@@ -91,6 +92,7 @@ impl From<&prisme_analysis::KeyEstimate> for KeyDto {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TrackInfo"))]
 pub struct TrackInfoDto {
     pub deck: usize,
     /// Tells this load from another of the same file.
@@ -115,6 +117,7 @@ pub struct TrackInfoDto {
 /// The stems on a deck, which it can mute.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckStems"))]
 pub struct DeckStemsDto {
     pub separation: SeparationDto,
     /// Separated in parts only: being separated, or a separation stopped short.
@@ -132,6 +135,7 @@ impl DeckStemsDto {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Cue"))]
 pub struct CueDto {
     /// Hot cue slot, `None` for the main cue.
     pub hot: Option<u8>,
@@ -160,6 +164,7 @@ impl From<&Cue> for CueDto {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckSettings"))]
 pub struct DeckSettingsDto {
     pub pitch: f64,
     pub volume: f32,
@@ -256,7 +261,7 @@ pub struct DeckStatusDto {
     /// Sampler slots playing (bit per slot).
     pub samples_playing: u16,
     /// The parts of its separated track, a knob each.
-    pub stems: Vec<StemKnobDto>,
+    pub stems: Vec<screen::StemKnob>,
     /// How far its track's separation is, from 0 to 1: as it is separated, or as the downloads
     /// of the models it waits for are.
     pub separating: Option<f64>,
@@ -280,26 +285,6 @@ pub struct DeckLightsDto {
     pub cue: light::State,
     /// What its pads on the screen show.
     pub pads: Pads,
-}
-
-/// A part of a deck's separated track, as its knob shows it.
-#[derive(Debug, Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "StemKnob"))]
-pub struct StemKnobDto {
-    pub part: FxPartDto,
-    pub level: f32,
-    pub on: bool,
-    /// Its change waits for the next bar.
-    pub waiting: bool,
-    /// Separated where the deck plays.
-    pub ready: bool,
-}
-
-impl From<screen::StemKnob> for StemKnobDto {
-    fn from(k: screen::StemKnob) -> Self {
-        Self { part: k.part.into(), level: k.level, on: k.on, waiting: k.waiting, ready: k.ready }
-    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -353,7 +338,7 @@ impl DeckStatusDto {
             slip_mode: d.slip_mode,
             reverse: d.reverse,
             samples_playing: d.samples_playing,
-            stems: screen::stem_knobs(view, deck).map(StemKnobDto::from).collect(),
+            stems: screen::stem_knobs(view, deck).collect(),
             separating: None,
             vinyl: VinylDto {
                 enabled: d.vinyl.enabled,
@@ -377,6 +362,7 @@ impl DeckStatusDto {
 /// Which slots of a deck's effect chain its pads and knobs act on.
 #[derive(Debug, Clone, Copy, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeckPerform"))]
 pub struct DeckPadsDto {
     /// The slot of its effect chain the effect knobs turn.
     pub fx_focus: Option<usize>,

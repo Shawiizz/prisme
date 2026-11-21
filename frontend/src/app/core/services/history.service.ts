@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
-import { HistorySession } from '../models/library';
+import type { HistorySession } from '../models/backend';
 
 /** The history of the sets: a set's tracklist written out. */
 @Injectable({ providedIn: 'root' })

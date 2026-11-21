@@ -3,7 +3,7 @@ import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { ControlService } from '../control/control.service';
 import { KeyboardService } from './keyboard.service';
 import { tellPreferences } from '../services/preferences.service';
-import { Preferences } from '../models/preferences';
+import type { Preferences } from '../models/backend';
 
 describe('KeyboardService', () => {
   afterEach(() => {

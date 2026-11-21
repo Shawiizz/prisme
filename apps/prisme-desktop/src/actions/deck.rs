@@ -94,7 +94,7 @@ pub fn set_stem_mix(state: &AppState, deck: usize, mix: StemMixDto, on_bar: bool
 pub fn loaded(state: &AppState, deck: usize) {
     let follow = || {
         let separation = state.with_track(deck, |t| t.separation())?;
-        if lock(&state.decks)[deck].fx.part.is_some_and(|part| !separation.has(part.into())) {
+        if lock(&state.decks)[deck].fx.part.is_some_and(|part| !separation.has(part)) {
             fx::set_fx_part(state, deck, None)?;
         }
         if state.preferences.read(|p| p.dj.cue_on_load) {
@@ -625,7 +625,7 @@ mod tests {
     #[test]
     fn a_track_loaded_takes_the_effects_off_a_part_it_lacks_and_may_be_heard_alone() {
         let bench = Bench::new();
-        crate::actions::fx::set_fx_part(&bench.state, 1, Some(crate::dto::FxPartDto::Vocals)).unwrap();
+        crate::actions::fx::set_fx_part(&bench.state, 1, Some(prisme_control::StemPart::Vocals)).unwrap();
         crate::actions::mixer::set_deck_cue(&bench.state, 0, true).unwrap();
         bench.load(1, 1.0, None);
         loaded(&bench.state, 1);

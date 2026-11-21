@@ -1,14 +1,15 @@
 import { Component, OnDestroy, computed, inject, signal } from '@angular/core';
 import { ControlService } from '../../core/control/control.service';
-import { Control, Target } from '../../core/control/controls';
+import { Control } from '../../core/control/controls';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
-import { Key, CTRL } from '../../core/keyboard/shortcuts';
+import { CTRL } from '../../core/keyboard/shortcuts';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { EngineService } from '../../core/services/engine.service';
 import { errorText } from '../../core/errors';
 import { invoke } from '@tauri-apps/api/core';
 import { labelText, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
+import type { Key, TakenKey } from '../../core/models/backend';
 
 interface Line {
   control: Control;
@@ -16,13 +17,6 @@ interface Line {
   keys: string[];
   /** The DJ changed them. */
   changed: boolean;
-}
-
-/** A key another action has, which the keys given would take from it. */
-interface TakenKey extends Key {
-  control: string;
-  /** The action that has it, as the backend names it. */
-  action: Target | null;
 }
 
 /** Keys given to a control that other controls have: they are taken only once the DJ says so. */

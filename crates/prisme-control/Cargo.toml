@@ -11,3 +11,8 @@ license.workspace = true
 schemars = "1"
 serde.workspace = true
 serde_json.workspace = true
+ts-rs = { workspace = true, optional = true }
+
+[features]
+# The TypeScript types of what the interface is sent (see the app's `ts_types`).
+ts = ["dep:ts-rs"]

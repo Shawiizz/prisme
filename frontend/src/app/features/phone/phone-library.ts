@@ -12,7 +12,6 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { LibraryRow, SortColumn } from '../../core/models/library';
 import { EngineService } from '../../core/services/engine.service';
 import { LibraryService } from '../../core/services/library.service';
 import { PreviewService } from '../../core/services/preview.service';
@@ -31,6 +30,7 @@ import { PhoneFolderPicker } from './phone-folder-picker';
 import { TrackMenu } from '../library/track-menu/track-menu';
 import { COLUMNS } from '../library/track-table/columns';
 import { lastName, parentOf, shortPath } from '../../core/folders';
+import type { LibraryRow, SortColumn } from '../../core/models/backend';
 
 /** Height of a row: a finger's, and room for a cover. */
 const ROW_PX = 60;

@@ -11,6 +11,7 @@ pub type KeyChanges = BTreeMap<String, Vec<KeyPreference>>;
 
 /// A key bound to an action.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "KeyBinding"))]
 pub struct Shortcut {
     pub control: String,
     #[serde(flatten)]

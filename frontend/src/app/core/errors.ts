@@ -1,13 +1,6 @@
 import { deckLetter } from '../shared/time';
 import { Params, t } from './i18n/i18n';
-
-/** A failure of the backend (`error.rs`): a code the UI words in its language, with what it
- * needs to word it, and the English message for the codes it does not know. */
-export interface BackendError {
-  code: string;
-  params: Params;
-  message: string;
-}
+import type { BackendError } from './models/backend';
 
 const onDeck = (p: Params) => ({ ...p, deck: deckLetter(Number(p['deck'])) });
 

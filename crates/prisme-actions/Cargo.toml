@@ -16,4 +16,4 @@ ts-rs = { workspace = true, optional = true }
 
 [features]
 # The TypeScript types of what the interface is sent (see the app's `ts_types`).
-ts = ["dep:ts-rs"]
+ts = ["dep:ts-rs", "prisme-control/ts"]

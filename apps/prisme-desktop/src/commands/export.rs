@@ -18,6 +18,7 @@ type Library<'a> = State<'a, Arc<LibraryService>>;
 /// prepare list or a set of the history.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ExportedList"))]
 pub enum ListDto {
     Crate { id: i64 },
     Prepare,
@@ -27,6 +28,7 @@ pub enum ListDto {
 /// A list of an export to rekordbox, and where it goes there.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ExportList"))]
 pub struct ExportListDto {
     pub list: ListDto,
     pub folder: Option<String>,

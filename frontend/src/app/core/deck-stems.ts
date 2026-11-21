@@ -2,14 +2,14 @@ import { Signal, computed, inject } from '@angular/core';
 import { t } from './i18n/i18n';
 import { EngineService } from './services/engine.service';
 import { StemsService } from './services/stems.service';
-import { StemPart } from './stem-parts';
+import type { StemPart } from './models/backend';
 
 /** Each part's knob label and name. */
 const PARTS: Record<StemPart, { label: string; name: () => string }> = {
   vocals: { label: 'VOX', name: () => t('Vocals') },
   drums: { label: 'DRUM', name: () => t('Drums') },
   bass: { label: 'BASS', name: () => t('Bass') },
-  other: { label: 'MELO', name: () => t('Melody (the other instruments)') },
+  melody: { label: 'MELO', name: () => t('Melody (the other instruments)') },
   instrumental: { label: 'INST', name: () => t('Instrumental') },
 };
 

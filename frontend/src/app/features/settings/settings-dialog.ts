@@ -22,18 +22,8 @@ import { UpdateService } from '../../core/services/update.service';
 import { StemsService } from '../../core/services/stems.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService, SettingsCategory } from '../../core/services/navigation.service';
-import {
-  AudioBackend,
-  AudioChange,
-  AudioDevice,
-  AudioDraft,
-  AudioSettings,
-  BACKEND_NAMES,
-  LatencyChannels,
-} from '../../core/models/audio';
-import { InputChannels, LiveSource, MixMode, OutputNote } from '../../core/models/engine';
-import { Settings } from '../../core/models/preferences';
-import { ModelId } from '../../core/models/stems';
+import { BACKEND_NAMES } from '../../core/models/audio';
+import type { Settings } from '../../core/services/preferences.service';
 import { LANGUAGES, language, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { TurntablePanel } from '../turntables/turntable-panel';
@@ -49,6 +39,20 @@ import { decimal } from '../../shared/time';
 import { errorText } from '../../core/errors';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Serial } from '../../shared/serial';
+import type {
+  AudioBackend,
+  AudioChange,
+  AudioDevice,
+  AudioDraft,
+  AudioSettings,
+  InputChannels,
+  Latency,
+  LatencyChannels,
+  LiveSource,
+  MixMode,
+  ModelId,
+  OutputNote,
+} from '../../core/models/backend';
 
 /** `1, 2, … n` */
 function numbers(n: number): number[] {
@@ -393,7 +397,7 @@ export class SettingsDialog implements OnInit {
   async measureLatency() {
     this.latency.set('measuring');
     try {
-      const measured = await invoke<{ roundTripMs: number }>('measure_latency', {
+      const measured = await invoke<Latency>('measure_latency', {
         output: this.latencyOutput(),
         input: this.latencyInput(),
       });

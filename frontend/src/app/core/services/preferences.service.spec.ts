@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { Preferences } from '../models/preferences';
 import { loadPreferences, PreferencesService } from './preferences.service';
+import type { Preferences } from '../models/backend';
 
 const preferences = (ui: Partial<Preferences['ui']>) =>
   ({ ui: { language: null, phoneTouch: null, screenBelow: false, ...ui } }) as Preferences;

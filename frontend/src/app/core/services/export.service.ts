@@ -4,18 +4,13 @@ import { save } from '@tauri-apps/plugin-dialog';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { fileDate } from './history.service';
+import type { ExportSummary } from '../models/backend';
 
 /** A list of the library (see `ListDto`); a set of the history with when it started, for its name. */
 export type ListRef =
   | { kind: 'crate'; id: number }
   | { kind: 'prepare' }
   | { kind: 'session'; id: number; startedAtMs: number };
-
-/** What an export to rekordbox wrote. */
-export interface ExportSummary {
-  tracks: number;
-  lists: number;
-}
 
 /**
  * Exports for other DJ software: a list as an M3U playlist, the library or chosen lists as

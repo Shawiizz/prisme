@@ -11,12 +11,12 @@ import {
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { EngineService } from '../../core/services/engine.service';
 import { SettingsService } from '../../core/services/settings.service';
-import { Rpm, SignalState, VinylMode } from '../../core/models/engine';
 import { deckLetter, formatSpeed, formatTime } from '../../shared/time';
 import { ScopePainter } from './scope-painter';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { errorText } from '../../core/errors';
+import type { Rpm, SignalState, VinylMode } from '../../core/models/backend';
 
 const SCOPE_SIZE = 220;
 const SIGNAL_TEXT: Record<SignalState, Text> = {

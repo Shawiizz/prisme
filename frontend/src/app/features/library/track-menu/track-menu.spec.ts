@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
 import { ControlState } from '../../../core/models/engine';
-import { LibraryMenu } from '../../../core/models/library';
 import { EngineService } from '../../../core/services/engine.service';
 import { TrackMenu } from './track-menu';
+import type { LibraryMenu } from '../../../core/models/backend';
 
 const MENU: LibraryMenu = {
   count: 1,

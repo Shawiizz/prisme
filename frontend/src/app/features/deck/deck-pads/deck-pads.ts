@@ -4,7 +4,7 @@ import { FxService } from '../../../core/services/fx.service';
 import { SamplerService } from '../../../core/services/sampler.service';
 import { EngineService } from '../../../core/services/engine.service';
 import { PerformanceService } from '../../../core/services/performance.service';
-import { EffectKind, PADS, PageLights } from '../../../core/models/engine';
+import { PADS } from '../../../core/models/engine';
 import { Knob } from '../../../shared/knob/knob';
 import { formatBeats } from '../../../shared/beats';
 import { percent } from '../../../shared/readout';
@@ -13,6 +13,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
+import type { EffectKind, PageLights } from '../../../core/models/backend';
 
 type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 

@@ -1,9 +1,10 @@
 import { TestBed } from '@angular/core/testing';
-import { ControlState, MixerState, RoutingState } from '../models/engine';
+import { ControlState } from '../models/engine';
 import { EngineService } from './engine.service';
 import { FxService } from './fx.service';
 import { MixerService } from './mixer.service';
 import { PerformanceService } from './performance.service';
+import type { MixerState, RoutingState } from '../models/backend';
 
 describe('MixerService', () => {
   it('shows the mixer the backend tells, the same as it tells other sections', () => {

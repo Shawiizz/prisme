@@ -14,7 +14,6 @@ import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { LibraryService } from '../../core/services/library.service';
 import { NavigationService } from '../../core/services/navigation.service';
 import { EngineService } from '../../core/services/engine.service';
-import { NamedTrack } from '../../core/models/library';
 import { Text, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import { keyHue } from '../../shared/camelot';
@@ -22,6 +21,7 @@ import { decimal, deckLetter } from '../../shared/time';
 import { PHONE } from '../../core/platform';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { SETTINGS, SETTINGS_PAGES, normalize } from '../settings/settings-catalog';
+import type { NamedTrack } from '../../core/models/backend';
 
 type Section = 'actions' | 'settings' | 'crates' | 'tracks';
 

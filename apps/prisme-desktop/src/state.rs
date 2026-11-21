@@ -6,8 +6,8 @@ use crate::actions::browse::Library;
 use crate::audio_host::{deck_pair, layer_partner, AudioSession};
 use crate::dto::{
     AudioInfo, AutoDjStatusDto, BackendDto, ChannelStripDto, CueDto, DeckPadsDto, DeckStemsDto,
-    FoldersStateDto, FxChainDto, FxPartDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, MixModeDto,
-    PreviewStateDto, RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
+    FoldersStateDto, FxChainDto, HeadphonesOutputDto, InputChannelsDto, KeyDto, MixModeDto, PreviewStateDto,
+    RecordingDto, RpmDto, SeparationDto, StemMixDto, TempoDto, TrackInfoDto, VinylModeDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::folders;
@@ -1202,7 +1202,7 @@ pub fn deck_commands(deck: usize, s: &DeckSettings) -> Vec<Command> {
         Command::SetKeyLock { deck, enabled: s.key_lock },
         Command::SetTrim { deck, gain: strip.trim },
         Command::SetFilter { deck, position: strip.filter },
-        Command::SetFxParts { deck, parts: FxPartDto::parts(s.fx.part) },
+        Command::SetFxParts { deck, parts: prisme_actions::stems::effect_parts(s.fx.part) },
         Command::SetFxChainEnabled { deck, enabled: s.fx.enabled },
         Command::SetSamplerGain { deck, gain: s.sampler_gain },
         Command::SetPassthrough { deck, enabled: s.passthrough },

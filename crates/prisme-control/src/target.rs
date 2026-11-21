@@ -20,6 +20,7 @@ pub const CUTS: usize = 4;
 /// travel, an encoder by its steps, or a light that only shows a state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "ControlKind"))]
 pub enum Kind {
     Button,
     Fader,
@@ -195,10 +196,11 @@ actions! {
     }
 }
 
-/// Written by its id, as the profiles and the preferences name it (`pingPong`).
-/// Told by their ids: an effect, a band of the EQ, a side of the crossfader.
+/// Told by their ids, as the profiles and the interface name them (`pingPong`): an effect, a
+/// band of the EQ, a side of the crossfader, a part of a separated track. In TypeScript, the
+/// union of the ids under `$ts`.
 macro_rules! by_id {
-    ($($name:ident),+) => {$(
+    ($($name:ident = $ts:literal),+) => {$(
         impl Serialize for $name {
             fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
                 serializer.serialize_str(self.id())
@@ -214,10 +216,37 @@ macro_rules! by_id {
                 })
             }
         }
+
+        #[cfg(feature = "ts")]
+        impl ts_rs::TS for $name {
+            type WithoutGenerics = Self;
+            type OptionInnerType = Self;
+
+            fn name(_: &ts_rs::Config) -> String {
+                $ts.to_owned()
+            }
+
+            fn inline(_: &ts_rs::Config) -> String {
+                let ids: Vec<String> = Self::NAMED.iter().map(|named| format!("\"{}\"", named.id())).collect();
+                ids.join(" | ")
+            }
+
+            fn decl(cfg: &ts_rs::Config) -> String {
+                format!("type {} = {};", $ts, Self::inline(cfg))
+            }
+
+            fn decl_concrete(cfg: &ts_rs::Config) -> String {
+                Self::decl(cfg)
+            }
+
+            fn output_path() -> Option<std::path::PathBuf> {
+                Some(concat!($ts, ".ts").into())
+            }
+        }
     )+};
 }
 
-by_id!(Effect, Band, Side);
+by_id!(Effect = "EffectKind", Band = "Band", Side = "CrossfaderSide", StemPart = "StemPart");
 
 impl Side {
     /// The side of deck `deck` by its letter: A and C on the left, B and D on the right.

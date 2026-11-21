@@ -1,8 +1,11 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { Preferences, Settings } from '../models/preferences';
 import { showLanguage } from '../i18n/i18n';
 import { EngineService } from './engine.service';
+import type { Preferences, Setting } from '../models/backend';
+
+/** Each setting the settings change, and its value. */
+export type Settings = { [S in Setting as S['setting']]: S['value'] };
 
 const told = signal<Preferences | null>(null);
 

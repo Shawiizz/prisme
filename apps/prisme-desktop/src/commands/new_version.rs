@@ -14,6 +14,7 @@ const LATEST: &str = "https://api.github.com/repos/Shawiizz/prisme/releases/late
 /// Android on a phone.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "NewVersion"))]
 pub struct NewVersionDto {
     pub version: String,
     pub apk: Option<ApkDto>,
@@ -22,6 +23,7 @@ pub struct NewVersionDto {
 /// The APK of a release, and its size in bytes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Apk"))]
 pub struct ApkDto {
     pub url: String,
     pub size: u64,

@@ -1,6 +1,4 @@
-import type { MeterLevel } from '../core/models/status';
-
-export type { MeterLevel };
+import type { MeterLevel } from '../core/models/backend';
 
 /** A segment of a level meter (`.pr-meter`): off, lit, hot or clipping. */
 export type Segment = '' | 'is-lit' | 'is-hot' | 'is-clip';

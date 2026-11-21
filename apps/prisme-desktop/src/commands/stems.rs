@@ -1,5 +1,6 @@
 //! Stem separation: the models, the queue, and the stems a deck plays.
 
+use crate::dto::ModelId;
 use crate::error::AppResult;
 use crate::library_service::LibraryService;
 use crate::stems_service::StemsService;
@@ -9,8 +10,8 @@ use tauri::State;
 
 /// Starts downloading the separation model `id`.
 #[tauri::command]
-pub fn download_stems_model(stems: State<'_, StemsService>, id: String) -> AppResult<()> {
-    stems.download_model(&id)
+pub fn download_stems_model(stems: State<'_, StemsService>, id: ModelId) -> AppResult<()> {
+    stems.download_model(id)
 }
 
 /// Separates with the small models (`fast`) or the large ones from now on, and downloads those

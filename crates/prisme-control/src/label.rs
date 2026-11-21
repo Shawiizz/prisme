@@ -15,6 +15,7 @@ pub struct Label {
 /// letter, a fraction of a beat), or another label, translated too.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(untagged)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "LabelParam"))]
 pub enum Param {
     Number(f64),
     Text(String),
@@ -71,6 +72,37 @@ impl Serialize for Label {
             map.serialize_entry("params", &Params(&self.params))?;
         }
         map.end()
+    }
+}
+
+/// Written `{ key, params }`, its placeholders by name, `params` left out when it has none.
+#[cfg(feature = "ts")]
+impl ts_rs::TS for Label {
+    type WithoutGenerics = Self;
+    type OptionInnerType = Self;
+
+    fn name(_: &ts_rs::Config) -> String {
+        "Label".to_owned()
+    }
+
+    fn inline(cfg: &ts_rs::Config) -> String {
+        format!("{{ key: string, params?: Record<string, {}> }}", Param::name(cfg))
+    }
+
+    fn decl(cfg: &ts_rs::Config) -> String {
+        format!("type Label = {};", Self::inline(cfg))
+    }
+
+    fn decl_concrete(cfg: &ts_rs::Config) -> String {
+        Self::decl(cfg)
+    }
+
+    fn visit_dependencies(v: &mut impl ts_rs::TypeVisitor) {
+        v.visit::<Param>();
+    }
+
+    fn output_path() -> Option<std::path::PathBuf> {
+        Some("Label.ts".into())
     }
 }
 

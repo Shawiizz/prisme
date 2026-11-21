@@ -1,8 +1,8 @@
 import { Signal, computed, inject } from '@angular/core';
 import { EngineService } from './services/engine.service';
-import { SyncState, TempoFader } from './models/engine';
 import { formatPitch } from '../shared/time';
 import { same } from './same';
+import type { SyncState, TempoFader } from './models/backend';
 
 const STILL: TempoFader = {
   held: false,

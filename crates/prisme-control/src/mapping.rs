@@ -17,6 +17,7 @@ pub type Modes = HashMap<String, String>;
 /// A second action for a key held down for `ms` milliseconds: pressed and let go sooner, it
 /// drives its own.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Hold {
     pub ms: u32,
     pub target: TargetId,
@@ -24,6 +25,7 @@ pub struct Hold {
 
 /// Another action for a key pressed while the key `with` is held.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct Chord {
     pub with: Control,
     pub target: TargetId,
@@ -32,6 +34,7 @@ pub struct Chord {
 /// Where a key puts a fader's action: at a position, or at each of two in turn.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum FaderSet {
     At(f32),
     InTurn([f32; 2]),
@@ -41,6 +44,7 @@ pub enum FaderSet {
 /// shift's while that one is held (`"left"`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
 #[serde(from = "ShiftWritten", into = "ShiftWritten")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(as = "ShiftWritten"))]
 pub enum Shift {
     #[default]
     None,
@@ -50,6 +54,7 @@ pub enum Shift {
 
 #[derive(Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(untagged)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "Shift"))]
 enum ShiftWritten {
     Held(bool),
     Named(String),
@@ -119,6 +124,7 @@ impl Shifts {
 
 /// A mode of a controller: `mode` of its group `group`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, JsonSchema)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct When {
     pub group: String,
     pub mode: String,
@@ -128,6 +134,7 @@ pub struct When {
 /// are read the same over its own bits (a 4-bit counter wraps at 16).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub enum Encoding {
     /// A position, from 0 to 1 (a button: 1 pressed, 0 released).
     #[default]
@@ -190,6 +197,7 @@ impl Encoding {
 /// A control and the action it drives, and how: a control of a profile, or one learnt.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 pub struct ProfileControl {
     pub control: Control,
     pub target: TargetId,
@@ -330,6 +338,7 @@ impl ProfileControl {
 
 /// A control of a controller driving one of the application's actions.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(ts_rs::TS), ts(rename = "ControllerMapping"))]
 pub struct Mapping {
     /// The controller's name: its MIDI port's, or Prisme's of a HID device.
     pub device: String,

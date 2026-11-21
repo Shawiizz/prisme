@@ -21,6 +21,7 @@ use tauri::{AppHandle, Manager, State};
 /// What the settings show of the preferences, and what they offer.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Preferences"))]
 pub struct PreferencesDto {
     pub dj: DjPreferences,
     pub library: LibraryPreferences,
@@ -35,6 +36,7 @@ pub struct PreferencesDto {
 /// A key of the keyboard bound to an action.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Shortcut"))]
 pub struct ShortcutDto {
     #[serde(flatten)]
     pub shortcut: Shortcut,
@@ -47,6 +49,7 @@ pub struct ShortcutDto {
 /// The values the settings offer where there are a few.
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "SettingChoices"))]
 pub struct SettingChoicesDto {
     pub tempo_ranges: [f64; 3],
     pub deck_counts: [usize; 2],
@@ -91,6 +94,7 @@ pub fn get_preferences(state: State<'_, AppState>) -> PreferencesDto {
 /// the music folders have their own commands).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(tag = "setting", content = "value", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum Setting {
     VinylSync(VinylSync),
     AutoGain(bool),
@@ -244,6 +248,7 @@ pub fn set_keys(
 
 /// A key another action has, which a change of keys would take from it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "TakenKey"))]
 pub struct TakenKeyDto {
     #[serde(flatten)]
     pub shortcut: Shortcut,

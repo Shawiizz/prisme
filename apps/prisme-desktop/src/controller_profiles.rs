@@ -251,6 +251,7 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(20);
 /// Where a profile comes from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "ProfileSource"))]
 pub enum Source {
     Shipped,
     Updated,

@@ -2,7 +2,7 @@ import { Component, computed, inject, input, output, signal, viewChild } from '@
 import { closedByBack } from '../../core/back';
 import { deckTempo } from '../../core/deck-tempo';
 import { deckVinyl } from '../../core/deck-vinyl';
-import { BANDS, Band, DeckMode } from '../../core/models/engine';
+import { BANDS } from '../../core/models/engine';
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { Text, t } from '../../core/i18n/i18n';
@@ -15,6 +15,7 @@ import { GridEditor } from '../deck/grid-editor/grid-editor';
 import { Dismiss, overlay } from '../../shared/overlay';
 import { Sheet } from '../../shared/sheet';
 import { PhoneTempo } from './phone-tempo';
+import type { Band, DeckMode } from '../../core/models/backend';
 
 const DRIVERS: readonly { id: DeckMode; label: Text }[] = [
   {

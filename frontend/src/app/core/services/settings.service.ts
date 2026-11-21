@@ -2,20 +2,20 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { save } from '@tauri-apps/plugin-dialog';
-import {
+import { decimal } from '../../shared/time';
+import { EngineService } from './engine.service';
+import { NoticeService } from '../../shared/notice/notice';
+import { t } from '../i18n/i18n';
+import { errorText } from '../errors';
+import type {
   AudioBackend,
   AudioDevice,
   AudioSettings,
   BackendChoice,
   CardOffer,
+  MixMode,
   TimecodeMaker,
-} from '../models/audio';
-import { decimal } from '../../shared/time';
-import { MixMode } from '../models/engine';
-import { EngineService } from './engine.service';
-import { NoticeService } from '../../shared/notice/notice';
-import { t } from '../i18n/i18n';
-import { errorText } from '../errors';
+} from '../models/backend';
 
 /** Audio settings (backend, devices, buffer, simulation), the timecode records Prisme reads,
  * and diagnostics. */

@@ -1,7 +1,6 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { RecordSource, Recording } from '../models/engine';
 import { t } from '../i18n/i18n';
 import { EngineService } from './engine.service';
 import { MixerService } from './mixer.service';
@@ -9,6 +8,7 @@ import { errorText } from '../errors';
 import { PHONE } from '../platform';
 import { NoticeService } from '../../shared/notice/notice';
 import { recordingNotice } from '../recording-notice';
+import type { Recording, RecordSource } from '../models/backend';
 
 /** A source to record, as offered to the DJ. */
 export interface RecordOption {

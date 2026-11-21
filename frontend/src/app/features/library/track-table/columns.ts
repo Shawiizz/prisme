@@ -1,5 +1,5 @@
-import { SortColumn } from '../../../core/models/library';
 import { Text, t } from '../../../core/i18n/i18n';
+import type { SortColumn } from '../../../core/models/backend';
 
 export type ColumnId =
   | 'color'

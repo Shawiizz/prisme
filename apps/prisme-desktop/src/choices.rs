@@ -8,6 +8,7 @@ use serde::Serialize;
 /// Why an output chosen is heard or not on the running device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum OutputNote {
     /// On these outputs (the first, 0-based).
     On {
@@ -24,6 +25,7 @@ pub enum OutputNote {
 /// Why a live source is not heard on the running device.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub enum LiveNote {
     /// Its inputs are not on the device, or the turntables have them.
     NotOnDevice,
@@ -33,6 +35,7 @@ pub enum LiveNote {
 
 /// A pair of outputs the booth can be on: heard there, or `taken` by the headphones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(ts_rs::TS))]
 pub struct BoothChoice {
     pub first: usize,
     pub taken: bool,

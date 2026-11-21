@@ -1,7 +1,7 @@
 import { Injectable, computed, inject } from '@angular/core';
-import { EffectKind, FxChain, FxSettings } from '../models/engine';
 import { EngineService } from './engine.service';
 import { sameItems } from '../same';
+import type { EffectKind, FxChain, FxSettings } from '../models/backend';
 
 /** The id of an action of a slot of a deck's effect chain: `deck1.fx…` for the first,
  * `deck1.fx2…` and `deck1.fx3…` for the next. */

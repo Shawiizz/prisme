@@ -1,8 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { Cue, PadPageNames } from '../models/engine';
 import { EngineService } from './engine.service';
 import { errorText } from '../errors';
+import type { Cue, PadPageNames } from '../models/backend';
 
 /** Performance actions on a deck: hot cues, the pads of a page (loops, rolls, beat jumps, the
  * slicer, fader cuts), slip, censor, reverse, the motor (brake, spinback). */
