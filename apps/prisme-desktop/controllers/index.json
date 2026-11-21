@@ -56,13 +56,13 @@
       "format": 2
     },
     "behringer-cmd-dv-1-ch1.json": {
-      "sha256": "ab793b7760641c1458d3267584e528fdba31d2781164974952e488feabbd6740",
-      "revision": 4,
+      "sha256": "c920e962f73990266f6387a95cd2fcc0b625f493daa01e83702f76efc99849d4",
+      "revision": 5,
       "format": 3
     },
     "behringer-cmd-dv-1.json": {
-      "sha256": "f438d5a153bb6046d339304a6117701bc5ca42ec1851e3b6ceba9f802b8aab39",
-      "revision": 4,
+      "sha256": "f53220c02079e18fe53a24ba86f21b4a74773e94f32b8910e37ef2c96d721627",
+      "revision": 5,
       "format": 3
     },
     "behringer-cmd-micro.json": {
