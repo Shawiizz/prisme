@@ -31,6 +31,8 @@ const HAND_EVERY_MS = 4;
 const EDGE_SHARE = 0.2;
 /** A press held still this long (ms) puts the hand on the record. */
 const HOLD_MS = 280;
+/** The activity of the stems asked again this long (ms) after the asking failed. */
+const ACTIVITY_RETRY_MS = 2000;
 
 /** A press on a waveform, from where it started. */
 interface Drag {
@@ -97,6 +99,7 @@ export class DeckWaveform {
   protected readonly activity = signal<Uint8Array[] | null>(null);
   /** The load and stems the activity was asked for. */
   private activityOf = '';
+  private activityRetry: ReturnType<typeof setTimeout> | null = null;
   protected readonly lanesTitle = computed(() =>
     this.activity()?.length === 4
       ? t('Vocals, drums, bass and melody along the track')
@@ -112,6 +115,7 @@ export class DeckWaveform {
     everyFrame(this.redraw);
     inject(DestroyRef).onDestroy(() => {
       this.cancel();
+      if (this.activityRetry) clearTimeout(this.activityRetry);
       forgetCanvas(this.zoomCanvas().nativeElement);
       forgetCanvas(this.overviewCanvas().nativeElement);
     });
@@ -149,7 +153,15 @@ export class DeckWaveform {
           ),
         );
       },
-      () => {},
+      (e) => {
+        console.error('the stems activity not read', e);
+        // asked again a moment later, unless the track changed meanwhile
+        this.activityRetry = setTimeout(() => {
+          if (this.activityOf !== of) return;
+          this.activityOf = '';
+          this.askActivity();
+        }, ACTIVITY_RETRY_MS);
+      },
     );
   }
 
