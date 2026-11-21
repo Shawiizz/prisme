@@ -2,9 +2,9 @@
 //! the loudest through the software mixer, else the last started; while all stand, the one heard
 //! last. And when the player is told again ([`Told`]): it moves the position on by itself.
 
+use crate::engine_side;
 use crate::view::View;
-use prisme_control::Side;
-use prisme_engine::{crossfader_gain, CrossfaderCurve, MAX_DECKS};
+use prisme_engine::{side_gain, CrossfaderCurve, MAX_DECKS};
 
 /// Slower than this, a deck is not heard as playing: a record held or nudged, a jog let go.
 /// The loads count a deck still only far below.
@@ -113,20 +113,15 @@ impl<S: Clone + PartialEq> Told<S> {
 /// The crossfader's gain on `deck`.
 fn gain(view: &View, deck: usize) -> f32 {
     let mixer = &view.mixer;
-    let position = if mixer.crossfader_reverse { -mixer.crossfader } else { mixer.crossfader };
     let curve = if mixer.sharp_curve { CrossfaderCurve::Sharp } else { CrossfaderCurve::Smooth };
-    let toward_right = (position.clamp(-1.0, 1.0) + 1.0) * 0.5;
-    match view.decks[deck].side {
-        Side::Left => crossfader_gain(toward_right, curve),
-        Side::Right => crossfader_gain(1.0 - toward_right, curve),
-        Side::Center => 1.0,
-    }
+    side_gain(engine_side(view.decks[deck].side), mixer.crossfader, mixer.crossfader_reverse, curve)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::view::fixtures::{loaded, view};
+    use prisme_control::Side;
 
     #[test]
     fn the_deck_heard_is_the_one_that_goes_else_the_last_heard() {

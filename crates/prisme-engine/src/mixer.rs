@@ -356,19 +356,25 @@ impl Mixer {
 
     /// Gain of the crossfader for a deck on `side`.
     pub(crate) fn crossfader_gain(&self, side: CrossfaderSide) -> f32 {
-        // how far the crossfader is towards the other side, 0..1
-        let position = if self.crossfader_reverse { -self.crossfader } else { self.crossfader };
-        let x = (position.clamp(-1.0, 1.0) + 1.0) * 0.5;
-        match side {
-            CrossfaderSide::Center => 1.0,
-            CrossfaderSide::Left => crossfader_gain(x, self.curve),
-            CrossfaderSide::Right => crossfader_gain(1.0 - x, self.curve),
-        }
+        side_gain(side, self.crossfader, self.crossfader_reverse, self.curve)
+    }
+}
+
+/// The crossfader's gain on a deck on `side`, the crossfader at `position` (-1 left, 1 right),
+/// its sides swapped if `reverse`, by `curve`.
+pub fn side_gain(side: CrossfaderSide, position: f32, reverse: bool, curve: CrossfaderCurve) -> f32 {
+    // how far the crossfader is towards the right, 0..1
+    let position = if reverse { -position } else { position };
+    let x = (position.clamp(-1.0, 1.0) + 1.0) * 0.5;
+    match side {
+        CrossfaderSide::Center => 1.0,
+        CrossfaderSide::Left => crossfader_gain(x, curve),
+        CrossfaderSide::Right => crossfader_gain(1.0 - x, curve),
     }
 }
 
 /// The gain of a deck the crossfader is `away` from (0 on its side, 1 on the other), by `curve`.
-pub fn crossfader_gain(away: f32, curve: CrossfaderCurve) -> f32 {
+fn crossfader_gain(away: f32, curve: CrossfaderCurve) -> f32 {
     match curve {
         CrossfaderCurve::Smooth => (away * FRAC_PI_2).cos(),
         CrossfaderCurve::Sharp => ((1.0 - away) / SHARP_CUT).min(1.0),
