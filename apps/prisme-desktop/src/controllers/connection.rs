@@ -2,9 +2,9 @@
 //! closed, let go.
 
 use super::{
-    base_port_name, closing_midi, find_port, hid_plugged, light_of, midi_error, open_output, port_names,
-    port_of, with_hid, Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade,
-    CLIENT, PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
+    base_port_name, find_port, hid_plugged, light_of, midi, midi_error, open_output, port_names, port_of,
+    with_hid, Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT,
+    PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
 };
 use crate::actions::{Host, InTurn, Moved, Source};
 use crate::controller_hid;
@@ -12,7 +12,7 @@ use crate::controller_profiles;
 use crate::dto::OpenedDto;
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use midir::{Ignore, MidiInput, MidiOutputConnection};
+use midir::{Ignore, MidiInput};
 use prisme_actions::input::Input;
 use prisme_control::hid::{self};
 use prisme_control::{Control, DeckAction, Event, Profile, ShownRoom, Target, OFF};
@@ -252,25 +252,18 @@ impl Controllers {
         let (receiving, name) = (app.clone(), device.to_owned());
         let jog = JogSteps::new(self.jog_steps_per_turn(device));
         let read = jog.clone();
-        let connection = input
-            .connect(
-                &port,
-                CLIENT,
-                move |stamp_us, bytes, _| {
-                    if let Some(event) = prisme_control::parse(bytes) {
-                        let at_s = stamp_us as f64 / 1e6;
-                        let controllers = receiving.state::<Controllers>();
-                        controllers.receive(&receiving, &name, read.get(), event, at_s);
-                    }
-                },
-                (),
-            )
-            .map_err(midi_error)?;
+        let input = midi::Input::open(input, &port, CLIENT, move |stamp_us, bytes| {
+            if let Some(event) = prisme_control::parse(bytes) {
+                let at_s = stamp_us as f64 / 1e6;
+                let controllers = receiving.state::<Controllers>();
+                controllers.receive(&receiving, &name, read.get(), event, at_s);
+            }
+        })?;
         let output = open_output(&port_name).unwrap_or_else(|e| {
             warn!("controller {device} opened without its lights: {e}");
             None
         });
-        self.opened(app, device, port_name, jog, Link::Midi { input: Some(connection), output });
+        self.opened(app, device, port_name, jog, Link::Midi { _input: input, output });
         Ok(())
     }
 
@@ -346,24 +339,8 @@ impl Controllers {
     }
 }
 
-/// A controller let go is closed, not only dropped: on Android, a port dropped keeps the device
-/// open, and with it a sound card the USB driver would play on.
-impl Drop for Connection {
-    fn drop(&mut self) {
-        if let Link::Midi { input, output } = &mut self.link {
-            if let Some(input) = input.take() {
-                closing_midi(|| {
-                    input.close();
-                });
-            }
-            // its last messages sent, then closed
-            drop(output.take());
-        }
-    }
-}
-
 impl MidiWriter {
-    pub(super) fn new(mut output: MidiOutputConnection) -> std::io::Result<Self> {
+    pub(super) fn new(mut output: midi::Output) -> std::io::Result<Self> {
         let (messages, waiting) = mpsc::channel::<Vec<u8>>();
         let writer = std::thread::Builder::new().name("prisme-midi-write".into()).spawn(move || {
             let mut failed = false;
@@ -375,9 +352,6 @@ impl MidiWriter {
                     }
                 }
             }
-            closing_midi(|| {
-                output.close();
-            });
         })?;
         Ok(Self { messages: Some(messages), writer: Some(writer) })
     }

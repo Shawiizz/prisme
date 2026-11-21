@@ -1,0 +1,4 @@
+disallowed-methods = [
+    { path = "midir::MidiInput::connect", reason = "open it as a `controllers::midi::Input`, closed as Android needs" },
+    { path = "midir::MidiOutput::connect", reason = "open it as a `controllers::midi::Output`, closed as Android needs" },
+]

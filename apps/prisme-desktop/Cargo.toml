@@ -61,6 +61,7 @@ hidapi = "2.6"
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+libc = "0.2"
 ndk-context = "0.1"
 webpki-root-certs = "1"
 

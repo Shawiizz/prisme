@@ -4,10 +4,10 @@
 //! beat, Stop when the leader stops. The output chosen is let go when it is unplugged and
 //! opened again once it is back.
 
-use crate::controllers::{closing_midi, find_port, midi_error, port_names, port_of, CLIENT};
+use crate::controllers::{find_port, midi, midi_error, port_names, port_of, CLIENT};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
-use midir::{MidiOutput, MidiOutputConnection};
+use midir::MidiOutput;
 use prisme_engine::EngineStatus;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -36,20 +36,13 @@ pub struct MidiClock {
 struct Output {
     /// Its port as plugged in now: the name chosen, or with a number Windows added.
     port: String,
-    connection: MidiOutputConnection,
+    connection: midi::Output,
     clock: Clock,
 }
 
 impl Output {
-    fn new((port, connection): (String, MidiOutputConnection)) -> Self {
+    fn new((port, connection): (String, midi::Output)) -> Self {
         Self { port, connection, clock: Clock::default() }
-    }
-
-    /// Closed, not only dropped: on Android a port dropped keeps its device open.
-    fn close(self) {
-        closing_midi(|| {
-            self.connection.close();
-        });
     }
 }
 
@@ -75,7 +68,6 @@ impl MidiClock {
         let output = name.map(|name| open(name).map(Output::new)).transpose()?;
         if let Some(mut previous) = std::mem::replace(&mut *lock(&self.output), output) {
             let _ = previous.connection.send(&[STOP]);
-            previous.close();
         }
         *chosen = name.map(str::to_owned);
         Ok(())
@@ -137,9 +129,7 @@ impl MidiClock {
         sent.clock.advance(phase, messages);
         if let Err(e) = messages.drain(..).try_for_each(|m| sent.connection.send(&[m])) {
             warn!("MIDI clock output {} lost: {e}", sent.port);
-            if let Some(lost) = output.take() {
-                lost.close();
-            }
+            *output = None;
         }
     }
 
@@ -150,7 +140,6 @@ impl MidiClock {
         let mut output = lock(&self.output);
         if let Some(gone) = output.take_if(|o| !plugged.contains(&o.port)) {
             info!("MIDI clock output {} unplugged", gone.port);
-            gone.close();
         }
         let Some(name) = chosen.as_deref() else { return Ok(()) };
         if output.is_none() && port_of(plugged, name, &[]).is_some() {
@@ -213,12 +202,11 @@ impl Clock {
 }
 
 /// Opens the output `name`, or the same plugged in elsewhere: its port and the connection.
-fn open(name: &str) -> AppResult<(String, MidiOutputConnection)> {
+fn open(name: &str) -> AppResult<(String, midi::Output)> {
     let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
     let (port, port_name) =
         find_port(&output, name, &[]).ok_or_else(|| AppError::ControllerUnplugged(name.to_owned()))?;
-    let connection = output.connect(&port, "Prisme clock").map_err(midi_error)?;
-    Ok((port_name, connection))
+    Ok((port_name, midi::Output::open(output, &port, "Prisme clock")?))
 }
 
 #[cfg(test)]

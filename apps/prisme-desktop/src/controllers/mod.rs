@@ -17,13 +17,14 @@ mod connection;
 mod keys;
 mod learn;
 mod lights;
+pub(crate) mod midi;
 mod setup;
 
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::ControllersDto;
 use crate::error::{AppError, AppResult};
-use midir::{MidiIO, MidiInputConnection, MidiOutput};
+use midir::{MidiIO, MidiOutput};
 use prisme_actions::hold::Pressed;
 use prisme_actions::input::Input;
 use prisme_actions::perform::ClipHold;
@@ -195,8 +196,8 @@ impl JogSteps {
 /// How a controller is reached.
 enum Link {
     Midi {
-        /// Taken only to be closed (see [`Drop`]).
-        input: Option<MidiInputConnection<()>>,
+        /// Read from its own thread, closed once dropped.
+        _input: midi::Input,
         /// Lights; not every controller has them.
         output: Option<MidiWriter>,
     },
@@ -403,8 +404,7 @@ pub struct Levels {
 fn open_output(device: &str) -> AppResult<Option<MidiWriter>> {
     let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
     let Some((port, _)) = find_port(&output, device, &[]) else { return Ok(None) };
-    let connection = output.connect(&port, CLIENT).map_err(midi_error)?;
-    Ok(Some(MidiWriter::new(connection)?))
+    Ok(Some(MidiWriter::new(midi::Output::open(output, &port, CLIENT)?)?))
 }
 
 /// The names of the ports of a MIDI input or output.
@@ -443,15 +443,6 @@ fn base_port_name(name: &str) -> String {
         _ => name,
     };
     base_device_name(name)
-}
-
-/// Runs `close`, which closes MIDI ports: on Android the system aborts the application when
-/// the thread that closes one is not known to the Java virtual machine.
-pub(crate) fn closing_midi(close: impl FnOnce()) {
-    #[cfg(target_os = "android")]
-    crate::android_jni::attached(close);
-    #[cfg(not(target_os = "android"))]
-    close();
 }
 
 pub(crate) fn midi_error(e: impl std::fmt::Display) -> AppError {
@@ -774,7 +765,7 @@ mod tests {
     fn an_open_controller_s_jogs_turn_by_its_profile_read_again() {
         let c = controllers();
         let jog = JogSteps::new(c.jog_steps_per_turn("VCI-100"));
-        let link = Link::Midi { input: None, output: None };
+        let link = Link::Sent(Vec::new());
         let connection = Connection::new("VCI-100", "VCI-100".into(), None, jog.clone(), link);
         lock(&c.connections).push(connection);
         c.save(|s| {
@@ -1147,7 +1138,7 @@ mod tests {
     #[test]
     fn a_connection_shows_its_lights_as_they_change_in_the_room_it_keeps() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
-        let link = Link::Midi { input: None, output: None };
+        let link = Link::Sent(Vec::new());
         let mut connection = Connection::new("DDJ", "DDJ".into(), None, JogSteps::new(720.0), link);
         let mut playing = view();
         c.show_on(&mut connection, &playing);
