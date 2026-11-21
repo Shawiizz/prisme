@@ -7,10 +7,11 @@ use crate::controller_profiles;
 use crate::controllers::Controllers;
 use crate::error::{AppError, AppResult};
 use crate::midi_clock::MidiClock;
+use crate::picked;
 use crate::state::AppState;
 use prisme_control::Encoding;
-use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_fs::FilePath;
 
 /// Runs `change` on the controllers, then shows them.
 fn changing<R>(app: &AppHandle, change: impl FnOnce(&Controllers) -> R) -> R {
@@ -104,15 +105,18 @@ pub async fn update_controller_profiles(app: AppHandle) -> AppResult<usize> {
     Ok(came)
 }
 
-/// Writes what `device` drives now as a profile, to `path`, where the DJ chose: what it drives
-/// does not change.
-#[tauri::command]
+/// Writes what `device` drives now as a profile, to the file the DJ picked, and says what the
+/// DJ knows that file by: what the controller drives does not change.
+#[tauri::command(async)]
 pub fn export_controller_profile(
+    app: AppHandle,
     controllers: State<'_, Controllers>,
     device: String,
-    path: PathBuf,
-) -> AppResult<()> {
-    controller_profiles::export(&controllers.as_profile(&device), &path).map_err(AppError::Other)
+    path: FilePath,
+) -> AppResult<String> {
+    let profile = controllers.as_profile(&device);
+    controller_profiles::export(&profile, picked::create(&app, path.clone())?).map_err(AppError::Other)?;
+    Ok(picked::name(&path))
 }
 
 /// Shows the folder of the DJ's own profiles in the system's file manager.

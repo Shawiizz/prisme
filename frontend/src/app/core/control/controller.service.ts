@@ -128,8 +128,7 @@ export class ControllerService {
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
     if (!path) return null;
-    await invoke('export_controller_profile', { device: controller.name, path });
-    return path;
+    return invoke<string>('export_controller_profile', { device: controller.name, path });
   }
 
   openProfilesFolder() {

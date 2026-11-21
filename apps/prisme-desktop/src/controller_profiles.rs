@@ -16,6 +16,7 @@ use prisme_control::{Profile, PROFILE_FORMAT, SCHEMA_URL};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock, PoisonError, RwLock};
 use std::time::{Duration, SystemTime};
@@ -559,12 +560,12 @@ fn write_whole(path: &Path, bytes: &[u8]) -> Result<(), String> {
     std::fs::rename(&partial, path).map_err(|e| e.to_string())
 }
 
-/// Writes `profile` to `path`, where the DJ chose: a file to share or to keep, which Prisme does
+/// Writes `profile` to `out`, a file the DJ chose: one to share or to keep, which Prisme does
 /// not read unless the DJ puts it among their own.
-pub fn export(profile: &Profile, path: &Path) -> Result<(), String> {
+pub fn export(profile: &Profile, mut out: impl Write) -> Result<(), String> {
     let profile = Profile { schema: Some(SCHEMA_URL.to_owned()), ..profile.clone() };
     let text = serde_json::to_string_pretty(&profile).map_err(|e| e.to_string())?;
-    std::fs::write(path, format!("{text}\n")).map_err(|e| e.to_string())
+    writeln!(out, "{text}").map_err(|e| e.to_string())
 }
 
 /// The file the profile of `model` goes by: `Pioneer DDJ-400` → `pioneer-ddj-400.json`.
@@ -900,16 +901,13 @@ mod tests {
     }
 
     #[test]
-    fn an_export_goes_where_the_dj_chose_and_leaves_their_profiles_alone() {
-        let folders = scratch("export");
-        std::fs::create_dir_all(&folders.updates).unwrap();
-        let path = folders.updates.join("shared.json");
+    fn an_export_is_the_profile_with_its_schema() {
         let profile: Profile = serde_json::from_str(&ddj_400_named("Pioneer DDJ-400")).unwrap();
-        export(&profile, &path).unwrap();
-        let written: Profile = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        let mut out = Vec::new();
+        export(&profile, &mut out).unwrap();
+        let written: Profile = serde_json::from_slice(&out).unwrap();
         assert_eq!(written.schema.as_deref(), Some(SCHEMA_URL));
         assert_eq!(written.controls, profile.controls);
-        assert!(!folders.own.exists());
         assert_eq!(file_name(&profile.name), "pioneer-ddj-400.json");
     }
 

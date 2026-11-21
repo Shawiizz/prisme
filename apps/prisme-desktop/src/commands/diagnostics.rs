@@ -6,23 +6,25 @@ use crate::dto::AudioHealthDto;
 use crate::error::AppResult;
 use crate::logging;
 use crate::midi_clock::MidiClock;
+use crate::picked;
 use crate::state::{lock, AppState};
 use serde::Serialize;
-use std::fmt::Write;
-use std::path::PathBuf;
+use std::fmt::Write as _;
+use std::io::Write;
 use tauri::{AppHandle, Manager, State};
+use tauri_plugin_fs::FilePath;
 
 const LOG_LINES: usize = 400;
 
 /// Writes the versions, the audio setup and its health, the controllers and the end of
-/// the log to `path`.
+/// the log to the file picked.
 #[tauri::command(async)]
 pub fn save_diagnostics(
     app: AppHandle,
     state: State<'_, AppState>,
     controllers: State<'_, Controllers>,
     clock: State<'_, MidiClock>,
-    path: PathBuf,
+    path: FilePath,
 ) -> AppResult<()> {
     let mut report = format!(
         "Prisme {} on {} {}\n",
@@ -60,7 +62,7 @@ Timecode records: {records:?}"
         }
         None => report.push_str("\nNo log file\n"),
     }
-    std::fs::write(path, report)?;
+    picked::create(&app, path)?.write_all(report.as_bytes())?;
     Ok(())
 }
 

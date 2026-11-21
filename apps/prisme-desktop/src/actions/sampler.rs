@@ -7,7 +7,9 @@ use crate::state::{lock, AppState};
 use prisme_actions::input::Given;
 use prisme_control::SampleAction;
 use prisme_engine::{Command, SAMPLE_SLOTS};
+use prisme_media::TrackAudio;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 impl Performing<'_> {
     /// A key of `slot` of `deck`'s sampler pressed, or let go (only `Held` acts then).
@@ -64,7 +66,7 @@ fn plays(state: &AppState, deck: usize, slot: usize) -> bool {
     state.deck_status(deck).is_ok_and(|s| s.samples_playing & 1 << slot != 0)
 }
 
-fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
+pub fn check_slot(deck: usize, slot: usize) -> AppResult<()> {
     AppState::deck_exists(deck)?;
     if slot < SAMPLE_SLOTS {
         Ok(())
@@ -85,6 +87,17 @@ pub fn trigger_sample(state: &AppState, deck: usize, slot: usize, velocity: Opti
 pub fn load_sample(state: &AppState, deck: usize, slot: usize, path: PathBuf) -> AppResult<()> {
     check_slot(deck, slot)?;
     let audio = sampler::decode(&path)?;
+    keep_sample(state, deck, slot, path, audio)
+}
+
+/// Puts the sound of `path`, decoded, in a slot checked; kept for the next start.
+pub fn keep_sample(
+    state: &AppState,
+    deck: usize,
+    slot: usize,
+    path: PathBuf,
+    audio: Arc<TrackAudio>,
+) -> AppResult<()> {
     let saved = path.display().to_string();
     sampler::put(state, deck, slot, path, audio)?;
     state.update_preferences(|p| {

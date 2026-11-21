@@ -17,6 +17,7 @@ use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::{Path, PathBuf, MAIN_SEPARATOR};
 
 #[derive(Debug, thiserror::Error)]
@@ -47,8 +48,10 @@ fn track_colour_index(colour: u32) -> usize {
     nearest.map_or(0, |(i, _)| i % REKORDBOX_COLOURS.len())
 }
 
-pub fn read(path: &Path) -> Result<Import, RekordboxError> {
-    parse(&std::fs::read_to_string(path)?)
+pub fn read(mut xml: impl Read) -> Result<Import, RekordboxError> {
+    let mut text = String::new();
+    xml.read_to_string(&mut text)?;
+    parse(&text)
 }
 
 pub fn parse(xml: &str) -> Result<Import, RekordboxError> {

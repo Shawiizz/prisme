@@ -23,6 +23,7 @@
 //! * `preview`: a track of the library heard in the headphones before it goes on a deck;
 //! * `folders`: browsing music folders;
 //! * `file_drop`: the paths of files dropped from the file manager (Windows and macOS);
+//! * `picked`: the files picked in the system's dialogs, a path or Android's URI;
 //! * `library_service`: track database (analysis, tags, cues) and background analysis;
 //! * `cover_protocol`: cover thumbnails served to the UI;
 //! * `dto`: JSON shapes shared with the frontend.
@@ -59,6 +60,7 @@ mod logging;
 mod midi_clock;
 #[cfg(target_os = "android")]
 mod music_access;
+mod picked;
 mod preferences;
 mod preview;
 mod recording;
@@ -200,13 +202,13 @@ pub fn run() {
     let builder = desktop_plugins(builder);
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
             prepare_window(app);
-            let data_dir = dev_startup::data_dir()
-                .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok());
+            let data_dir = data_dir(app);
             let library = manage_states(app, data_dir.as_deref());
             restore_session(app, &library);
             start_services(app, &library);
@@ -220,6 +222,12 @@ pub fn run() {
                 close(app);
             }
         });
+}
+
+/// Prisme's data folder: the one the environment asks for, else the system's.
+fn data_dir<R: tauri::Runtime>(app: &impl Manager<R>) -> Option<PathBuf> {
+    dev_startup::data_dir()
+        .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok())
 }
 
 /// The window as the platform needs it, before anything shows in it.
