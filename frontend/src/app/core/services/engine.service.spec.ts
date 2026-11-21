@@ -223,6 +223,17 @@ describe('EngineService', () => {
       engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
     );
 
+    it('takes of the mixer and the decks what changed of them, the rest kept as it was', () => {
+      engine['applyControls'](controls({ mixer: { limiter: true } as never }));
+      const before = engine.decks();
+      const moved = { pitch: 1.02 } as DeckSettings;
+      engine['applyControls']({ mixer: { talkover: true }, decks: [null, moved, null, null] });
+      expect(engine.decks()[1]).toBe(moved);
+      expect(engine.decks()[0]).toBe(before[0]);
+      expect(engine.controls()!.decks).toEqual(engine.decks());
+      expect(engine.controls()!.mixer).toEqual({ limiter: true, talkover: true });
+    });
+
     it('shows the decks and the tracks as the backend has them', () => {
       const decks = settings.map((d, i) => (i === 0 ? { ...d, pitch: 1.04 } : d));
       engine['applyControls'](controls({ decks }));

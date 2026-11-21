@@ -1,4 +1,4 @@
-import type { Band, ControlChanges, EngineStatus } from './backend';
+import type { Band, ControlChanges, DeckSettings, EngineStatus, MixerState } from './backend';
 
 /** Shapes of the Rust side the page keeps beside those it declares (`./backend`). */
 
@@ -9,7 +9,14 @@ export const PADS = 8;
  * time before (see `withChanges`), nothing while nothing does; and the sections of what the app
  * mirrors that changed, each whole: the mixer (with the quantize and the tempo range), the
  * tracks (with their loads), the pads, the preview... All of it the first time. */
-export type StatusChanges = Told<EngineStatus> & { controls?: ControlChanges };
+export type StatusChanges = Told<EngineStatus> & { controls?: ControlsTold };
+
+/** What the backend tells of the sections the app mirrors (`ControlChanges`): of the mixer its
+ * fields that changed, of the decks' settings those that changed, `null` for the others. */
+export type ControlsTold = Omit<ControlChanges, 'mixer' | 'decks'> & {
+  mixer?: Partial<MixerState>;
+  decks?: (DeckSettings | null)[];
+};
 
 /** What changed of `T`: each field sent, its decks with `null` for those that did not change. */
 export type Told<T extends { decks: readonly unknown[] }> = Partial<Omit<T, 'decks'>> & {

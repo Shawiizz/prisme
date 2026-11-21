@@ -1,6 +1,13 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
-import { ControlState, MAX_DECKS, StatusChanges, Waveform, decodeWaveform } from '../models/engine';
+import {
+  ControlState,
+  ControlsTold,
+  MAX_DECKS,
+  StatusChanges,
+  Waveform,
+  decodeWaveform,
+} from '../models/engine';
 import { Playhead, followPlayhead } from '../playhead';
 import { ConfirmService, Question } from '../../shared/confirm/confirm';
 import { same, sameItems } from '../same';
@@ -9,11 +16,11 @@ import { deckLetter } from '../../shared/time';
 import { Params, t } from '../i18n/i18n';
 import { errorText, isBackendError } from '../errors';
 import type {
-  ControlChanges,
   DeckMode,
   DeckSettings,
   DeckStatus,
   EngineStatus,
+  MixerState,
   StemPart,
   TrackInfo,
   VinylChange,
@@ -123,14 +130,22 @@ export class EngineService {
   }
 
   /** The sections the backend changed of what the app mirrors (`changed`, the first time all
-   * of them), each whole: the decks' settings, their tracks (a new load's waveform followed),
-   * the DJ's quantize and tempo range. The sections not sent, and the decks and tracks that
-   * are the same, stay as they are, for the views that follow them. */
-  private applyControls(changed: ControlChanges) {
+   * of them): of the mixer the fields that changed, of the decks' settings those that changed,
+   * the other sections whole (their tracks, a new load's waveform followed). The sections not
+   * sent, and the decks and tracks that are the same, stay as they are, for the views that
+   * follow them. */
+  private applyControls(changed: ControlsTold) {
+    const before = this.controls();
+    const mixer = changed.mixer && ({ ...before?.mixer, ...changed.mixer } as MixerState);
     const decks = changed.decks?.map((d, deck) =>
-      same(d, this.decks()[deck]) ? this.decks()[deck] : d,
+      d === null || same(d, this.decks()[deck]) ? this.decks()[deck] : d,
     );
-    const controls = { ...this.controls(), ...changed, ...(decks && { decks }) } as ControlState;
+    const controls = {
+      ...before,
+      ...changed,
+      ...(mixer && { mixer }),
+      ...(decks && { decks }),
+    } as ControlState;
     if (decks?.some((d, deck) => d !== this.decks()[deck])) this.decks.set(decks);
     if (changed.tracks) {
       const before = this.tracks();
