@@ -1,7 +1,8 @@
 //! Controllers, MIDI and HID (see `controllers`): what the interface shows of them comes with
 //! its section (`ControllersStateDto`), shown again after each command that changes it. Those
-//! that may open a MIDI port run off the window's thread: Android hands a port over on that
-//! thread, which would wait on itself.
+//! that may open a MIDI port run on a thread of their own: opening one may take seconds (on
+//! Android midir waits up to 5 s for the system to hand the device over), which must not hold
+//! the page's call.
 
 use crate::controller_profiles;
 use crate::controllers::Controllers;

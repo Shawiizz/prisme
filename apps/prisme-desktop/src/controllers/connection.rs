@@ -53,8 +53,8 @@ impl Controllers {
     /// Opens the controllers at start, then keeps those in use open: one unplugged (a USB cable
     /// pulled, a hub that resets) is closed, and opened again as soon as it is back. One plugged
     /// in for the first time is opened if Prisme knows its model, else offered (see
-    /// [`Self::plug_in`]). On a thread of its own: Android hands a MIDI port over on the
-    /// window's thread, which must not wait for it.
+    /// [`Self::plug_in`]). On a thread of its own: opening a MIDI port may take seconds (see
+    /// `midi`), which must not hold the start.
     pub fn watch(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
             app.state::<Controllers>().open_at_start(&app);

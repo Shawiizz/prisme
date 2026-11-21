@@ -4576,7 +4576,6 @@ dependencies = [
  "hidapi",
  "hound",
  "jni 0.21.1",
- "libc",
  "midir",
  "ndk-context",
  "notify",

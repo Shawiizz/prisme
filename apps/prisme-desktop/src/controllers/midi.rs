@@ -27,7 +27,7 @@ pub(crate) struct Input(ManuallyDrop<MidiInputConnection<()>>);
 
 impl Input {
     /// Opens `port` of `input` as `name`, each message given to `receive` with its time in µs
-    /// on a thread of its own, off the window's thread (see [`connecting`]).
+    /// on a thread of its own. May take seconds (see [`connecting`]).
     #[allow(clippy::disallowed_methods)]
     pub(crate) fn open(
         input: MidiInput,
@@ -54,7 +54,7 @@ impl Drop for Input {
 pub(crate) struct Output(ManuallyDrop<MidiOutputConnection>);
 
 impl Output {
-    /// Opens `port` of `output` as `name`, off the window's thread (see [`connecting`]).
+    /// Opens `port` of `output` as `name`. May take seconds (see [`connecting`]).
     #[allow(clippy::disallowed_methods)]
     pub(crate) fn open(output: MidiOutput, port: &MidiOutputPort, name: &str) -> AppResult<Self> {
         connecting(|| output.connect(port, name)).map(|connection| Self(ManuallyDrop::new(connection)))
@@ -75,13 +75,8 @@ impl Drop for Output {
     }
 }
 
-/// Opens a port by `connect`. Refused on Android's window's thread: the system hands the device
-/// over on that thread, and the port would wait for itself, the window frozen, until it fails.
+/// Opens a port by `connect`. On Android the system hands the device over once it is ready,
+/// midir waiting up to 5 s for it: never on a page's call or during the start.
 fn connecting<C, E: Display>(connect: impl FnOnce() -> Result<C, E>) -> AppResult<C> {
-    #[cfg(target_os = "android")]
-    // SAFETY: two system calls that cannot fail; the window's thread is the process's first.
-    if unsafe { libc::gettid() == libc::getpid() } {
-        return Err(midi_error("a MIDI port is not opened on the window's thread"));
-    }
     attached(connect).map_err(midi_error)
 }
