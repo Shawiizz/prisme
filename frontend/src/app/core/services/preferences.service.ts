@@ -2,7 +2,7 @@ import { Injectable, computed, effect, inject, signal, untracked } from '@angula
 import { invoke } from '@tauri-apps/api/core';
 import { showLanguage } from '../i18n/i18n';
 import { EngineService } from './engine.service';
-import type { Preferences, Setting } from '../models/backend';
+import type { Key, Preferences, Setting, TakenKey } from '../models/backend';
 
 /** Each setting the settings change, and its value. */
 export type Settings = { [S in Setting as S['setting']]: S['value'] };
@@ -93,6 +93,12 @@ export class PreferencesService {
   }
 
   /** `setting` changed to `value`: shown once the backend tells it. */
+  /** `keys` given to `control` (`null`: Prisme's), taken from the actions that have them if
+   * `take`: until then, those they would take are told back, nothing changed. */
+  setKeys(control: string, keys: Key[] | null, take: boolean): Promise<TakenKey[]> {
+    return invoke<TakenKey[]>('set_keys', { control, keys, take });
+  }
+
   set<K extends keyof Settings>(setting: K, value: Settings[K]): Promise<void> {
     return choose(setting, value);
   }

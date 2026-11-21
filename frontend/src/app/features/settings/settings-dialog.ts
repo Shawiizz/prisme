@@ -12,7 +12,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { getVersion } from '@tauri-apps/api/app';
-import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { SettingsService } from '../../core/services/settings.service';
 import { EngineService } from '../../core/services/engine.service';
@@ -47,7 +46,6 @@ import type {
   AudioDraft,
   AudioSettings,
   InputChannels,
-  Latency,
   LatencyChannels,
   LiveSource,
   MixMode,
@@ -248,7 +246,7 @@ export class SettingsDialog implements OnInit {
    * moves. */
   private readonly readLatencyChannels = effect(() => {
     this.service.info();
-    invoke<LatencyChannels>('latency_channels').then(
+    this.service.latencyChannels().then(
       (channels) => this.latencyChannels.set(channels),
       (e) => this.error.set(errorText(e)),
     );
@@ -306,7 +304,7 @@ export class SettingsDialog implements OnInit {
   /** `draft` with `change` as the backend shapes it, drafted: what failed shown. */
   private async shape(draft: AudioSettings, change: AudioChange | null) {
     try {
-      this.drafted.set(await invoke<AudioDraft>('change_audio_draft', { draft, change }));
+      this.drafted.set(await this.service.shapeDraft(draft, change));
     } catch (e) {
       this.error.set(errorText(e));
     }
@@ -382,21 +380,18 @@ export class SettingsDialog implements OnInit {
 
   protected readonly stemsFast = computed(() => this.preferences.library().stemsFast);
 
-  /** Another backend has other devices: start again from its defaults. */
+  /** Another backend has other devices: start again from its defaults (listed as it is
+   * drafted, see `listDraftDevices`). */
   setBackend(backend: AudioBackend) {
     void this.change({ setting: 'backend', value: backend });
-    this.saved(this.service.loadDevices(backend));
   }
 
   /** Plays clicks on the output chosen and times their return on the input chosen. */
   async measureLatency() {
     this.latency.set('measuring');
     try {
-      const measured = await invoke<Latency>('measure_latency', {
-        output: this.latencyOutput(),
-        input: this.latencyInput(),
-      });
-      this.latency.set({ ms: measured.roundTripMs });
+      const ms = await this.service.measureLatency(this.latencyOutput(), this.latencyInput());
+      this.latency.set({ ms });
     } catch (e) {
       this.latency.set({ error: errorText(e) });
     }
@@ -428,9 +423,7 @@ export class SettingsDialog implements OnInit {
     this.error.set(null);
     await this.drafting.settled();
     this.mixMode.set(this.mixer.mode());
-    const settings = this.service.settings();
-    this.saved(this.service.loadDevices(settings.backend));
-    await this.redraft(settings);
+    await this.redraft(this.service.settings());
   }
 
   async saveDiagnostics() {

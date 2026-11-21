@@ -6,7 +6,6 @@ import { CTRL } from '../../core/keyboard/shortcuts';
 import { PreferencesService } from '../../core/services/preferences.service';
 import { EngineService } from '../../core/services/engine.service';
 import { errorText } from '../../core/errors';
-import { invoke } from '@tauri-apps/api/core';
 import { labelText, t } from '../../core/i18n/i18n';
 import { TPipe } from '../../core/i18n/t.pipe';
 import type { Key, TakenKey } from '../../core/models/backend';
@@ -142,7 +141,7 @@ export class ShortcutsSettings implements OnDestroy {
   /** The keys other actions have that `keys` would take from them, unless taken. */
   private async setKeys(control: string, keys: Key[] | null, take: boolean) {
     try {
-      return await invoke<TakenKey[]>('set_keys', { control, keys, take });
+      return await this.preferences.setKeys(control, keys, take);
     } catch (e) {
       this.engine.error.set(errorText(e));
       return null;

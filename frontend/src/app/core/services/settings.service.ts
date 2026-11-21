@@ -9,10 +9,14 @@ import { t } from '../i18n/i18n';
 import { attempt } from '../errors';
 import type {
   AudioBackend,
+  AudioChange,
   AudioDevice,
+  AudioDraft,
   AudioSettings,
   BackendChoice,
   CardOffer,
+  Latency,
+  LatencyChannels,
   MixMode,
   TimecodeMaker,
 } from '../models/backend';
@@ -97,6 +101,22 @@ export class SettingsService {
     if (!path) return false;
     await invoke('save_diagnostics', { path });
     return true;
+  }
+
+  /** `draft` with `change` made to it (none: as it is), as the backend shapes it. */
+  shapeDraft(draft: AudioSettings, change: AudioChange | null): Promise<AudioDraft> {
+    return invoke<AudioDraft>('change_audio_draft', { draft, change });
+  }
+
+  /** The channels a latency measurement may join on the running device. */
+  latencyChannels(): Promise<LatencyChannels> {
+    return invoke<LatencyChannels>('latency_channels');
+  }
+
+  /** Clicks played on `output` and their return timed on `input` (from 1): the round trip. */
+  async measureLatency(output: number, input: number): Promise<number> {
+    const measured = await invoke<Latency>('measure_latency', { output, input });
+    return measured.roundTripMs;
   }
 
   /** Restarts the audio with new settings if they changed (what runs then comes with the
