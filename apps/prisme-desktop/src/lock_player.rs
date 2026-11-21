@@ -103,6 +103,7 @@ mod android {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     use tauri::{AppHandle, Manager};
+    use tracing::error;
 
     /// Where the player is shown from (`MainActivity.kt`).
     const ACTIVITY: &str = "com.shawiizz.prisme.MainActivity";
@@ -145,7 +146,10 @@ mod android {
             if self.told.tell(&showing, place, now_s) {
                 let state =
                     PlayerState { showing: &showing, position_s: place.position_s, speed: place.speed };
-                update(&serde_json::to_string(&state).unwrap_or_default());
+                match serde_json::to_string(&state) {
+                    Ok(state) => update(&state),
+                    Err(e) => error!("the lock screen not told: {e}"),
+                }
             }
         }
     }
