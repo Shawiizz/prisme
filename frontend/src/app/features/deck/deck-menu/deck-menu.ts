@@ -97,9 +97,12 @@ export class DeckMenu {
   protected readonly performance = inject(PerformanceService);
   protected readonly engine = inject(EngineService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  protected readonly reversed = computed(
-    () => this.engine.deckStatus(this.deck())?.reverse ?? false,
-  );
+  /** The track plays backwards: not one its record holds in place, which keeps it going its
+   * way. */
+  protected readonly reversed = computed(() => {
+    const status = this.engine.deckStatus(this.deck());
+    return (status?.reverse ?? false) && (status?.canMove ?? false);
+  });
   protected readonly muted = computed(() => this.engine.decks()[this.deck()].mute);
 
   constructor() {
