@@ -3,7 +3,7 @@
 //! moment.
 
 use crate::perform::ClipHold;
-use prisme_engine::{EngineStatus, MAX_DECKS};
+use prisme_engine::{gain_to_db, EngineStatus, MAX_DECKS};
 use serde::Serialize;
 
 /// The lowest level a meter shows (dBFS): its scale runs from there to full scale.
@@ -49,7 +49,7 @@ impl Default for Meter {
 impl Meter {
     /// The meter once it reads `peak` (1 = full scale) at `now_s`.
     pub fn read(&mut self, peak: f32, now_s: f64) -> Level {
-        let db = if peak > 0.0 { 20.0 * peak.log10() } else { f32::NEG_INFINITY };
+        let db = gain_to_db(peak);
         let fall = self.read_at_s.map_or(f32::INFINITY, |at| RELEASE_DB_S * (now_s - at) as f32);
         self.db = db.max(self.db - fall);
         if self.db >= self.held {
