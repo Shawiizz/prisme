@@ -312,8 +312,7 @@ fn start_audio(app: &tauri::AppHandle, restored: &[Option<SavedDeck>]) {
     }
 }
 
-/// [`start_audio`] on a thread of its own: Android asks the DJ for a USB sound card, an answer
-/// the start must not wait for.
+/// [`start_audio`] on a thread of its own, the setup not waiting for the sound card to open.
 #[cfg(target_os = "android")]
 fn start_audio_apart(app: tauri::AppHandle, restored: Vec<Option<SavedDeck>>) {
     std::thread::Builder::new()

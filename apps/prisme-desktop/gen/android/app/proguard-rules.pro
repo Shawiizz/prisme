@@ -3,6 +3,8 @@
 # as unused.
 -keep class com.shawiizz.prisme.UsbAudio {
     public static java.lang.String[] cards();
+    public static boolean allowed(java.lang.String);
+    public static void ask(java.lang.String);
     public static int open(java.lang.String);
     public static byte[] descriptors(java.lang.String);
     public static void close(java.lang.String);

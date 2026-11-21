@@ -14,14 +14,14 @@ import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
+import androidx.core.content.IntentCompat
 
 /**
  * The USB sound cards Prisme drives itself (`usb` in prisme-audio-io), as Android reaches some
  * of their channels only. The native side asks, from its audio thread: the cards plugged in,
- * then one of them opened, its audio taken from Android's driver. A card is known by the name
- * Android gives it, its own while it is plugged in (two of a product have the same name).
+ * whether Prisme may open one, the DJ's leave (the answer told back), then one opened, its
+ * audio taken from Android's driver. A card is known by the name Android gives it, its own
+ * while it is plugged in (two of a product have the same name).
  */
 object UsbAudio {
   private const val PERMISSION = "com.shawiizz.prisme.USB_PERMISSION"
@@ -29,17 +29,38 @@ object UsbAudio {
   private const val AUDIO_CONTROL = 1
   private const val AUDIO_STREAMING = 2
   private const val AUDIO_CLASS_2 = 0x20
-  /** How long the DJ has to answer Android's question, the first time. */
-  private const val ANSWER_SECONDS = 120L
 
   private lateinit var context: Context
   /** The cards opened, by the name Android gives them. */
   private val opened = HashMap<String, UsbDeviceConnection>()
-  /** Where Android's answer comes: not the main thread, which may be the one waiting for it. */
-  private val answers by lazy { Handler(HandlerThread("prisme-usb-answers").apply { start() }.looper) }
+
+  /**
+   * Android's answers, told to the native side as they come, and the cards unplugged. Each
+   * question of Android answers once, as it closes: no when the DJ left it or the card went.
+   */
+  private val news =
+    object : BroadcastReceiver() {
+      override fun onReceive(context: Context, intent: Intent) {
+        val device = device(intent) ?: return
+        when (intent.action) {
+          PERMISSION ->
+            answered(device.deviceName, intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false))
+          UsbManager.ACTION_USB_DEVICE_DETACHED -> unplugged(device.deviceName)
+        }
+      }
+    }
 
   fun init(context: Context) {
+    if (this::context.isInitialized) return
     this.context = context.applicationContext
+    val filter = IntentFilter(PERMISSION).apply { addAction(UsbManager.ACTION_USB_DEVICE_DETACHED) }
+    // off the main thread, busy with the page
+    val thread = Handler(HandlerThread("prisme-usb-news").apply { start() }.looper)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      this.context.registerReceiver(news, filter, null, thread, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+      this.context.registerReceiver(news, filter, null, thread)
+    }
   }
 
   private val manager: UsbManager
@@ -56,15 +77,37 @@ object UsbAudio {
       .flatMap { listOf(it.deviceName, it.productName ?: it.deviceName) }
       .toTypedArray()
 
+  /** Whether Android lets Prisme open card `id`. */
+  @JvmStatic
+  fun allowed(id: String): Boolean = manager.deviceList[id]?.let(manager::hasPermission) ?: false
+
+  /** Asks the DJ to let Prisme open card `id`: the answer is told back ([answered]). */
+  @JvmStatic
+  fun ask(id: String) {
+    val device = manager.deviceList[id] ?: return
+    val intent = Intent(PERMISSION).setPackage(context.packageName)
+    manager.requestPermission(device, PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_MUTABLE))
+  }
+
   /**
-   * Opens card `id`, asking the DJ the first time, and takes its audio from Android: its file
-   * descriptor, -1 if it is not there or the DJ said no. Blocks until the DJ answered; never
-   * to be called on the main thread.
+   * Prisme opened for a card plugged in (`USB_DEVICE_ATTACHED`): Android lets Prisme open it
+   * once the DJ said yes there, or at once if they said always. The native side opens it now,
+   * its own question unanswered.
+   */
+  fun attached(intent: Intent) {
+    if (intent.action != UsbManager.ACTION_USB_DEVICE_ATTACHED) return
+    val device = device(intent) ?: return
+    if (manager.hasPermission(device)) answered(device.deviceName, true)
+  }
+
+  /**
+   * Opens card `id`, which Android lets Prisme open, and takes its audio from Android: its file
+   * descriptor, -1 if it is not there or may not be opened.
    */
   @JvmStatic
   fun open(id: String): Int {
     val device = manager.deviceList[id]?.takeIf(::isAudioClass2) ?: return -1
-    if (!manager.hasPermission(device) && !ask(device)) return -1
+    if (!manager.hasPermission(device)) return -1
     val connection = manager.openDevice(device) ?: return -1
     val audio = interfaces(device).filter { it.interfaceClass == UsbConstants.USB_CLASS_AUDIO }
     if (!audio.all { connection.claimInterface(it, true) }) {
@@ -88,31 +131,14 @@ object UsbAudio {
     connection.close()
   }
 
-  private fun ask(device: UsbDevice): Boolean {
-    val answered = CountDownLatch(1)
-    var granted = false
-    val receiver =
-      object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-          granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
-          answered.countDown()
-        }
-      }
-    val filter = IntentFilter(PERMISSION)
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      context.registerReceiver(receiver, filter, null, answers, Context.RECEIVER_NOT_EXPORTED)
-    } else {
-      context.registerReceiver(receiver, filter, null, answers)
-    }
-    try {
-      val intent = Intent(PERMISSION).setPackage(context.packageName)
-      manager.requestPermission(device, PendingIntent.getBroadcast(context, 0, intent, PendingIntent.FLAG_MUTABLE))
-      answered.await(ANSWER_SECONDS, TimeUnit.SECONDS)
-    } finally {
-      context.unregisterReceiver(receiver)
-    }
-    return granted
-  }
+  /** The DJ answered for card `id`, or opened Prisme for it (`usb_android.rs`). */
+  @JvmStatic private external fun answered(id: String, allowed: Boolean)
+
+  /** Card `id` was unplugged (`usb_android.rs`). */
+  @JvmStatic private external fun unplugged(id: String)
+
+  private fun device(intent: Intent): UsbDevice? =
+    IntentCompat.getParcelableExtra(intent, UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
 
   private fun interfaces(device: UsbDevice): List<UsbInterface> =
     (0 until device.interfaceCount).map(device::getInterface).distinctBy { it.id }

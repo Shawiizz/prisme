@@ -115,6 +115,12 @@ class MainActivity : TauriActivity() {
     keepClearOfTheBars()
     takeTheScreen(resources.configuration)
     askForTheMusicAndNotifications()
+    UsbAudio.attached(intent)
+  }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    UsbAudio.attached(intent)
   }
 
   override fun onWebViewCreate(webView: WebView) {

@@ -1,10 +1,14 @@
 //! The USB sound cards of an Android phone, which `UsbAudio.kt` opens for the audio to drive
-//! them itself ([`prisme_audio_io::UsbHost`]).
+//! them itself ([`prisme_audio_io::UsbHost`]), once the DJ let Prisme open them: Android asks,
+//! and `UsbAudio.kt` tells the answer ([`prisme_audio_io::usb_asks`]).
 
 use crate::android_jni;
+use crate::state::{AppState, Section};
 use jni::objects::{JByteArray, JClass, JObject, JObjectArray, JString, JValue};
+use jni::sys::jboolean;
 use jni::JNIEnv;
-use prisme_audio_io::{OpenedCard, UsbCard, UsbHost};
+use prisme_audio_io::{usb_asks, OpenedCard, UsbCard, UsbHost};
+use tauri::Manager;
 
 const CLASS: &str = "com.shawiizz.prisme.UsbAudio";
 
@@ -32,6 +36,22 @@ impl UsbHost for AndroidUsb {
             (0..length / 2).map(|i| Ok(UsbCard { id: text(2 * i)?, name: text(2 * i + 1)? })).collect()
         })
         .unwrap_or_default()
+    }
+
+    fn allowed(&self, id: &str) -> bool {
+        call("ask whether a USB card may be opened", |env, class| {
+            let id = JObject::from(env.new_string(id)?);
+            env.call_static_method(class, "allowed", "(Ljava/lang/String;)Z", &[JValue::Object(&id)])?.z()
+        })
+        .unwrap_or(false)
+    }
+
+    fn ask(&self, id: &str) {
+        call("ask the DJ for a USB card", |env, class| {
+            let id = JObject::from(env.new_string(id)?);
+            env.call_static_method(class, "ask", "(Ljava/lang/String;)V", &[JValue::Object(&id)])?;
+            Ok(())
+        });
     }
 
     fn open(&self, id: &str) -> Option<OpenedCard> {
@@ -66,6 +86,44 @@ impl UsbHost for AndroidUsb {
             env.call_static_method(class, "close", "(Ljava/lang/String;)V", &[JValue::Object(&id)])?;
             Ok(())
         });
+    }
+}
+
+/// `UsbAudio.answered`: the DJ answered for card `id`, or opened Prisme for it plugged in.
+#[no_mangle]
+pub extern "system" fn Java_com_shawiizz_prisme_UsbAudio_answered(
+    mut env: JNIEnv,
+    _class: JClass,
+    id: JString,
+    allowed: jboolean,
+) {
+    if let Some(id) = card(&mut env, &id) {
+        usb_asks::answered(&id, allowed != 0);
+        told();
+    }
+}
+
+/// `UsbAudio.unplugged`: card `id` was unplugged.
+#[no_mangle]
+pub extern "system" fn Java_com_shawiizz_prisme_UsbAudio_unplugged(
+    mut env: JNIEnv,
+    _class: JClass,
+    id: JString,
+) {
+    if let Some(id) = card(&mut env, &id) {
+        usb_asks::unplugged(&id);
+        told();
+    }
+}
+
+fn card(env: &mut JNIEnv, id: &JString) -> Option<String> {
+    env.get_string(id).map(String::from).ok()
+}
+
+/// The interface hears of what the DJ is asked.
+fn told() {
+    if let Some(app) = android_jni::app() {
+        app.state::<AppState>().moved(Section::Audio);
     }
 }
 
