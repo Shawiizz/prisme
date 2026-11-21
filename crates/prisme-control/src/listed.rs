@@ -665,6 +665,28 @@ mod tests {
         }
     }
 
+    /// The lists are written by hand: an action added to its enum is listed too.
+    #[test]
+    fn every_action_named_by_its_id_alone_is_listed() {
+        use std::collections::HashSet;
+        let listed: HashSet<Target> = Target::all().into_iter().collect();
+        let deck = |action| Target::Deck(0, action);
+        let samples = SampleAction::NAMED.iter().filter(|&&action| action != SampleAction::Velocity);
+        let named = DeckAction::NAMED
+            .iter()
+            .map(|&action| deck(action))
+            .chain(DeckSwitch::NAMED.iter().map(|&switch| deck(DeckAction::Switch(switch, Turn::Over))))
+            .chain(FxAction::NAMED.iter().map(|&action| deck(DeckAction::Fx(0, action))))
+            .chain(samples.map(|&action| deck(DeckAction::Sample(0, action))))
+            .chain(MixerAction::NAMED.iter().map(|&action| Target::Mixer(action)))
+            .chain(MixerSwitch::NAMED.iter().map(|&s| Target::Mixer(MixerAction::Switch(s, Turn::Over))))
+            .chain(LibraryAction::NAMED.iter().map(|&action| Target::Library(action)))
+            .chain(GeneralAction::NAMED.iter().map(|&action| Target::General(action)))
+            .chain(AutoDjAction::NAMED.iter().map(|&action| Target::AutoDj(action)));
+        let missing: Vec<String> = named.filter(|t| !listed.contains(t)).map(|t| t.to_string()).collect();
+        assert!(missing.is_empty(), "not listed: {missing:?}");
+    }
+
     #[test]
     fn measured_actions_say_their_number() {
         let label = |id: &str| id.parse::<Target>().unwrap().label().english();
