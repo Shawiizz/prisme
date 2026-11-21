@@ -57,6 +57,8 @@ impl Controllers {
     /// `midi`), which must not hold the start.
     pub fn watch(app: AppHandle) {
         let spawned = std::thread::Builder::new().name("prisme-midi-watch".into()).spawn(move || {
+            #[cfg(target_os = "android")]
+            crate::android_jni::attach_for_life();
             app.state::<Controllers>().open_at_start(&app);
             let mut missing: Vec<String> = Vec::new();
             // the ports of the last look; those there at start were seen to then

@@ -95,6 +95,8 @@ impl MidiClock {
         std::thread::Builder::new()
             .name("prisme-midi-clock-watch".into())
             .spawn(move || {
+                #[cfg(target_os = "android")]
+                crate::android_jni::attach_for_life();
                 let clock = watched.state::<MidiClock>();
                 // one client for looking, kept, as the controllers' (see `Controllers::watch`)
                 let mut looking: Option<MidiOutput> = None;
