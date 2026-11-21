@@ -10,8 +10,8 @@ use prisme_library::{CrateId, DbError, LibraryDb, SessionId, TrackEntry};
 use serde::Deserialize;
 use std::io::{BufWriter, Write};
 use std::sync::Arc;
-use tauri::{AppHandle, State};
-use tauri_plugin_fs::FilePath;
+use tauri::State;
+use tauri_plugin_dialog::FilePath;
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
@@ -38,16 +38,15 @@ pub struct ExportListDto {
 
 /// Writes a list as an M3U playlist (`.m3u8`).
 #[tauri::command(async)]
-pub fn export_m3u(app: AppHandle, library: Library<'_>, list: ListDto, path: FilePath) -> AppResult<()> {
+pub fn export_m3u(library: Library<'_>, list: ListDto, path: FilePath) -> AppResult<()> {
     let playlist = m3u::write(&entries(&library.db, list)?);
-    picked::create(&app, path)?.write_all(playlist.as_bytes())?;
+    picked::create(path)?.write_all(playlist.as_bytes())?;
     Ok(())
 }
 
 /// Writes the lists, and every track of the library with `whole_library`, as rekordbox's XML.
 #[tauri::command(async)]
 pub fn export_rekordbox(
-    app: AppHandle,
     library: Library<'_>,
     whole_library: bool,
     lists: Vec<ExportListDto>,
@@ -58,7 +57,7 @@ pub fn export_rekordbox(
         .map(|l| Ok((list_path(l.folder.as_deref(), &l.name), entries(&library.db, l.list)?)))
         .collect::<Result<Vec<_>, DbError>>()?;
     let export = Export::gather(&library.db, whole_library, lists)?;
-    let mut file = BufWriter::new(picked::create(&app, path)?);
+    let mut file = BufWriter::new(picked::create(path)?);
     rekordbox::write(&export, &mut file)?;
     file.flush()?;
     Ok(ExportSummaryDto { tracks: export.tracks.len(), lists: export.lists.len() })

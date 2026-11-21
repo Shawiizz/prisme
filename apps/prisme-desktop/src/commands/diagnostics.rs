@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::fmt::Write as _;
 use std::io::Write;
 use tauri::{AppHandle, Manager, State};
-use tauri_plugin_fs::FilePath;
+use tauri_plugin_dialog::FilePath;
 
 const LOG_LINES: usize = 400;
 
@@ -62,7 +62,7 @@ Timecode records: {records:?}"
         }
         None => report.push_str("\nNo log file\n"),
     }
-    picked::create(&app, path)?.write_all(report.as_bytes())?;
+    picked::create(path)?.write_all(report.as_bytes())?;
     Ok(())
 }
 

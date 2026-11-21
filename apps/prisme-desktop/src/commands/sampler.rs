@@ -6,7 +6,7 @@ use crate::error::{AppError, AppResult};
 use crate::picked;
 use crate::state::AppState;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_fs::FilePath;
+use tauri_plugin_dialog::FilePath;
 
 /// The sound of `slot` stopped if it plays, else taken off its pad (a right click on it).
 #[tauri::command]
@@ -28,7 +28,7 @@ pub async fn load_sample(app: AppHandle, deck: usize, slot: usize, path: FilePat
         let samples =
             crate::data_dir(&app).ok_or_else(|| AppError::Other("no data folder".into()))?.join("samples");
         let name = picked::file_name(&uri);
-        let sound = picked::open(&app, FilePath::Url(uri))?;
+        let sound = picked::open(FilePath::Url(uri))?;
         let (path, audio) = crate::sampler::keep_copy(&samples, deck, slot, &name, sound)?;
         sampler::keep_sample(&state, deck, slot, path, audio)
     })

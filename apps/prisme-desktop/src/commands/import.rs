@@ -9,8 +9,8 @@ use prisme_import::{rekordbox, serato, Import};
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use tauri::{AppHandle, State};
-use tauri_plugin_fs::FilePath;
+use tauri::State;
+use tauri_plugin_dialog::FilePath;
 
 /// The `_Serato_` folder of the music folder, else of the system's, if there is one.
 #[tauri::command]
@@ -45,12 +45,11 @@ pub async fn import_serato(
 /// The collection and playlists of a rekordbox XML export.
 #[tauri::command]
 pub async fn import_rekordbox(
-    app: AppHandle,
     library: State<'_, Arc<LibraryService>>,
     path: FilePath,
 ) -> AppResult<ImportSummaryDto> {
     let library = library.inner().clone();
-    run(library, move || Ok(rekordbox::read(picked::open(&app, path)?)?)).await
+    run(library, move || Ok(rekordbox::read(picked::open(path)?)?)).await
 }
 
 /// Reads off the main thread (tags of the whole library), then merges.

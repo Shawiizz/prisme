@@ -12,7 +12,7 @@ use crate::picked;
 use crate::state::AppState;
 use prisme_control::Encoding;
 use tauri::{AppHandle, Manager, State};
-use tauri_plugin_fs::FilePath;
+use tauri_plugin_dialog::FilePath;
 
 /// Runs `change` on the controllers, then shows them.
 fn changing<R>(app: &AppHandle, change: impl FnOnce(&Controllers) -> R) -> R {
@@ -110,13 +110,12 @@ pub async fn update_controller_profiles(app: AppHandle) -> AppResult<usize> {
 /// DJ knows that file by: what the controller drives does not change.
 #[tauri::command(async)]
 pub fn export_controller_profile(
-    app: AppHandle,
     controllers: State<'_, Controllers>,
     device: String,
     path: FilePath,
 ) -> AppResult<String> {
     let profile = controllers.as_profile(&device);
-    controller_profiles::export(&profile, picked::create(&app, path.clone())?).map_err(AppError::Other)?;
+    controller_profiles::export(&profile, picked::create(path.clone())?).map_err(AppError::Other)?;
     Ok(picked::name(&path))
 }
 

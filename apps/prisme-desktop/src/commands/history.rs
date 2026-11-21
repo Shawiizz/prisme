@@ -9,7 +9,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, State};
-use tauri_plugin_fs::FilePath;
+use tauri_plugin_dialog::FilePath;
 
 type Library<'a> = State<'a, Arc<LibraryService>>;
 
@@ -22,10 +22,10 @@ pub async fn delete_history_session(app: AppHandle, id: i64, order: Order) -> Ap
 /// Writes the tracklist of a session as CSV (UTF-8 with a BOM, so that Excel reads the
 /// accents right).
 #[tauri::command(async)]
-pub fn export_history(app: AppHandle, library: Library<'_>, id: i64, path: FilePath) -> AppResult<()> {
+pub fn export_history(library: Library<'_>, id: i64, path: FilePath) -> AppResult<()> {
     let plays = library.db.history_plays(SessionId(id))?;
     let csv = format!("\u{feff}{}", tracklist_csv(&plays, CsvFormat::of_this_computer()));
-    picked::create(&app, path)?.write_all(csv.as_bytes())?;
+    picked::create(path)?.write_all(csv.as_bytes())?;
     Ok(())
 }
 
