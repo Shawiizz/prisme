@@ -42,17 +42,7 @@ impl Target {
             Target::Deck(_, action) => deck_label(*action),
             Target::Mixer(action) => mixer_label(*action),
             Target::Library(action) => library_label(*action),
-            Target::General(GeneralAction::Quantize(turn)) => switched(Label::new("Quantize"), *turn),
-            Target::General(action) => Label::new(match action {
-                GeneralAction::Library => "The library over the whole window",
-                GeneralAction::Record => "Record the mix",
-                GeneralAction::TempoRange => "Range of every tempo fader: next",
-                GeneralAction::TempoRangePrevious => "Range of every tempo fader: previous",
-                GeneralAction::Help => "Keyboard shortcuts",
-                GeneralAction::Palette => "Command palette",
-                GeneralAction::Settings => "Settings",
-                GeneralAction::Quantize(_) => unreachable!("labelled above"),
-            }),
+            Target::General(action) => general_label(*action),
             Target::AutoDj(action) => Label::new(match action {
                 AutoDjAction::Toggle => "Auto DJ on / off",
                 AutoDjAction::Fade => "Mix into the next track now",
@@ -92,6 +82,19 @@ pub fn beats_text(beats: f64) -> String {
         format!("{sign}{size}")
     } else {
         format!("{sign}1/{}", (1.0 / size).round())
+    }
+}
+
+fn general_label(action: GeneralAction) -> Label {
+    match action {
+        GeneralAction::Library => Label::new("The library over the whole window"),
+        GeneralAction::Record => Label::new("Record the mix"),
+        GeneralAction::TempoRange => Label::new("Range of every tempo fader: next"),
+        GeneralAction::TempoRangePrevious => Label::new("Range of every tempo fader: previous"),
+        GeneralAction::Help => Label::new("Keyboard shortcuts"),
+        GeneralAction::Palette => Label::new("Command palette"),
+        GeneralAction::Settings => Label::new("Settings"),
+        GeneralAction::Quantize(turn) => switched(Label::new("Quantize"), turn),
     }
 }
 

@@ -645,10 +645,10 @@ impl DeckAction {
             Some((slot, action)) => (slot, Some(action)),
             None => (rest, None),
         };
+        // the first slot is `fx`, the others `fx2`, `fx3`…
         let slot = match slot {
             "" => 0,
-            "2" | "3" => number(slot, FX_SLOTS)?,
-            _ => return None,
+            slot => number(slot, FX_SLOTS).filter(|&slot| slot > 0)?,
         };
         let action = match action {
             None => FxAction::Enabled(Turn::Over),

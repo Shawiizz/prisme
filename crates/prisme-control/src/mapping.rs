@@ -446,10 +446,7 @@ impl Mappings {
     fn place(&mut self) {
         self.places.clear();
         for (at, m) in self.all.iter().enumerate() {
-            if !self.places.contains_key(&m.device) {
-                self.places.insert(m.device.clone(), Places::default());
-            }
-            let places = self.places.get_mut(&m.device).expect("inserted above");
+            let places = self.places.entry(m.device.clone()).or_default();
             places.all.push(at);
             for control in std::iter::once(m.control).chain(m.fine_control()) {
                 places.by_control.entry(control).or_default().push(at);

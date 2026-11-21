@@ -50,7 +50,8 @@ pub fn drift_time(deck: Beat, other: Beat, limit: f64) -> Option<f64> {
 /// have a grid.
 pub fn matching_tempo(status: &EngineStatus, deck: usize) -> Option<f64> {
     let own = &status.decks[deck];
-    let others = || status.decks.iter().enumerate().filter(|&(d, _)| d != deck).map(|(_, s)| s);
+    let running = &status.decks[..status.deck_count];
+    let others = || running.iter().enumerate().filter(|&(d, _)| d != deck).map(|(_, s)| s);
     let followed = others().find(|s| s.sync.leader).or_else(|| others().find(|s| s.bpm.is_some()))?;
     let (bpm, other) = (own.bpm?, followed.bpm?);
     Some(own.rate * octave_ratio(bpm, other) * other / bpm)
@@ -158,10 +159,15 @@ mod tests {
 
     #[test]
     fn a_deck_matches_the_leader_else_a_deck_on_a_grid_an_octave_apart_if_closer() {
-        let mut status = EngineStatus::default();
+        let mut status = EngineStatus { deck_count: 3, ..EngineStatus::default() };
         let deck = |bpm: f64| DeckStatus { bpm: Some(bpm), rate: 1.0, ..DeckStatus::default() };
         status.decks[..3].copy_from_slice(&[deck(125.0), deck(64.0), deck(130.0)]);
-        assert!(close(matching_tempo(&status, 0).unwrap(), 128.0 / 125.0), "the first on a grid, doubled");
+        status.decks[3] = deck(100.0);
+        status.decks[3].sync.leader = true;
+        assert!(
+            close(matching_tempo(&status, 0).unwrap(), 128.0 / 125.0),
+            "the first on a grid, doubled; a deck not in use leads none"
+        );
         status.decks[2].sync.leader = true;
         assert!(close(matching_tempo(&status, 0).unwrap(), 130.0 / 125.0), "the leader");
         status.decks[0].bpm = None;
