@@ -98,7 +98,7 @@
     <button
       [class.on]="tab() === item.id"
       [attr.aria-current]="tab() === item.id ? 'page' : null"
-      (click)="tab.set(item.id)"
+      (click)="select(item.id)"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true">
         @switch (item.id) {

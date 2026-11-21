@@ -9,7 +9,7 @@ import { SettingsIcon } from '../settings/settings-icon';
 /**
  * The settings on a phone, as a phone lays its own out: a search over every setting, then
  * the pages as a list, each with what it holds; a page or a setting touched takes the
- * screen, and the back arrow or gesture returns to the list.
+ * screen, and the back arrow or gesture, or Settings touched again, returns to the list.
  */
 @Component({
   selector: 'app-phone-settings',
@@ -89,5 +89,11 @@ export class PhoneSettings {
       () => this.navigation.settings() !== null,
       () => this.navigation.closeSettings(),
     );
+  }
+
+  /** Back to the list of the pages, from a page or a search. */
+  home() {
+    this.query.set('');
+    this.navigation.closeSettings();
   }
 }

@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { ControllerService } from '../../core/control/controller.service';
 import { closedByBack } from '../../core/back';
 import { BACKEND_NAMES } from '../../core/models/audio';
@@ -45,6 +45,7 @@ export class Phone {
   private readonly controllers = inject(ControllerService);
 
   protected readonly tab = signal<Tab>('decks');
+  private readonly settingsScreen = viewChild(PhoneSettings);
   /** The choice of what to record is open. */
   protected readonly recordMenu = signal(false);
   protected readonly tabs: { id: Tab; label: Text }[] = [
@@ -104,6 +105,12 @@ export class Phone {
       () => this.navigation.palette(),
       () => this.navigation.palette.set(false),
     );
+  }
+
+  /** Shows the screen of `tab`; the settings touched again while shown go back to their list. */
+  protected select(tab: Tab) {
+    if (tab === 'settings' && this.tab() === 'settings') this.settingsScreen()?.home();
+    else this.tab.set(tab);
   }
 
   protected toggleTouch() {
