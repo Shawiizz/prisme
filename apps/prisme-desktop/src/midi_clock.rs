@@ -4,7 +4,7 @@
 //! beat, Stop when the leader stops. The output chosen is let go when it is unplugged and
 //! opened again once it is back.
 
-use crate::controllers::{find_port, midi_error, port_names, port_of, CLIENT};
+use crate::controllers::{closing_midi, find_port, midi_error, port_names, port_of, CLIENT};
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState};
 use midir::{MidiOutput, MidiOutputConnection};
@@ -47,7 +47,9 @@ impl Output {
 
     /// Closed, not only dropped: on Android a port dropped keeps its device open.
     fn close(self) {
-        self.connection.close();
+        closing_midi(|| {
+            self.connection.close();
+        });
     }
 }
 

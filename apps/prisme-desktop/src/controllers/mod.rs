@@ -445,6 +445,15 @@ fn base_port_name(name: &str) -> String {
     base_device_name(name)
 }
 
+/// Runs `close`, which closes MIDI ports: on Android the system aborts the application when
+/// the thread that closes one is not known to the Java virtual machine.
+pub(crate) fn closing_midi(close: impl FnOnce()) {
+    #[cfg(target_os = "android")]
+    crate::android_jni::attached(close);
+    #[cfg(not(target_os = "android"))]
+    close();
+}
+
 pub(crate) fn midi_error(e: impl std::fmt::Display) -> AppError {
     AppError::Midi(e.to_string())
 }

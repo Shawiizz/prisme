@@ -2,9 +2,9 @@
 //! closed, let go.
 
 use super::{
-    base_port_name, find_port, hid_plugged, light_of, midi_error, open_output, port_names, port_of, with_hid,
-    Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT,
-    PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
+    base_port_name, closing_midi, find_port, hid_plugged, light_of, midi_error, open_output, port_names,
+    port_of, with_hid, Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade,
+    CLIENT, PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
 };
 use crate::actions::{Host, InTurn, Moved, Source};
 use crate::controller_hid;
@@ -352,7 +352,9 @@ impl Drop for Connection {
     fn drop(&mut self) {
         if let Link::Midi { input, output } = &mut self.link {
             if let Some(input) = input.take() {
-                input.close();
+                closing_midi(|| {
+                    input.close();
+                });
             }
             // its last messages sent, then closed
             drop(output.take());
@@ -373,7 +375,9 @@ impl MidiWriter {
                     }
                 }
             }
-            output.close();
+            closing_midi(|| {
+                output.close();
+            });
         })?;
         Ok(Self { messages: Some(messages), writer: Some(writer) })
     }

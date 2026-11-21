@@ -45,6 +45,26 @@ pub fn call<T>(what: &str, f: impl FnOnce(&mut JNIEnv, &JObject) -> jni::errors:
     result.inspect_err(|e| warn!("could not {what}: {e}")).ok()
 }
 
+/// Runs `f` with this thread known to the virtual machine, attached for the time of `f` if it
+/// was not: some of the system's native calls need it, and abort the application without it.
+pub fn attached<T>(f: impl FnOnce() -> T) -> T {
+    let android = ndk_context::android_context();
+    // SAFETY: the virtual machine is the one the application runs in, which keeps it alive.
+    match unsafe { JavaVM::from_raw(android.vm().cast()) } {
+        Ok(vm) => match vm.attach_current_thread() {
+            Ok(_attached) => f(),
+            Err(e) => {
+                warn!("thread not attached to the virtual machine: {e}");
+                f()
+            }
+        },
+        Err(e) => {
+            warn!("no virtual machine to attach the thread to: {e}");
+            f()
+        }
+    }
+}
+
 /// The application's class `name` (`com.shawiizz.prisme.UsbAudio`), found through its class
 /// loader: a native thread's own sees the system's classes only.
 pub fn class<'local>(
