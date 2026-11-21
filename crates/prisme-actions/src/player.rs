@@ -15,6 +15,9 @@ const AS_LOUD: f32 = 1e-3;
 const DRIFT_S: f64 = 1.0;
 /// A change of speed smaller than this is not told.
 const SPEED_STEP: f64 = 0.005;
+/// A change of speed alone, the deck going on, is told this often at most (s): a scratch or a
+/// nudge moves it at every tick, and each telling is a call to the system.
+const SPEED_EVERY_S: f64 = 0.5;
 
 /// What the lock screen shows.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -93,15 +96,17 @@ impl<S> Default for Told<S> {
 }
 
 impl<S: Clone + PartialEq> Told<S> {
-    /// Whether the player is to be told `showing` with the deck at `place` at `now_s`: what it
-    /// shows changed, or the place it moved on by itself drifted from the deck's (a jump, a
-    /// loop, a scratch), or its speed changed.
+    /// Whether the player is to be told `showing` with the deck at `place` at `now_s`: at once
+    /// when what it shows changed, the place it moved on by itself drifted from the deck's (a
+    /// jump, a loop, a scratch) or the deck started or stopped; when its speed changed alone,
+    /// [`SPEED_EVERY_S`] after it was last told.
     pub fn tell(&mut self, showing: &S, place: Place, now_s: f64) -> bool {
         if let Some((told, at, at_s)) = &self.last {
             let moved = at.position_s + at.speed * (now_s - at_s);
-            let still =
-                (at.speed - place.speed).abs() < SPEED_STEP && (moved - place.position_s).abs() < DRIFT_S;
-            if told == showing && still {
+            let drifted = (moved - place.position_s).abs() >= DRIFT_S;
+            let started_or_stopped = (at.speed == 0.0) != (place.speed == 0.0);
+            let sped = (at.speed - place.speed).abs() >= SPEED_STEP && now_s - at_s >= SPEED_EVERY_S;
+            if told == showing && !drifted && !started_or_stopped && !sped {
                 return false;
             }
         }
@@ -147,6 +152,22 @@ mod tests {
         assert!(told.tell(&"one", at(30.0, 0.0), 2.0), "stopped");
         assert!(!told.tell(&"one", at(30.0, 0.0), 9.0));
         assert!(told.tell(&"two", at(30.0, 0.0), 9.0), "another track");
+    }
+
+    #[test]
+    fn a_change_of_speed_alone_is_told_twice_a_second_at_most() {
+        let mut told = Told::default();
+        let at = |position_s, speed| Place { position_s, speed };
+        assert!(told.tell(&"one", at(10.0, 1.0), 0.0));
+        assert!(!told.tell(&"one", at(10.016, 1.08), 0.016), "nudged");
+        assert!(!told.tell(&"one", at(10.4, 0.9), 0.4));
+        assert!(told.tell(&"one", at(10.5, 0.95), 0.5), "the speed it has now");
+        assert!(!told.tell(&"one", at(10.6, 1.1), 0.6));
+        assert!(told.tell(&"one", at(10.6, 0.0), 0.6), "stopped, at once");
+        assert!(told.tell(&"one", at(10.6, 1.0), 0.61), "started, at once");
+        assert!(told.tell(&"two", at(10.6, 1.2), 0.62), "another track, at once");
+        assert!(told.tell(&"two", at(40.0, 1.2), 0.63), "a jump, at once");
+        assert!(!told.tell(&"two", at(41.6, 1.2), 2.0), "nothing new");
     }
 
     #[test]
