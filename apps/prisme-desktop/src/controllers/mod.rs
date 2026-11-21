@@ -22,7 +22,7 @@ mod setup;
 use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::ControllersDto;
-use crate::error::AppError;
+use crate::error::{AppError, AppResult};
 use midir::{MidiInput, MidiInputConnection, MidiOutput};
 use prisme_actions::hold::Pressed;
 use prisme_actions::input::Input;
@@ -399,13 +399,14 @@ pub struct Levels {
     sides: [f32; 2],
 }
 
-/// The output of the same name, for the lights.
-fn open_output(device: &str) -> Option<MidiWriter> {
-    let output = MidiOutput::new(CLIENT).ok()?;
+/// The output of the same name, for the lights: none on a controller without one.
+fn open_output(device: &str) -> AppResult<Option<MidiWriter>> {
+    let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
     let ports = output.ports();
     let names: Vec<String> = ports.iter().map(|p| output.port_name(p).unwrap_or_default()).collect();
-    let port = &ports[port_of(&names, device, &[])?];
-    MidiWriter::new(output.connect(port, CLIENT).ok()?).ok()
+    let Some(at) = port_of(&names, device, &[]) else { return Ok(None) };
+    let connection = output.connect(&ports[at], CLIENT).map_err(midi_error)?;
+    Ok(Some(MidiWriter::new(connection)?))
 }
 
 fn port_names(input: &MidiInput) -> Vec<String> {

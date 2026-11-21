@@ -51,7 +51,7 @@ use std::sync::mpsc::{self, Sender, SyncSender};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager};
-use tracing::error;
+use tracing::{error, warn};
 
 pub use view::{view_of, view_with};
 
@@ -170,7 +170,9 @@ impl Host for AppHandle {
     }
 
     fn tell<P: Serialize + Clone>(&self, event: &str, payload: P) {
-        drop(self.emit(event, payload));
+        if let Err(e) = self.emit(event, payload) {
+            warn!("the interface not told {event}: {e}");
+        }
     }
 
     fn view(&self) -> View {

@@ -19,7 +19,7 @@ use prisme_control::{Control, DeckAction, Event, Profile, ShownRoom, Target, OFF
 use std::sync::mpsc::{self};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use tracing::{error, info, warn};
 
 impl Controllers {
@@ -94,7 +94,7 @@ impl Controllers {
                             info!("controller {device} opened again");
                             // back with its lights off
                             let model = controllers.model_name(&device);
-                            let _ = app.emit("controller-opened", OpenedDto { device, model });
+                            app.tell("controller-opened", OpenedDto { device, model });
                         }
                         // told once, tried again
                         Err(e) if !missing.contains(&device) => {
@@ -140,7 +140,7 @@ impl Controllers {
         } else {
             PluggedIn::Waiting { device, model }
         };
-        let _ = app.emit(PLUGGED_EVENT, news);
+        app.tell(PLUGGED_EVENT, news);
     }
 
     /// Whether the controller on `port` is neither in use nor one the DJ turned off or chose
@@ -266,7 +266,10 @@ impl Controllers {
                 (),
             )
             .map_err(midi_error)?;
-        let output = open_output(&port_name);
+        let output = open_output(&port_name).unwrap_or_else(|e| {
+            warn!("controller {device} opened without its lights: {e}");
+            None
+        });
         self.opened(app, device, port_name, jog, Link::Midi { input: Some(connection), output });
         Ok(())
     }
@@ -361,8 +364,14 @@ impl MidiWriter {
     pub(super) fn new(mut output: MidiOutputConnection) -> std::io::Result<Self> {
         let (messages, waiting) = mpsc::channel::<Vec<u8>>();
         let writer = std::thread::Builder::new().name("prisme-midi-write".into()).spawn(move || {
+            let mut failed = false;
             for message in waiting {
-                let _ = output.send(&message);
+                // told once: a controller unplugged fails every message until it is closed
+                if let Err(e) = output.send(&message) {
+                    if !std::mem::replace(&mut failed, true) {
+                        warn!("a controller's lights not sent: {e}");
+                    }
+                }
             }
             output.close();
         })?;
