@@ -968,18 +968,20 @@ impl AppState {
     }
 
     /// Gives the turntable of `deck` to it alone: the deck layered with it on the running
-    /// device, if a record drove it, goes on by itself. Returns that deck.
-    pub fn take_turntable(&self, deck: usize) -> Option<usize> {
+    /// device, if a record drove it, goes on by itself.
+    pub fn take_turntable(&self, deck: usize) {
         let partner = lock(&self.session)
             .as_ref()
-            .and_then(|s| layer_partner(deck, s.info.decks, s.info.input_channels))?;
+            .and_then(|s| layer_partner(deck, s.info.decks, s.info.input_channels));
+        let Some(partner) = partner else { return };
         if !std::mem::take(&mut lock(&self.decks)[partner].vinyl_enabled) {
-            return None;
+            return;
         }
         self.update_preferences(|p| p.decks[partner].vinyl_enabled = false);
         self.let_go_of_record(partner);
-        let _ = self.send_if_running(Command::SetVinylEnabled { deck: partner, enabled: false });
-        Some(partner)
+        if let Err(e) = self.send_if_running(Command::SetVinylEnabled { deck: partner, enabled: false }) {
+            warn!("deck {} kept on its record: {e}", partner + 1);
+        }
     }
 
     /// The simulated turntable in the audio starting: as it comes, it takes deck A, its needle
@@ -994,13 +996,12 @@ impl AppState {
     }
 
     /// Before the vinyl control of `deck` is turned off: the engine has it play on at the
-    /// tempo its record gave it, its tempo fader's from then on. Whether a record drove it.
-    pub fn let_go_of_record(&self, deck: usize) -> bool {
-        let Ok(status) = self.deck_status(deck) else { return false };
-        if status.vinyl.enabled {
-            lock(&self.decks)[deck].pitch = status.rate;
+    /// tempo its record gave it, its tempo fader's from then on.
+    pub fn let_go_of_record(&self, deck: usize) {
+        match self.deck_status(deck) {
+            Ok(status) if status.vinyl.enabled => lock(&self.decks)[deck].pitch = status.rate,
+            _ => {}
         }
-        status.vinyl.enabled
     }
 
     /// Gives the decks layered on one turntable of the device of `info` its one record (see
