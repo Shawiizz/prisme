@@ -212,7 +212,7 @@ fn a_stem_cannot_move_until_the_track_is_separated_its_ring_and_its_key_dark_mea
     dv1.send(&[VOCALS_KEY[0], VOCALS_KEY[1], 0x7f]);
     dv1.send(&[0x86, VOCALS_KEY[1], 0]);
     assert_eq!(vocals(), (1.0, true));
-    assert!(bench.told().iter().all(|(event, _)| event != FAILED_EVENT), "nothing refused");
+    assert_eq!(told(bench), Vec::<String>::new(), "not even that it moved");
     assert_eq!(dv1.sent(), Vec::<Vec<u8>>::new(), "dark still");
 
     // separated: the ring shows the level, the key lights, both drive them

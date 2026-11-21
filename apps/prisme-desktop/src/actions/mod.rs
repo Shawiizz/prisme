@@ -34,6 +34,7 @@ use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
 use crate::state::{lock, AppState, MirroredGuard, PadsShown};
 use keys::{Keys, Press};
+use prisme_actions::available::available;
 use prisme_actions::input::{Given, Input, Inputs};
 use prisme_actions::lane::{follows, lane, reads_files, takes_selection, Lane};
 use prisme_actions::moves::sets;
@@ -344,7 +345,8 @@ impl Ends<'_> {
 
 /// Performs `target` driven by `input` as `asked`, here: one that panics fails as any other,
 /// the thread asking (a controller's, the interface's turn) going on. One the interface brings
-/// into sight, done, it is told, and a setting a controller moved ([`DONE_EVENT`]).
+/// into sight, done, it is told, and a setting a controller moved ([`DONE_EVENT`]), unless it
+/// could not move (see `available`).
 fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) -> AppResult<()> {
     let moved = match &asked.source {
         Source::Controller(by) if sets(target) => host.actions().tells_move(&by.device, target, input),
@@ -357,7 +359,7 @@ fn perform_here<H: Host>(host: &H, target: &Target, input: Input, asked: Asked) 
         });
     if outcome.is_ok() && in_sight(target, input) {
         host.tell(DONE_EVENT, target.to_string());
-    } else if outcome.is_ok() && moved {
+    } else if outcome.is_ok() && moved && available(&host.view(), target) {
         host.tell(DONE_EVENT, moved_as(host.app_state(), target).to_string());
     }
     outcome
@@ -1642,8 +1644,9 @@ mod selection {
         assert_eq!(done("deck1.eq.low", Input::Value(0.25), ddj()), 0, "where the knob stands");
         assert_eq!(done("deck1.eq.low", Input::Value(0.3), ddj()), 1);
         assert_eq!(done("deck1.eq.low", Input::Value(0.4), ddj()), 0, "told while it moves");
-        assert_eq!(done("deck1.vocals", Input::Value(1.0), ddj()), 1, "another setting at once");
-        assert_eq!(done("deck1.vocals", Input::Value(0.0), ddj()), 0, "let go");
+        assert_eq!(done("deck1.filter.toggle", Input::Value(1.0), ddj()), 1, "another setting at once");
+        assert_eq!(done("deck1.filter.toggle", Input::Value(0.0), ddj()), 0, "let go");
+        assert_eq!(done("deck1.vocals", Input::Value(1.0), ddj()), 0, "no stems: it could not move");
         assert_eq!(done("deck1.play", Input::Value(1.0), ddj()), 0, "not a setting");
         std::thread::sleep(Duration::from_millis(260));
         assert_eq!(done("deck1.eq.low", Input::Value(0.5), ddj()), 1, "moved a while");

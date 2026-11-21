@@ -694,10 +694,7 @@ mod tests {
         dv1("deck1.vocals", Input::Value(0.0));
         assert_eq!((level(), playing(&bench, StemPart::Vocals)), (1.0, true), "not separated");
         assert_eq!(shown(&bench), (None, Some(State::Off)));
-        assert!(
-            bench.told().iter().all(|(event, _)| event != crate::actions::FAILED_EVENT),
-            "nothing refused"
-        );
+        assert_eq!(bench.told(), Vec::new(), "nothing said, not even that it moved");
 
         separated(&bench, 0, &[prisme_engine::Stem::Vocals]);
         assert_eq!(shown(&bench), (Some(1.0), Some(State::On)), "back as it is");
