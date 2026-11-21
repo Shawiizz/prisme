@@ -18,6 +18,17 @@ impl BeatGrid {
         60.0 / self.bpm
     }
 
+    /// How long a bar lasts.
+    pub fn bar_s(&self) -> f64 {
+        f64::from(BEATS_PER_BAR) * self.beat_period_s()
+    }
+
+    /// Where the bar `position_s` is in starts (before the first beat, a bar counted back).
+    pub fn bar_start_s(&self, position_s: f64) -> f64 {
+        let bar_s = self.bar_s();
+        self.first_beat_s + ((position_s - self.first_beat_s) / bar_s).floor() * bar_s
+    }
+
     pub fn nearest_beat_s(&self, position_s: f64) -> f64 {
         self.nearest_s(position_s, 1.0)
     }

@@ -4,14 +4,14 @@
 use super::{transport, Performing};
 use crate::error::AppResult;
 use crate::state::{lock, AppState};
-use prisme_actions::pads::{bar_start, slice_at, CUT_BEATS};
-use prisme_engine::{Command, LoopRegion};
+use prisme_actions::pads::{slice_at, CUT_BEATS};
+use prisme_engine::{BeatGrid, Command, LoopRegion};
 
-/// Where the track on `deck` is (under a loop or a roll, where it would be), where the first
-/// beat of its grid is, and how long a beat lasts: none without a track or a grid.
+/// Where the track on `deck` is (under a loop or a roll, where it would be), its grid, and how
+/// long a beat lasts: none without a track or a grid.
 struct Place {
     at_s: f64,
-    first_beat_s: f64,
+    grid: BeatGrid,
     beat_s: f64,
 }
 
@@ -19,13 +19,13 @@ fn place(state: &AppState, deck: usize) -> Option<Place> {
     let grid = state.with_track(deck, |t| t.grid()).ok().flatten()?;
     let status = state.deck_status(deck).ok().filter(|s| s.loaded)?;
     let at_s = status.slip_position_s.unwrap_or(status.position_s);
-    Some(Place { at_s, first_beat_s: grid.first_beat_s, beat_s: grid.beat_period_s() })
+    Some(Place { at_s, grid, beat_s: grid.beat_period_s() })
 }
 
 impl Place {
     /// Where a slicer put here starts: the bar the track is in.
     fn bar_start(&self) -> f64 {
-        bar_start(self.at_s, self.first_beat_s, self.beat_s)
+        self.grid.bar_start_s(self.at_s)
     }
 }
 

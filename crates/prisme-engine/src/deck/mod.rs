@@ -204,9 +204,7 @@ impl Deck {
     /// The start of the next bar after the playhead, by the beat grid.
     fn next_bar_s(&self) -> Option<f64> {
         let grid = self.grid?;
-        let bar_s = f64::from(crate::grid::BEATS_PER_BAR) * grid.beat_period_s();
-        let bars = ((self.playhead.position_s() - grid.first_beat_s) / bar_s).floor() + 1.0;
-        Some(grid.first_beat_s + bars * bar_s)
+        Some(grid.bar_start_s(self.playhead.position_s()) + grid.bar_s())
     }
 
     /// Renders one block from the turntable signal `input`; `target` is given when the

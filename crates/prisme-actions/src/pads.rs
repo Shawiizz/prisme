@@ -7,7 +7,7 @@ use crate::light::{light, State};
 use crate::view::View;
 use prisme_control::{Beats, DeckAction, Effect, FxAction, Target, CUTS, FX_SLOTS, SLICES};
 pub use prisme_control::{CUT_BEATS, ROLL_BEATS};
-use prisme_engine::{LoopStatus, BEATS_PER_BAR};
+use prisme_engine::LoopStatus;
 use serde::Serialize;
 
 /// The pads of a page of the screen.
@@ -133,13 +133,6 @@ fn page_lights(view: &View, deck: usize, page: Page) -> PageLights {
     PageLights { lit, marked }
 }
 
-/// Where the slicer of a track at `position_s` starts: the bar it is in, by a grid whose first
-/// beat is at `first_beat_s`, a beat lasting `beat_s`.
-pub fn bar_start(position_s: f64, first_beat_s: f64, beat_s: f64) -> f64 {
-    let bar_s = f64::from(BEATS_PER_BAR) * beat_s;
-    first_beat_s + ((position_s - first_beat_s) / bar_s).floor() * bar_s
-}
-
 /// The slice of the slicer starting at `start_s` a track at `position_s` is in, if it is in it,
 /// a beat lasting `beat_s`.
 pub fn slice_at(start_s: f64, position_s: f64, beat_s: f64) -> Option<usize> {
@@ -165,8 +158,9 @@ mod tests {
     #[test]
     fn the_slicer_starts_on_the_bar_the_track_is_in_and_holds_eight_beats() {
         // 120 BPM from 0.1 s: a bar of 2 s
-        assert!((bar_start(5.3, 0.1, 0.5) - 4.1).abs() < 1e-9);
-        assert!((bar_start(0.05, 0.1, 0.5) + 1.9).abs() < 1e-9, "before the first beat");
+        let grid = prisme_engine::BeatGrid { bpm: 120.0, first_beat_s: 0.1 };
+        assert!((grid.bar_start_s(5.3) - 4.1).abs() < 1e-9);
+        assert!((grid.bar_start_s(0.05) + 1.9).abs() < 1e-9, "before the first beat");
         assert_eq!(slice_at(4.1, 4.1, 0.5), Some(0));
         assert_eq!(slice_at(4.1, 7.0, 0.5), Some(5));
         assert_eq!(slice_at(4.1, 8.1, 0.5), None, "past its eight beats");
