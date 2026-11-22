@@ -202,8 +202,9 @@ impl Engine {
             let beat = deck.effect_beat();
             let fx_done = deck.render(deck_in, deck_out, rate, target, beat);
             deck.sampler.render(deck_out, rate);
-            if self.mixer.routing.mode == MixMode::Internal {
-                deck.strip.process(deck_out);
+            match self.mixer.routing.mode {
+                MixMode::Internal => deck.strip.process(deck_out),
+                MixMode::External => deck.strip.filter(deck_out),
             }
             if !fx_done {
                 deck.fx.process(deck_out, beat);

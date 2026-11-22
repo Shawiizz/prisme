@@ -1,5 +1,5 @@
 //! A channel of the software mixer, before its fader: trim, 3-band EQ with kills, DJ
-//! filter.
+//! filter. With an external mixer, which has its own trim and EQ, the filter alone.
 
 use prisme_dsp::{Band, DjFilter, IsolatorEq, Smoothed};
 
@@ -59,6 +59,11 @@ impl ChannelStrip {
         self.eq.process(stereo);
         self.filter.process(stereo);
     }
+
+    /// The filter alone, for a deck going to an external mixer.
+    pub(crate) fn filter(&mut self, stereo: &mut [f32]) {
+        self.filter.process(stereo);
+    }
 }
 
 #[cfg(test)]
@@ -86,6 +91,28 @@ mod tests {
         assert!(level(&mut strip, 50.0) < 0.02);
         strip.set_kill(Band::Low, false);
         assert!((level(&mut strip, 50.0) - 1.5).abs() < 0.05);
+    }
+
+    #[test]
+    fn for_an_external_mixer_the_filter_alone() {
+        let filtered = |freq: f32| {
+            let mut strip = ChannelStrip::new(48_000.0);
+            strip.set_trim(0.5);
+            strip.set_eq(Band::Low, 0.0);
+            strip.set_filter(-0.6);
+            let mut audio: Vec<f32> = (0..48_000)
+                .flat_map(|i| {
+                    let v = (std::f32::consts::TAU * freq * i as f32 / 48_000.0).sin();
+                    [v, v]
+                })
+                .collect();
+            for block in audio.chunks_mut(256) {
+                strip.filter(block);
+            }
+            audio[48_000..].iter().fold(0.0f32, |m, s| m.max(s.abs()))
+        };
+        assert!(filtered(8_000.0) < 0.05, "the low-pass takes the highs");
+        assert!(filtered(50.0) > 0.9, "neither the trim nor the EQ");
     }
 
     #[test]
