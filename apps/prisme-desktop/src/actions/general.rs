@@ -143,7 +143,10 @@ mod tests {
     #[test]
     fn the_record_key_says_when_there_is_nothing_it_may_take() {
         let bench = Bench::new();
-        bench.state.update_preferences(|p| p.mixer.record_source = Some(pair(0)));
+        bench.state.update_preferences(|p| {
+            p.mixer.record_source = Some(pair(0));
+            p.mixer.mode = MixModeDto::External;
+        });
         // two decks on four inputs: a turntable on each pair, and an external mixer
         assert!(matches!(bench.press("general.record", 1.0), Err(AppError::NoRecordSource)));
         bench.state.update_preferences(|p| p.mixer.mode = MixModeDto::Internal);

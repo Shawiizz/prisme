@@ -1063,7 +1063,8 @@ pub(crate) mod bench {
     }
 
     impl Bench {
-        /// Two decks, the audio running on an ASIO card with the turntables on it.
+        /// Two decks mixed by Prisme, the audio running on an ASIO card with the turntables on
+        /// it.
         pub fn new() -> Self {
             let config = EngineConfig::new(48_000, 2, &prisme_timecode::SERATO_CV02_A);
             let (engine, controller) = prisme_engine::create(config);
@@ -1084,7 +1085,10 @@ pub(crate) mod bench {
                 ..AudioSettings::default()
             };
             let state = AppState::new(JsonFile::in_memory(Default::default()));
-            state.update_preferences(|p| p.audio = card.clone());
+            state.update_preferences(|p| {
+                p.audio = card.clone();
+                p.mixer.mode = crate::dto::MixModeDto::Internal;
+            });
             let mut session = AudioSession::idle(controller, config, info);
             session.settings = card;
             *lock(&state.session) = Some(session);
