@@ -88,6 +88,7 @@ A control is the same shape as a learnt mapping:
 | --- | --- | --- |
 | `control` | object | `kind` (`note` for keys and pads, `controlChange` for knobs, faders and encoders, `pitchBend`), `channel` from 0 to 15, `number` from 0 to 127 (0 for a pitch bend). |
 | `target` | text | The action it drives: see [Actions](#actions). Required. |
+| `name` | text | What the control is called on the controller, as printed there (`"STORE"`): Prisme names it so in a question its key answers. |
 | `encoding` | text | How its values are read. See [Encodings](#encodings). Default `absolute`. |
 | `scale` | number | An encoder's steps multiplied by this. Below 1 they add up to whole steps: `0.1` browses a track every ten steps. Default 1. |
 | `step` | number | How far a step of an encoder moves a fader's action, as a share of its travel. Default 1/64. |
@@ -101,6 +102,7 @@ A control is the same shape as a learnt mapping:
 | `hold` | object | `ms` and `target`: another action for the key held down that long. Let go sooner, it drives its own. A mode key held chooses its mode as it is let go. |
 | `double` | object | `ms` and `target`: another action for the key pressed twice within `ms`. |
 | `chord` | object | `with` (a control) and `target`: another action for the key pressed while `with` is held. |
+| `alone` | action | For a shift key: another action for it pressed and let go alone, no other control moved meanwhile. The DV-1's ERASE closes what is open so (`general.close`). |
 | `set` | number or two numbers | A key putting a fader's action at a position from 0 to 1 (`0.5`), or at each of two in turn (`[0, 1]`), lit at the second. |
 | `latch` | `true` | A key driving an action meant to be held, latched: a press holds it, the next lets it go. |
 | `held`, `once` | `true` | For a control aimed at a mode: as for a [mode key](#modes). |

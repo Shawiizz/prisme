@@ -88,6 +88,7 @@ Une commande a la même forme qu’un mapping appris :
 | --- | --- | --- |
 | `control` | objet | `kind` (`note` pour les touches et les pads, `controlChange` pour les potards, les faders et les encodeurs, `pitchBend`), `channel` de 0 à 15, `number` de 0 à 127 (0 pour un pitch bend). |
 | `target` | texte | L’action qu’elle pilote : voir [Actions](#actions). Obligatoire. |
+| `name` | texte | Le nom de la commande sur le contrôleur, tel qu’il y est sérigraphié (`"STORE"`) : Prisme la nomme ainsi dans une question à laquelle sa touche répond. |
 | `encoding` | texte | Comment ses valeurs sont lues. Voir [Encodages](#encodages). Par défaut `absolute`. |
 | `scale` | nombre | Les pas d’un encodeur multipliés par ce nombre. En dessous de 1, ils s’additionnent jusqu’à faire des pas entiers : `0.1` fait défiler d’un morceau tous les dix pas. Par défaut 1. |
 | `step` | nombre | De combien un pas d’encodeur déplace l’action d’un fader, en fraction de sa course. Par défaut 1/64. |
@@ -101,6 +102,7 @@ Une commande a la même forme qu’un mapping appris :
 | `hold` | objet | `ms` et `target` : une autre action pour la touche maintenue aussi longtemps. Relâchée avant, elle pilote la sienne. Une touche de mode maintenue choisit son mode au relâchement. |
 | `double` | objet | `ms` et `target` : une autre action pour la touche pressée deux fois en moins de `ms`. |
 | `chord` | objet | `with` (une commande) et `target` : une autre action pour la touche pressée pendant que `with` est maintenue. |
+| `alone` | action | Pour une touche shift : une autre action pour la touche pressée et relâchée seule, sans qu’aucune autre commande ait bougé entre-temps. ERASE du DV-1 ferme ainsi ce qui est ouvert (`general.close`). |
 | `set` | nombre ou deux nombres | Une touche qui met l’action d’un fader à une position de 0 à 1 (`0.5`), ou tour à tour à chacune de deux positions (`[0, 1]`), allumée sur la seconde. |
 | `latch` | `true` | Une touche qui pilote une action faite pour être maintenue, en mode verrouillé : un appui la maintient, le suivant la relâche. |
 | `held`, `once` | `true` | Pour une commande qui vise un mode : comme pour une [touche de mode](#modes). |
