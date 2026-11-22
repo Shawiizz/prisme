@@ -29,7 +29,8 @@
   lights, meters and screens are mapped out of the box, and a controller Prisme does not
   know is offered to MIDI learn.
 - **Turntables**: timecode records or CDs drive the tracks, needle drops, backspins and
-  scratches included (Serato CV02 and Serato CD, absolute and relative modes, a decoder
+  scratches included (Serato CV02 and Serato CD; also Traktor Scratch MK1, rekordbox,
+  MixVibes and djay, not yet tried on a real record; absolute and relative modes, a decoder
   written from scratch).
 - **A laptop or a phone**: every action from the keyboard, the mouse or the fingers, and
   all of them in a command palette (Ctrl K), with nothing else plugged in.
