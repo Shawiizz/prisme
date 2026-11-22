@@ -77,3 +77,10 @@
     </div>
   </div>
 </div>
+@if (pickingOnPhone()) {
+  <app-phone-folder-picker
+    [choosing]="'The _Serato_ folder' | t"
+    (picked)="seratoFolder.set($event)"
+    (closed)="pickingOnPhone.set(false)"
+  />
+}

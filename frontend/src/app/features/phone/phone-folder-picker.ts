@@ -1,4 +1,4 @@
-import { Component, computed, inject, output, signal, viewChild } from '@angular/core';
+import { Component, computed, inject, input, output, signal, viewChild } from '@angular/core';
 import { errorText } from '../../core/errors';
 import { folderName, stepsFrom } from '../../core/folders';
 import { t } from '../../core/i18n/i18n';
@@ -17,10 +17,10 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
 };
 
 /**
- * A folder to add to the music folders, chosen on a phone, whose own picker gives no path: the
- * phone's storage and each card or USB drive first, then the folders in the one gone into,
- * where they are said at the top. Not offered: Android's folder of application data, and
- * hidden folders.
+ * A folder chosen on a phone, whose own picker gives no path: the phone's storage and each card
+ * or USB drive first, then the folders in the one gone into, where they are said at the top. Not
+ * offered: Android's folder of application data, and hidden folders. Added to the music folders,
+ * unless `choosing` says what else it is for.
  */
 @Component({
   selector: 'app-phone-folder-picker',
@@ -33,7 +33,7 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
       (dismissed)="closed.emit()"
       animate.enter="pr-rise-in"
       role="dialog"
-      [attr.aria-label]="'Add a folder' | t"
+      [attr.aria-label]="title()"
     >
       <header>
         @if (at()) {
@@ -46,7 +46,7 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
           </button>
         }
         <div class="where">
-          <h4>{{ 'Add a folder' | t }}</h4>
+          <h4>{{ title() }}</h4>
           <p>{{ trail() }}</p>
         </div>
       </header>
@@ -103,7 +103,7 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
             [disabled]="adding() || within() !== null"
             (click)="add()"
           >
-            {{ 'Add this folder' | t }}
+            {{ (choosing() ? 'Choose this folder' : 'Add this folder') | t }}
           </button>
         </footer>
       } @else if (error(); as message) {
@@ -228,6 +228,9 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
   imports: [Dismiss, Sheet, TPipe],
 })
 export class PhoneFolderPicker {
+  /** What the folder is for, said at the top: chosen, it is told by `picked`. */
+  readonly choosing = input<string | null>(null);
+  readonly picked = output<string>();
   readonly closed = output<void>();
   private readonly sheet = viewChild.required(Sheet);
   private readonly library = inject(LibraryService);
@@ -238,6 +241,7 @@ export class PhoneFolderPicker {
   protected readonly error = signal<string | null>(null);
   protected readonly adding = signal(false);
 
+  protected readonly title = computed(() => this.choosing() ?? t('Add a folder'));
   protected readonly folders = computed(() => this.at()?.listing.folders ?? []);
   /** Where the folder listed is: "Phone / Download / Sets". */
   protected readonly trail = computed(() => {
@@ -246,8 +250,9 @@ export class PhoneFolderPicker {
     const [, ...steps] = stepsFrom(at.place.path, at.listing.path);
     return [this.placeName(at.place), ...steps.map((step) => step.name)].join(' / ');
   });
-  /** The music folder the folder listed is already in, by name. */
+  /** The music folder the folder listed is already in, by name, when adding one. */
   protected readonly within = computed(() => {
+    if (this.choosing()) return null;
     const within = this.at()?.listing.within;
     const folder = this.library.folders().find((f) => f.path === within);
     return folder ? folderName(folder) : null;
@@ -288,6 +293,11 @@ export class PhoneFolderPicker {
   protected async add() {
     const path = this.at()?.listing.path;
     if (!path) return;
+    if (this.choosing()) {
+      this.picked.emit(path);
+      this.sheet().close();
+      return;
+    }
     this.adding.set(true);
     try {
       await this.library.joinFolder(path);

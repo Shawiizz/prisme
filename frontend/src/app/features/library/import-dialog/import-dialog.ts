@@ -2,6 +2,8 @@ import { Component, inject, output, signal } from '@angular/core';
 import { ImportService } from '../../../core/services/import.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { errorText } from '../../../core/errors';
+import { PHONE } from '../../../core/platform';
+import { PhoneFolderPicker } from '../../phone/phone-folder-picker';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import type { ImportSummary } from '../../../core/models/backend';
 
@@ -10,13 +12,15 @@ import type { ImportSummary } from '../../../core/models/backend';
   selector: 'app-import-dialog',
   templateUrl: './import-dialog.html',
   styleUrl: './import-dialog.scss',
-  imports: [TPipe, Dismiss],
+  imports: [TPipe, Dismiss, PhoneFolderPicker],
 })
 export class ImportDialog {
   readonly closed = output();
 
   private readonly imports = inject(ImportService);
   protected readonly seratoFolder = signal<string | null>(null);
+  /** On a phone, whose own picker gives no path, the folder chosen in Prisme's. */
+  protected readonly pickingOnPhone = signal(false);
   protected readonly busy = signal(false);
   protected readonly summary = signal<ImportSummary | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -35,6 +39,10 @@ export class ImportDialog {
   }
 
   async pickSeratoFolder() {
+    if (PHONE) {
+      this.pickingOnPhone.set(true);
+      return;
+    }
     const dir = await this.imports.pickSeratoFolder();
     if (dir) this.seratoFolder.set(dir);
   }
