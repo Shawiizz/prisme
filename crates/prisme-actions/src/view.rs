@@ -169,6 +169,8 @@ pub struct TrackView {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MixerView {
+    /// The decks mixed by Prisme, else each sent to its outputs, an external mixer's.
+    pub internal: bool,
     /// -1 full left, 1 full right.
     pub crossfader: f32,
     pub cue_mix: f32,
@@ -295,6 +297,7 @@ pub(crate) mod fixtures {
             status,
             decks: [deck(); MAX_DECKS],
             mixer: MixerView {
+                internal: true,
                 crossfader: 0.0,
                 cue_mix: 0.0,
                 split_cue: false,

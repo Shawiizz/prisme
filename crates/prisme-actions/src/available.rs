@@ -1,13 +1,14 @@
 //! Whether an action can do anything as its deck stands. One that cannot (a stem of a track not
 //! separated where the deck plays, the key of a deck without a track, its place in none, its
-//! tempo fader while a record or the sync holds the tempo, any action of a deck not in use)
+//! tempo fader while a record or the sync holds the tempo, any action of a deck not in use, the
+//! trim, EQ, volume and crossfader of the software mixer while the decks go to an external one)
 //! changes nothing when its control moves, says nothing either, and its light and its ring are
 //! off until it can again, on a controller as on the screen, where its control is disabled.
 
 use crate::screen::tempo_held;
 use crate::stems::{part_in, Separation};
 use crate::view::Sees;
-use prisme_control::{DeckAction, StemPart, Target};
+use prisme_control::{DeckAction, MixerAction, MixerSwitch, StemPart, Target};
 
 /// What an action of a deck needs to do anything.
 enum Needs {
@@ -24,12 +25,14 @@ enum Needs {
     Part(StemPart),
     /// The tempo set by the deck's fader: no record and no sync holding it.
     OwnTempo,
+    /// The software mixer: the decks not sent to an external one.
+    Mixer,
 }
 
-/// Whether `target` can do anything as `seen` stands (see the module); the actions of the mixer,
-/// the library and the application always can.
+/// Whether `target` can do anything as `seen` stands (see the module); the actions of the
+/// library and the application always can, those of the mixer but its crossfader too.
 pub fn available(seen: &impl Sees, target: &Target) -> bool {
-    let Target::Deck(deck, action) = *target else { return true };
+    let Target::Deck(deck, action) = *target else { return mixer_available(seen, target) };
     if deck >= seen.decks_in_use() {
         return false;
     }
@@ -46,6 +49,22 @@ pub fn available(seen: &impl Sees, target: &Target) -> bool {
                 && part_in(seen.status(deck).stems_here, part)
         }
         Needs::OwnTempo => !tempo_held(seen, deck),
+        Needs::Mixer => seen.mixer().internal,
+    }
+}
+
+/// Whether `target`, none of a deck's, can do anything: the crossfader only while Prisme mixes.
+fn mixer_available(seen: &impl Sees, target: &Target) -> bool {
+    match target {
+        Target::Mixer(
+            MixerAction::Crossfader
+            | MixerAction::CrossfaderCurve
+            | MixerAction::CrossfaderCurveNext
+            | MixerAction::CrossfaderCurveSmooth
+            | MixerAction::CrossfaderCurveSharp
+            | MixerAction::Switch(MixerSwitch::CrossfaderReverse, _),
+        ) => seen.mixer().internal,
+        _ => true,
     }
 }
 
@@ -72,6 +91,12 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::TempoUp
         | DeckAction::TempoDown
         | DeckAction::TempoReset => Needs::OwnTempo,
+        DeckAction::Volume
+        | DeckAction::Trim
+        | DeckAction::Eq(_)
+        | DeckAction::EqKill(_)
+        | DeckAction::EqKillToggle(_)
+        | DeckAction::CrossfaderSide(_) => Needs::Mixer,
         DeckAction::Play
         | DeckAction::Cue
         | DeckAction::CuePlay
@@ -130,15 +155,9 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::SizeHalve
         | DeckAction::SizeDouble
         | DeckAction::Tap
-        | DeckAction::Volume
-        | DeckAction::Trim
-        | DeckAction::Eq(_)
-        | DeckAction::EqKill(_)
-        | DeckAction::EqKillToggle(_)
         | DeckAction::Filter
         | DeckAction::FilterToggle
         | DeckAction::HeadphonesSolo
-        | DeckAction::CrossfaderSide(_)
         // a slot always holds one of the effects
         | DeckAction::Fx(..)
         | DeckAction::FxKnob(_)
@@ -240,6 +259,16 @@ mod tests {
             "library.browse",
         ];
         assert!(always.iter().all(|id| can(id, &view())));
+    }
+
+    #[test]
+    fn with_an_external_mixer_the_filter_and_the_effects_can_its_own_trim_eq_volume_and_crossfader_not() {
+        let mut v = view();
+        v.mixer.internal = false;
+        let its_own = ["deck1.volume", "deck1.trim", "deck1.eq.low", "deck1.eq.low.kill", "mixer.crossfader"];
+        assert!(its_own.iter().all(|id| !can(id, &v)), "the external mixer's");
+        let prisme = ["deck1.filter", "deck1.filter.toggle", "deck1.fx.mix", "mixer.main", "mixer.cueMix"];
+        assert!(prisme.iter().all(|id| can(id, &v)));
     }
 
     #[test]

@@ -3,7 +3,7 @@
 //! session's lock. A move of a control reads only the part it needs ([`Sees`]).
 
 use super::Performing;
-use crate::dto::{CrossfaderCurveDto, FxDto};
+use crate::dto::{CrossfaderCurveDto, FxDto, MixModeDto};
 use crate::preferences::{MixerPreferences, VinylSync};
 use crate::sampler::LoadedSample;
 use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
@@ -147,6 +147,7 @@ fn mixer_view(mixer: &MixerPreferences, switches: [LiveSwitches; 2], crossfader:
         Live { level: live_preferences(mixer, source).level, on: on.on, cue: on.cue }
     };
     MixerView {
+        internal: mixer.mode == MixModeDto::Internal,
         crossfader,
         cue_mix: mixer.cue_mix,
         split_cue: mixer.split_cue,
