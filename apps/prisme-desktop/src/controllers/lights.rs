@@ -67,7 +67,10 @@ impl Controllers {
             } else if matches!(mapping.set, Some(FaderSet::InTurn(_))) {
                 Some(if keys.at_second(device, mapping.control) { ON } else { OFF })
             } else {
-                action.map(|(state, _)| state).or(lit_held.then_some(OFF))
+                // a light lit while held shows the action's state only where the profile gives it a
+                // value, its own or the one for on: else it is off once let go
+                let named = |state: &&str| !lit_held || mapping.light.has(state) || mapping.light.has(ON);
+                action.map(|(state, _)| state).filter(named).or(lit_held.then_some(OFF))
             };
             if let Some(state) = state {
                 let colour = action.and_then(|(_, colour)| colour);
