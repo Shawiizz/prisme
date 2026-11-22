@@ -103,7 +103,11 @@ const PLACE_NAME: Record<StoragePlace['kind'], (place: StoragePlace) => string> 
             [disabled]="adding() || within() !== null"
             (click)="add()"
           >
-            {{ (choosing() ? 'Choose this folder' : 'Add this folder') | t }}
+            @if (choosing()) {
+              {{ 'Choose this folder' | t }}
+            } @else {
+              {{ 'Add this folder' | t }}
+            }
           </button>
         </footer>
       } @else if (error(); as message) {
