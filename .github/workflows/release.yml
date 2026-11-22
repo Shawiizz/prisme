@@ -26,7 +26,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
-        run: gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --draft --verify-tag --title "Prisme $TAG" --notes ""
+        run: gh release view "$TAG" > /dev/null 2>&1 || gh release create "$TAG" --draft --verify-tag --title "Prisme $TAG (alpha)" --notes ""
 
   packages:
     needs: draft
