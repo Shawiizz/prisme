@@ -18,6 +18,11 @@ export interface Question {
   detail: string;
   confirm: string;
   cancel: string;
+  /** The action it is about: asked again while the question is open (its key pressed again),
+   * it answers it yes. */
+  action?: string;
+  /** The keys of the controllers that answer it (`STORE: Load · ERASE: Cancel`). */
+  keys?: string;
 }
 
 interface Asking extends Question {
@@ -29,8 +34,13 @@ interface Asking extends Question {
 export class ConfirmService {
   readonly asking = signal<Asking | null>(null);
 
-  /** True if the DJ confirms; a question asked meanwhile is answered no. */
+  /** True if the DJ confirms; a question asked meanwhile is answered no, but for the same
+   * action, which answers it yes (and is false itself: the open one does it). */
   ask(question: Question): Promise<boolean> {
+    if (question.action !== undefined && this.asking()?.action === question.action) {
+      this.answer(true);
+      return Promise.resolve(false);
+    }
     this.answer(false);
     return new Promise((answer) => this.asking.set({ ...question, answer }));
   }
@@ -68,6 +78,9 @@ export class ConfirmService {
       >
         <h4>{{ a.title }}</h4>
         <p>{{ a.detail }}</p>
+        @if (a.keys) {
+          <p class="keys">{{ a.keys }}</p>
+        }
         <div class="actions">
           <button class="pr-btn no" (click)="service.answer(false)">{{ a.cancel }}</button>
           <button class="pr-btn pr-btn--light" (click)="service.answer(true)">

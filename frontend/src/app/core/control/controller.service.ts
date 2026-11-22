@@ -3,13 +3,16 @@ import { invoke } from '@tauri-apps/api/core';
 import { save } from '@tauri-apps/plugin-dialog';
 import { listen } from '@tauri-apps/api/event';
 import { StepEncoding } from '../models/controllers';
-import { EngineService } from '../services/engine.service';
+import { AnswerKeys, EngineService } from '../services/engine.service';
 import { ControlService } from './control.service';
 import { attempt } from '../errors';
 import { t } from '../i18n/i18n';
 import { Notice, NoticeService } from '../../shared/notice/notice';
 import { NavigationService } from '../services/navigation.service';
 import type { Controller, ControllerMapping, Opened, PluggedIn, UiAction } from '../models/backend';
+
+/** The action closing what is open, a question answered no. */
+const CLOSE = 'general.close';
 
 /**
  * Controllers, MIDI and HID, as the backend shows them (`controls.controllers`): it performs
@@ -42,7 +45,11 @@ export class ControllerService {
     await listen<UiAction>('ui-action', ({ payload }) =>
       this.controls.act(payload.target, payload.value),
     );
-    await listen<unknown>('action-failed', ({ payload }) => void this.engine.failed(payload));
+    await listen<unknown>(
+      'action-failed',
+      ({ payload }) =>
+        void this.engine.failed(payload, undefined, (action) => this.answering(action)),
+    );
     // the library's actions done, whoever asked: the library brought into sight, or left; a
     // setting a controller moved: shown
     await listen<string>('action-done', ({ payload }) => this.navigation.done(payload));
@@ -53,6 +60,18 @@ export class ControllerService {
     await listen<PluggedIn>('controller-plugged', ({ payload }) => this.pluggedIn(payload));
     const waiting = await invoke<string[]>('waiting_controllers');
     if (waiting.length) this.showWaiting(waiting.join(', '));
+  }
+
+  /** The named keys of the controllers in use answering a question about `action`: one driving
+   * it, and one closing what is open (aimed at it, or a shift let go alone on it). */
+  private answering(action: string): AnswerKeys {
+    const mappings = this.mappings().flatMap((m) => m.devices.flatMap((d) => d.mappings));
+    const named = (answers: (m: ControllerMapping) => boolean) =>
+      mappings.find((m) => m.name && answers(m))?.name ?? undefined;
+    return {
+      yes: named((m) => m.target === action),
+      no: named((m) => m.target === CLOSE || m.alone === CLOSE),
+    };
   }
 
   /** A controller plugged in: one Prisme knows plays at once, with its lights; any other is

@@ -121,6 +121,23 @@ describe('EngineService', () => {
       ]);
     });
 
+    it('shows the keys of a controller answering it, by their names if their profile gives them', async () => {
+      const confirm = vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValue(false);
+      const asked = {
+        code: 'confirmReplace',
+        params: { target: 'library.load1', deck: 0, eject: false, track: '/music/a.flac' },
+        message: 'deck 1 plays',
+      };
+      await engine.failed(asked, undefined, () => ({ yes: 'STORE', no: 'ERASE' }));
+      expect(confirm).toHaveBeenLastCalledWith(
+        expect.objectContaining({ action: 'library.load1', keys: 'STORE: Load · ERASE: Cancel' }),
+      );
+      await engine.failed(asked, undefined, () => ({}));
+      expect(confirm).toHaveBeenLastCalledWith(expect.objectContaining({ keys: 'Same key: Load' }));
+      await engine.failed(asked);
+      expect(confirm.mock.lastCall?.[0]).not.toHaveProperty('keys');
+    });
+
     it('loads the track the DJ was asked about once the DJ says so', async () => {
       vi.spyOn(TestBed.inject(ConfirmService), 'ask').mockResolvedValueOnce(true);
       const asked = {

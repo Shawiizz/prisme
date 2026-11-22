@@ -991,6 +991,8 @@
   "Shift: {name}": "Shift : {name}",
   "Mode {mode} of the {group} controls": "Mode {mode} des commandes {group}",
   "Turn the turntables on?": "Activer les platines ?",
+  "{key}: {answer}": "{key} : {answer}",
+  "Same key": "Même touche",
   "The turntables are off for the {driver} driver: deck {deck} cannot hear its input. Turning them on restarts the audio for a moment.": "Les platines ne sont pas activées pour le pilote {driver} : le deck {deck} ne peut pas entendre son entrée. Les activer redémarre l'audio un instant.",
   "Turn on": "Activer",
   "The {driver} driver has no input for the turntables": "Le pilote {driver} n'a pas d'entrée pour les platines"

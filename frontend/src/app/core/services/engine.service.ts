@@ -54,6 +54,20 @@ const QUESTIONS: Record<string, (p: Params) => Question> = {
 };
 const NONE_LOADING: boolean[] = Array(MAX_DECKS).fill(false);
 
+/** The keys of the controllers answering a question about an action: the one driving it, by
+ * its name if its profile gives one, and one closing what is open, if named. */
+export interface AnswerKeys {
+  yes?: string;
+  no?: string;
+}
+
+/** How `question` shows the keys answering it on a controller. */
+function answeredBy(question: Question, { yes, no }: AnswerKeys): string {
+  const said = [t('{key}: {answer}', { key: yes ?? t('Same key'), answer: question.confirm })];
+  if (no) said.push(t('{key}: {answer}', { key: no, answer: question.cancel }));
+  return said.join(' · ');
+}
+
 /**
  * Bridge to the Rust engine: commands go through `invoke`, the engine state arrives
  * ~60 times per second through a Tauri channel.
@@ -379,9 +393,14 @@ export class EngineService {
    * said for a few seconds, not as errors), or the track leaves the deck once the DJ says so; a
    * deck put on its record or its input while the driver has the turntables off waits for the
    * DJ to turn them on. Said yes, the action is done `again` (by default, performed again, on
-   * the track it took if it took one); any other failure is shown.
-   * Whether it was done in the end. */
-  async failed(error: unknown, again?: () => Promise<boolean>): Promise<boolean> {
+   * the track it took if it took one); any other failure is shown. A question about an action a
+   * controller asked shows the keys answering it there (`keys`); the action asked again while
+   * it is open answers it yes. Whether it was done in the end. */
+  async failed(
+    error: unknown,
+    again?: () => Promise<boolean>,
+    keys?: (action: string) => AnswerKeys,
+  ): Promise<boolean> {
     if (isBackendError(error) && (error.code === 'deckPlays' || error.code === 'recordHolds')) {
       const letter = { deck: deckLetter(Number(error.params['deck'])) };
       if (error.code === 'recordHolds')
@@ -398,8 +417,13 @@ export class EngineService {
       this.error.set(errorText(error));
       return false;
     }
-    if (!(await this.confirm.ask(QUESTIONS[error.code](error.params)))) return false;
     const { target, track } = error.params;
+    const question = QUESTIONS[error.code](error.params);
+    if (typeof target === 'string') {
+      question.action = target;
+      if (keys) question.keys = answeredBy(question, keys(target));
+    }
+    if (!(await this.confirm.ask(question))) return false;
     return again
       ? again()
       : this.perform(String(target), 1, true, typeof track === 'string' ? track : null);
