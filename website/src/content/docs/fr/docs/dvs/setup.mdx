@@ -175,8 +175,8 @@ deck. Ils sont conservés pour le prochain démarrage.
 
 | Réglage | Effet | Par défaut |
 | --- | --- | --- |
-| **Timecode** | Le disque sur la platine, par marque puis par disque : **Serato** › **Control vinyl CV02** ou **Control CD**. | Control vinyl CV02 |
-| **Face** | **A** ou **B**, pour un disque dont les faces portent des timecodes différents. Absent pour le CD. | A |
+| **Timecode** | Le disque sur la platine, par marque puis par disque : **Serato** › **Control vinyl CV02** ou **Control CD**, **Native Instruments** › **Traktor Scratch MK1**, **Pioneer DJ** › **rekordbox DVS control vinyl**, **MixVibes** › **Control vinyl V2** ou **Control vinyl 7"**, **Algoriddim** › **djay control vinyl**. Tous sauf ceux de Serato portent **(non vérifié)** : pas encore essayés sur un vrai disque. | Control vinyl CV02 |
+| **Face** | **A** ou **B**, pour un disque dont les faces portent des timecodes différents. Absent pour le CD et les disques MixVibes. | A |
 | **Contrôle vinyle** | Le deck suit son disque. Comme REL ou ABS sur la carte du deck. | Désactivé |
 | **REL** / **ABS** | Le mode dans lequel le disque pilote le deck. | ABS |
 | **Vitesse du disque** | **33** ou **45** : la vitesse à laquelle tourne le disque quand le morceau joue à son tempo d’origine. | 33 |
@@ -217,11 +217,13 @@ vous le changez, Prisme réapprend le tempo du plateau.
 
 En mode absolu, le début du morceau se trouve un peu après le bord du disque, pour que vous
 puissiez poser le diamant dans les premiers sillons et laisser le morceau démarrer tout seul.
-Les disques Serato font commencer le morceau à 28 secondes ; le CD de contrôle tout au début.
-Ces 28 secondes sont celles du disque à 33 tours : à 45, les sillons défilent 1,35 fois plus
-vite, et le morceau commence après 20,7 secondes de musique. Le champ affiche en grisé la valeur
-utilisée à la vitesse de disque choisie. Tapez un autre nombre de secondes pour déplacer le
-début du morceau, ou videz le champ pour revenir à celle du disque. Avant ce point, le deck
+Les disques Serato font commencer le morceau à 28 secondes, les disques Traktor Scratch MK1
+et rekordbox à 10 secondes ; le CD de contrôle et les disques MixVibes et Algoriddim tout au
+début. Ces secondes sont celles du disque à 33 tours : à 45, les sillons défilent 1,35 fois
+plus vite, et le morceau commence après 20,7 secondes de musique sur un disque Serato, 7,4 sur
+un disque Traktor ou rekordbox. Le champ affiche en grisé la valeur utilisée à la vitesse de
+disque choisie. Tapez un autre nombre de secondes pour déplacer le début du morceau, ou videz
+le champ pour revenir à celle du disque. Avant ce point, le deck
 joue du silence, le morceau attendant à son début.
 
 ### Inverser gauche / droite

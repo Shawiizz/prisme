@@ -20,21 +20,32 @@ dans le moteur audio, si bien que le disque et le son restent ensemble.
 
 ## Ce que lit Prisme
 
-Prisme lit les disques et les CD timecode. Il connaît aujourd’hui ceux de Serato ; les
-timecodes d’autres marques sont à venir.
+Prisme lit les disques et les CD timecode de Serato, Native Instruments, Pioneer DJ,
+MixVibes et Algoriddim.
 
 | Support de contrôle | Dans Prisme |
 | --- | --- |
 | Serato Control Vinyl CV02, face A | **Serato** › **Control vinyl CV02**, face **A** |
 | Serato Control Vinyl CV02, face B | **Serato** › **Control vinyl CV02**, face **B** |
 | CD de contrôle Serato, sur une platine CD | **Serato** › **Control CD** |
+| Traktor Scratch control vinyl MK1, face A ou B | **Native Instruments** › **Traktor Scratch MK1** (non vérifié), face **A** ou **B** |
+| rekordbox DVS control vinyl, face A ou B | **Pioneer DJ** › **rekordbox DVS control vinyl** (non vérifié), face **A** ou **B** |
+| MixVibes control vinyl V2 | **MixVibes** › **Control vinyl V2** (non vérifié) |
+| MixVibes control vinyl 7" | **MixVibes** › **Control vinyl 7"** (non vérifié) |
+| djay control vinyl, face A ou B | **Algoriddim** › **djay control vinyl** (non vérifié), face **A** ou **B** |
 
-Les timecodes Traktor, rekordbox et Mixxx ne sont pas encore lus. Chaque platine a son propre
-disque, choisi dans son panneau de **Réglages**, **Platines** : un deck peut jouer la face A
-pendant que l’autre joue la face B, ou une platine CD avec le CD de contrôle côtoyer une
-platine vinyle. Voir [Le disque de chaque platine](/fr/docs/dvs/setup/#le-disque-de-chaque-platine).
+Seuls ceux de Serato ont été essayés sur de vrais disques. Prisme lit les autres tels que les
+décrit xwax, le décodeur de Mixxx, et ils ont été testés sur des signaux fabriqués d’après
+cette description, pas encore sur un vrai disque : les réglages les marquent
+**(non vérifié)**. Si vous en jouez un, un retour sur son comportement, sur la
+[page des issues](https://github.com/Shawiizz/prisme/issues), nous aide. Les disques et le CD
+Traktor Scratch MK2 utilisent un autre codage et ne sont pas encore lus.
 
-La partie utilisable de chaque support, à 33 tours, avant que le diamant n’atteigne la fin
+Chaque platine a son propre disque, choisi dans son panneau de **Réglages**, **Platines** :
+un deck peut jouer la face A pendant que l’autre joue la face B, ou une platine CD avec le CD
+de contrôle côtoyer une platine vinyle. Voir [Le disque de chaque platine](/fr/docs/dvs/setup/#le-disque-de-chaque-platine).
+
+La partie utilisable de chaque support Serato, à 33 tours, avant que le diamant n’atteigne la fin
 du timecode :
 
 | Support | Durée utilisable à 33 tours |
@@ -66,8 +77,8 @@ Les modes sont expliqués dans [Modes absolu et relatif](/fr/docs/dvs/modes/).
 **Des platines vinyle ou des platines CD.** N’importe quelle platine avec une cellule en bon
 état, ou une platine CD pour le CD de contrôle.
 
-**Des disques ou des CD timecode.** Serato Control Vinyl (CV02, face A ou B), ou le CD de
-contrôle Serato, au choix sur chaque platine.
+**Des disques ou des CD timecode.** L’un des disques ou CD ci-dessus, au choix sur chaque
+platine. Ceux de Serato sont les seuls essayés sur de vrais disques.
 
 **Une carte son avec une entrée stéréo par platine.** Chaque platine prend une paire de
 canaux d’entrée : les entrées 1-2 pour le deck A, 3-4 pour le deck B. Une carte à quatre

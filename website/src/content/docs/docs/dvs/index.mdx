@@ -19,21 +19,32 @@ the audio engine, so the record and the sound stay together.
 
 ## What Prisme reads
 
-Prisme reads timecode records and CDs. Today it knows Serato's; the timecodes of other
-makers are to come.
+Prisme reads the timecode records and CDs of Serato, Native Instruments, Pioneer DJ,
+MixVibes and Algoriddim.
 
 | Control medium | In Prisme |
 | --- | --- |
 | Serato Control Vinyl CV02, side A | **Serato** › **Control vinyl CV02**, side **A** |
 | Serato Control Vinyl CV02, side B | **Serato** › **Control vinyl CV02**, side **B** |
 | Serato Control CD, on a CD player | **Serato** › **Control CD** |
+| Traktor Scratch control vinyl MK1, side A or B | **Native Instruments** › **Traktor Scratch MK1** (not verified), side **A** or **B** |
+| rekordbox DVS control vinyl, side A or B | **Pioneer DJ** › **rekordbox DVS control vinyl** (not verified), side **A** or **B** |
+| MixVibes control vinyl V2 | **MixVibes** › **Control vinyl V2** (not verified) |
+| MixVibes 7" control vinyl | **MixVibes** › **Control vinyl 7"** (not verified) |
+| djay control vinyl, side A or B | **Algoriddim** › **djay control vinyl** (not verified), side **A** or **B** |
 
-The timecodes of Traktor, rekordbox and Mixxx are not read yet. Each turntable has its own
-record, chosen in its panel of **Settings**, **Turntables**: one deck can play side A while
-the other plays side B, or a CD player with the control CD sit beside a turntable. See
+Only Serato's have been tried on real records. Prisme reads the others as xwax, the decoder
+of Mixxx, describes them, and they have been tested on signals made from that description,
+not yet on a real record: the settings mark them **(not verified)**. If you play one, a word
+on how it behaves, on the [issues page](https://github.com/Shawiizz/prisme/issues), helps.
+The Traktor Scratch MK2 records and CD use another encoding and are not read yet.
+
+Each turntable has its own record, chosen in its panel of **Settings**, **Turntables**: one
+deck can play side A while the other plays side B, or a CD player with the control CD sit
+beside a turntable. See
 [The record of each turntable](/docs/dvs/setup/#the-record-of-each-turntable).
 
-The usable part of each medium, at 33 rpm, before the needle reaches the end of the
+The usable part of each Serato medium, at 33 rpm, before the needle reaches the end of the
 timecode:
 
 | Medium | Usable length at 33 rpm |
@@ -64,8 +75,8 @@ The modes are explained in [Absolute and relative modes](/docs/dvs/modes/).
 **Turntables or CD players.** Any turntable with a cartridge in good shape, or a CD player
 for the control CD.
 
-**Timecode records or CDs.** Serato Control Vinyl (CV02, side A or B), or the Serato
-Control CD, whichever on each turntable.
+**Timecode records or CDs.** Any of the records and CDs above, whichever on each turntable.
+Serato's are the only ones tried on real records.
 
 **A sound card with a stereo input for each turntable.** Each turntable takes a pair of
 input channels: inputs 1-2 for deck A, 3-4 for deck B. A card with four input channels
