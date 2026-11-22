@@ -9016,5 +9016,11 @@
   "group": "General",
   "label": "Settings",
   "kind": "button"
+ },
+ {
+  "id": "general.close",
+  "group": "General",
+  "label": "Close what is open (Escape)",
+  "kind": "button"
  }
 ]

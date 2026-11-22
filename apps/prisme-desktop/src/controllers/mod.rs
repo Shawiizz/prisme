@@ -833,6 +833,22 @@ mod tests {
     }
 
     #[test]
+    fn a_shift_let_go_alone_presses_its_action_alone() {
+        let shift = Control::note(0, 37);
+        let c = with_mappings([
+            with(mapping(shift, "shift.erase"), |b| b.alone = Some("general.close".into())),
+            with(mapping(PAD, "deck1.hotcue1.delete"), |b| b.shift = Shift::Named("erase".into())),
+        ]);
+        assert_eq!(route(&c, &[0x90, 37, 127]), None);
+        assert_eq!(route(&c, &[0x90, 37, 0]), inputs_of(&[("general.close", 1.0), ("general.close", 0.0)]));
+        // a pad pressed under it: its second use alone
+        route(&c, &[0x90, 37, 127]);
+        assert_eq!(route(&c, &[0x90, 36, 127]), input("deck1.hotcue1.delete", 1.0));
+        assert_eq!(route(&c, &[0x90, 36, 0]), input("deck1.hotcue1.delete", 0.0));
+        assert_eq!(route(&c, &[0x90, 37, 0]), None);
+    }
+
+    #[test]
     fn a_key_pressed_twice_drives_its_double() {
         let double = Hold { ms: 300, target: "deck1.slip".into() };
         let c = with_mappings([with(mapping(PAD, "deck1.sync"), |b| b.double = Some(double))]);
@@ -958,7 +974,17 @@ mod tests {
         let ids = listed.iter().map(String::as_str).chain(measured);
         let told: Vec<&str> =
             ids.filter(|&id| matches!(Action::of(&id.into(), 1.0, false, None), Action::Ui(..))).collect();
-        assert_eq!(told, ["shift", "library.search", "general.help", "general.palette", "general.settings"]);
+        assert_eq!(
+            told,
+            [
+                "shift",
+                "library.search",
+                "general.help",
+                "general.palette",
+                "general.settings",
+                "general.close"
+            ]
+        );
     }
 
     #[test]

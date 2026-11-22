@@ -10,7 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// The version of the profile format, raised when profiles may use what an older Prisme does
 /// not read: a profile published after it was raised is left to the Prisme that reads it.
-pub const PROFILE_FORMAT: u32 = 3;
+pub const PROFILE_FORMAT: u32 = 4;
 
 /// Steps in a turn of a jog wheel whose model does not tell. Most controllers send
 /// hundreds; the number only scales scratches and nudges.
@@ -484,11 +484,18 @@ impl Profile {
         lights.chain(meters).chain(self.outputs.iter().map(|o| o.control))
     }
 
-    /// What does not hold together in it, that its reading cannot tell: a MIDI control in a
-    /// HID profile or the other way round, a HID light beyond its output reports, an input report
-    /// asked that no control reads, a report sent at the wrong length.
+    /// What does not hold together in it, that its reading cannot tell: an action alone of a
+    /// control that is no shift key, a MIDI control in a HID profile or the other way round, a
+    /// HID light beyond its output reports, an input report asked that no control reads, a report
+    /// sent at the wrong length.
     pub fn problems(&self) -> Vec<String> {
-        let mut problems = Vec::new();
+        let shift = |c: &ProfileControl| matches!(c.target.target(), Some(Target::Shift(_)));
+        let mut problems: Vec<String> = self
+            .controls
+            .iter()
+            .filter(|c| c.alone.is_some() && !shift(c))
+            .map(|c| format!("{} has an action alone, though it is no shift", c.control))
+            .collect();
         let Some(device) = &self.hid else {
             if self.inputs().chain(self.shown_on()).any(|c| matches!(c, Control::Hid(_))) {
                 problems.push("a HID control in a profile of no HID device".to_owned());
@@ -651,6 +658,27 @@ mod tests {
         p.hid = None;
         assert_eq!(p.problems(), ["a HID control in a profile of no HID device"]);
         assert_eq!(p.hid_inputs().len(), 1);
+    }
+
+    #[test]
+    fn only_a_shift_key_has_an_action_alone_and_a_control_may_be_named() {
+        let mut p: Profile = serde_json::from_str(
+            r#"{
+                "name": "Behringer CMD DV-1",
+                "ports": ["CMD DV-1"],
+                "controls": [
+                    { "control": { "kind": "note", "channel": 6, "number": 85 }, "target": "shift.erase", "name": "ERASE", "alone": "general.close" },
+                    { "control": { "kind": "note", "channel": 6, "number": 86 }, "target": "library.load1", "name": "STORE" }
+                ]
+            }"#,
+        )
+        .unwrap();
+        assert_eq!(p.problems(), Vec::<String>::new());
+        assert_eq!(p.controls[1].name.as_deref(), Some("STORE"));
+        p.controls[1].alone = Some("general.close".into());
+        assert_eq!(p.problems(), ["note 86, channel 7 has an action alone, though it is no shift"]);
+        let json = serde_json::to_string(&p).unwrap();
+        assert_eq!(serde_json::from_str::<Profile>(&json).unwrap(), p);
     }
 
     #[test]

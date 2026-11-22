@@ -64,6 +64,7 @@ One JSON file per model:
 | --- | --- |
 | `control` | `kind` (`note`, `controlChange`, `pitchBend`), `channel` 0-15, `number`; or `kind` `hid` and a field of a report (see HID controllers). |
 | `target` | The action it drives (see Targets). |
+| `name` | What the control is called on the controller, as printed there (`"STORE"`): the interface names it so, in the question a key of it answers. |
 | `encoding` | For encoders: `relative` (two's complement), `relativeOffset` (around 64), `relativeOffsetNoZero` (around 64 with no zero: 65 one step right, 64 one left), `relativeSigned` (a sign bit), `relativeZero` (0 one step right, 127 one left), `absoluteWrap` (a position wrapping around, a jog's angle: its changes are the steps). An encoder may drive a fader's action: its steps move the setting. A HID field's values are read the same over its own bits (a counter of 4 bits wraps at 16). |
 | `scale` | An encoder's steps multiplied by this; below 1 they add up to whole steps (`0.1`: a track browsed every ten steps). |
 | `step` | How far a step of an encoder moves a fader's action, a share of its travel (1/64 when left out). |
@@ -77,6 +78,7 @@ One JSON file per model:
 | `hold` | `ms`, `target`: another action (or mode) for the key held that long; let go sooner, its own (a mode key chooses its mode as it is let go). |
 | `double` | `ms`, `target`: another action for the key pressed twice within `ms`. |
 | `chord` | `with` (a control), `target`: another action for the key pressed while `with` is held. |
+| `alone` | Of a shift key: another action for it pressed and let go alone, no other control of the controller moved meanwhile (`"general.close"`: ERASE tapped closes what is open). |
 | `set` | A key putting a fader's action at a position (`0.5`), or at each of two in turn (`[0, 1]`, lit at the second). |
 | `latch` | A key driving an action while held, latched: a press holds it, the next lets it go. |
 | `light` | Its values by state (see Lights). |

@@ -51,6 +51,8 @@ pub fn profile_schema(targets: &[ListedTarget]) -> Value {
     }
     let also = &mut defs["ProfileControl"]["properties"]["also"]["items"];
     *also = target(also);
+    let alone = &mut defs["ProfileControl"]["properties"]["alone"];
+    *alone = target(alone);
     defs["Meter"]["properties"]["source"]["enum"] =
         json!(["deck1", "deck2", "deck3", "deck4", "main", "main.left", "main.right"]);
     schema
@@ -95,6 +97,8 @@ mod tests {
         let control = &schema["$defs"]["ProfileControl"]["properties"];
         assert_eq!(control["target"]["$ref"], "#/$defs/Target");
         assert_eq!(control["also"]["items"]["$ref"], "#/$defs/Target");
+        assert_eq!(control["alone"]["$ref"], "#/$defs/Target");
+        assert!(control["alone"]["description"].as_str().is_some_and(|d| d.contains("shift")));
         assert!(schema["properties"]["controls"].is_object());
     }
 

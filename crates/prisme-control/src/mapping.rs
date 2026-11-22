@@ -200,6 +200,10 @@ impl Encoding {
 pub struct ProfileControl {
     pub control: Control,
     pub target: TargetId,
+    /// What the control is called on the controller, as printed there (`"STORE"`): the
+    /// interface names it so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
     #[serde(default, skip_serializing_if = "is_absolute")]
     pub encoding: Encoding,
     /// The controller sending the low 7 bits of a 14-bit control (its high 7 bits on
@@ -235,6 +239,10 @@ pub struct ProfileControl {
     /// Another action for the key pressed while another is held.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chord: Option<Chord>,
+    /// Another action for a shift key pressed and let go alone, no other control of its
+    /// controller moved meanwhile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alone: Option<TargetId>,
     /// An encoder driving a key's action: a step to the right presses `target`, a step to the
     /// left this one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -282,6 +290,7 @@ impl Default for ProfileControl {
         Self {
             control: Control::default(),
             target: TargetId::default(),
+            name: None,
             encoding: Encoding::Absolute,
             fine: None,
             shift: Shift::None,
@@ -293,6 +302,7 @@ impl Default for ProfileControl {
             hold: None,
             double: None,
             chord: None,
+            alone: None,
             down: None,
             scale: 1.0,
             step: None,
@@ -884,6 +894,52 @@ mod tests {
         read(&mut reader, &mappings, &[0x90, 1, 0]);
         read(&mut reader, &mappings, &[0x90, 63, 127]);
         assert_eq!(read(&mut reader, &mappings, &[0x90, 36, 127]).unwrap().0, "deck1.hotcue1.delete");
+    }
+
+    #[test]
+    fn a_shift_let_go_alone_drives_its_action_alone() {
+        let mut mappings = Mappings::default();
+        let close = |b: &mut ProfileControl| b.alone = Some("general.close".into());
+        mappings.learn(with(mapping("DDJ", SHIFT_KEY, "shift.erase"), close));
+        mappings.learn(mapping("DDJ", PAD, "deck1.hotcue1"));
+        mappings.learn(with(mapping("DDJ", PAD, "deck1.hotcue1.delete"), |b| {
+            b.shift = Shift::Named("erase".into())
+        }));
+        mappings.learn(mapping("DDJ", KNOB, "deck1.volume"));
+        let mut reader = Reader::default();
+        let mut read = |bytes: &[u8]| {
+            let event = parse(bytes).unwrap();
+            reader.read(&mappings, "DDJ", event).map(|(m, v)| (m.target.to_string(), m.alone.clone(), v))
+        };
+        assert_eq!(read(&[0x90, 63, 127]), None, "held, it shifts");
+        let alone = Some(("shift.erase".to_owned(), Some("general.close".into()), 0.0));
+        assert_eq!(read(&[0x90, 63, 0]), alone, "let go alone");
+
+        // a pad pressed under it: its second use, and the shift let go is no more alone
+        read(&[0x90, 63, 127]);
+        assert_eq!(read(&[0x90, 36, 127]).unwrap().0, "deck1.hotcue1.delete");
+        assert_eq!(read(&[0x90, 36, 0]).unwrap().0, "deck1.hotcue1.delete");
+        assert_eq!(read(&[0x90, 63, 0]), None);
+        // a knob turned meanwhile, as much
+        read(&[0x90, 63, 127]);
+        assert_eq!(read(&[0xb0, 20, 64]).unwrap().0, "deck1.volume");
+        assert_eq!(read(&[0x90, 63, 0]), None);
+        // nor a pad held from before, let go meanwhile
+        read(&[0x90, 36, 127]);
+        read(&[0x90, 63, 127]);
+        assert_eq!(read(&[0x90, 36, 0]).unwrap().0, "deck1.hotcue1");
+        assert_eq!(read(&[0x90, 63, 0]), None);
+        assert_eq!(read(&[0x90, 63, 127]), None);
+        assert_eq!(read(&[0x90, 63, 0]), alone, "alone again");
+    }
+
+    #[test]
+    fn a_shift_without_an_action_alone_does_nothing_let_go() {
+        let mut mappings = Mappings::default();
+        mappings.learn(mapping("DDJ", SHIFT_KEY, SHIFT));
+        let mut reader = Reader::default();
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 63, 127]), None);
+        assert_eq!(read(&mut reader, &mappings, &[0x90, 63, 0]), None);
     }
 
     #[test]

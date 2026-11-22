@@ -10,19 +10,24 @@ import {
 import { closedByBack } from '../core/back';
 import { PHONE } from '../core/platform';
 
-/** What is open over the page, the last opened on top: Escape closes the top one only. */
+/** What is open over the page, the last opened on top: Escape closes the top one only, as a
+ * controller's key does (`general.close`). */
 @Injectable({ providedIn: 'root' })
 export class OverlayService {
   private readonly open: { close: () => void }[] = [];
 
   constructor() {
     document.addEventListener('keydown', (event) => {
-      const top = this.open.at(-1);
-      if (event.key !== 'Escape' || !top) return;
+      if (event.key !== 'Escape' || !this.open.length) return;
       // the key is the overlay's: not a shortcut of the page under it
       event.stopPropagation();
-      top.close();
+      this.closeTop();
     });
+  }
+
+  /** Closes what is open on top, if anything is. */
+  closeTop() {
+    this.open.at(-1)?.close();
   }
 
   opened(close: () => void): () => void {

@@ -762,6 +762,10 @@
     "ProfileControl": {
       "description": "A control and the action it drives, and how: a control of a profile, or one learnt.",
       "properties": {
+        "alone": {
+          "$ref": "#/$defs/Target",
+          "description": "Another action for a shift key pressed and let go alone, no other control of its\ncontroller moved meanwhile."
+        },
         "also": {
           "description": "Other actions it drives along with its own.",
           "items": {
@@ -840,6 +844,13 @@
         "light": {
           "$ref": "#/$defs/LightValues",
           "description": "What its light shows in each state of its action, when it is not 127 and 0."
+        },
+        "name": {
+          "description": "What the control is called on the controller, as printed there (`\"STORE\"`): the\ninterface names it so.",
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "onValue": {
           "description": "Drives its action, as a key pressed, when the control sends this value (a switch in\none of its positions).",
@@ -2471,7 +2482,8 @@
             "general.tempoRange.previous",
             "general.help",
             "general.palette",
-            "general.settings"
+            "general.settings",
+            "general.close"
           ],
           "enumDescriptions": [
             "Deck A: Play / pause (button)",
@@ -3976,7 +3988,8 @@
             "General: Range of every tempo fader: previous (button)",
             "General: Keyboard shortcuts (button)",
             "General: Command palette (button)",
-            "General: Settings (button)"
+            "General: Settings (button)",
+            "General: Close what is open (Escape) (button)"
           ]
         },
         {

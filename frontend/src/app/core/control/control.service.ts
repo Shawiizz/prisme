@@ -4,6 +4,7 @@ import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { labelText } from '../i18n/i18n';
+import { OverlayService } from '../../shared/overlay';
 import { Control } from './controls';
 import type { Target } from '../models/backend';
 
@@ -32,6 +33,7 @@ export class ControlService {
   private readonly engine = inject(EngineService);
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
+  private readonly overlays = inject(OverlayService);
 
   /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
@@ -42,6 +44,7 @@ export class ControlService {
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
+    'general.close': pressed(() => this.overlays.closeTop()),
   };
 
   private readonly targets = signal<Target[]>([]);

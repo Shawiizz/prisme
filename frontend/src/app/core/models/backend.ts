@@ -377,6 +377,11 @@ export type ControllerMapping = {
   device: string;
   control: PhysicalControl;
   target: string;
+  /**
+   * What the control is called on the controller, as printed there (`"STORE"`): the
+   * interface names it so.
+   */
+  name?: string | null;
   encoding?: Encoding;
   /**
    * The controller sending the low 7 bits of a 14-bit control (its high 7 bits on
@@ -421,6 +426,11 @@ export type ControllerMapping = {
    * Another action for the key pressed while another is held.
    */
   chord?: Chord | null;
+  /**
+   * Another action for a shift key pressed and let go alone, no other control of its
+   * controller moved meanwhile.
+   */
+  alone?: string | null;
   /**
    * An encoder driving a key's action: a step to the right presses `target`, a step to the
    * left this one.

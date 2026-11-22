@@ -437,7 +437,8 @@ impl Performing<'_> {
             GeneralAction::Quantize(_)
             | GeneralAction::Help
             | GeneralAction::Palette
-            | GeneralAction::Settings => Err(AppError::NotPerformed(Target::General(action).to_string())),
+            | GeneralAction::Settings
+            | GeneralAction::Close => Err(AppError::NotPerformed(Target::General(action).to_string())),
         }
     }
 }

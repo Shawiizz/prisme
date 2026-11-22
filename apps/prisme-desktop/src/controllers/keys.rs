@@ -11,7 +11,7 @@ use crate::state::lock;
 use prisme_actions::hold::{Pressed, Release, Timing};
 use prisme_actions::input::Input;
 use prisme_control::hid::Read;
-use prisme_control::{Control, Event, FaderSet, Hold, Mapping, Owner, Reader, TargetId};
+use prisme_control::{Control, Event, FaderSet, Hold, Mapping, Owner, Reader, Target, TargetId};
 use std::time::{Duration, Instant};
 
 /// An action of a key held, and when on its controller's clock.
@@ -112,6 +112,10 @@ impl Controllers {
         let mut reader = lock(&self.reader);
         let mappings = lock(&self.mappings);
         let (mapping, value) = reader.read(&mappings, device, event)?;
+        if let (Some(Target::Shift(_)), Some(alone)) = (mapping.target.target(), &mapping.alone) {
+            // a shift let go alone
+            return driven(vec![Action::press(alone, 1.0), Action::press(alone, 0.0)]);
+        }
         if mapping.target.mode().is_some() {
             return match &mapping.hold {
                 Some(hold) => self.hold(device, event, at_s, mapping, hold, &mut reader),

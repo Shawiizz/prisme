@@ -35,6 +35,9 @@ pub struct Reader {
 struct DeviceReader {
     coarse: HashMap<Control, u16>,
     shifts: Shifts,
+    /// The shift key held with an action for being let go alone, while no other control moved
+    /// since it was pressed.
+    alone: Option<Control>,
     modes: Modes,
     /// The modes its groups begin in.
     first_modes: Modes,
@@ -69,7 +72,8 @@ impl Reader {
     /// The action an event of `device` drives and its value; `None` when it drives none, is
     /// a shift or is the first half of a 14-bit value. Shift and the modes are read here: a
     /// mode key's mode is chosen before it is given, but for one waiting to know whether it is
-    /// held ([`Reader::choose`]).
+    /// held ([`Reader::choose`]). A shift key with an action alone (`alone`) let go with no
+    /// other control moved since it was pressed is given, at 0, for that action.
     pub fn read<'m>(
         &mut self,
         mappings: &'m Mappings,
@@ -77,6 +81,9 @@ impl Reader {
         event: Event,
     ) -> Option<(&'m Mapping, f32)> {
         let reader = self.device(device);
+        if reader.alone.is_some_and(|shift| shift != event.control) {
+            reader.alone = None;
+        }
         let key = event.control.is_key();
         let released = key && event.raw == 0;
         let layer = released.then(|| reader.pressed.remove(&event.control)).flatten();
@@ -97,7 +104,11 @@ impl Reader {
             if changed {
                 reader.layer_changes = reader.layer_changes.wrapping_add(1);
             }
-            return None;
+            if held {
+                reader.alone = mapping.alone.is_some().then_some(event.control);
+                return None;
+            }
+            return (reader.alone.take() == Some(event.control)).then_some((mapping, 0.0));
         }
         if let Some((group, mode)) = mapping.target.mode() {
             if mapping.hold.is_none() {

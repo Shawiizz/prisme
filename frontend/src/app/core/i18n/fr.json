@@ -486,6 +486,7 @@
   "{n} bits": "{n} bits",
   "Results": "Résultats",
   "Command palette": "Palette de commandes",
+  "Close what is open (Escape)": "Fermer ce qui est ouvert (Échap)",
   "Search actions, tracks, settings…": "Chercher une action, un morceau, un réglage…",
   "Nothing matches “{q}”": "Rien ne correspond à « {q} »",
   "to move": "pour se déplacer",

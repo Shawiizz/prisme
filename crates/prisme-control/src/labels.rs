@@ -61,6 +61,7 @@ fn general_label(action: GeneralAction) -> Label {
         GeneralAction::Help => Label::new("Keyboard shortcuts"),
         GeneralAction::Palette => Label::new("Command palette"),
         GeneralAction::Settings => Label::new("Settings"),
+        GeneralAction::Close => Label::new("Close what is open (Escape)"),
         GeneralAction::Quantize(turn) => switched(Label::new("Quantize"), turn),
     }
 }

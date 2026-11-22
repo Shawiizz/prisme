@@ -5,7 +5,7 @@
 //! what the controllers are sent back, their lights and values, read where they would be
 //! written.
 
-use super::{ControllerSetup, Controllers, JogSteps, Link};
+use super::{ControllerSetup, Controllers, JogSteps, Link, UI_ACTION_EVENT};
 use crate::actions::bench::{track, Bench, TRACK_S};
 use crate::actions::{Source, DONE_EVENT, FAILED_EVENT};
 use crate::controller_hid::{self, simulated};
@@ -14,6 +14,7 @@ use prisme_actions::input::Input;
 use prisme_control::hid::{self, HidInfo};
 use prisme_control::StemPart;
 use prisme_session::JsonFile;
+use serde_json::json;
 use std::collections::BTreeMap;
 use std::sync::mpsc::{self, Receiver};
 use std::sync::Arc;
@@ -223,6 +224,71 @@ fn a_stem_cannot_move_until_the_track_is_separated_its_ring_and_its_key_dark_mea
     dv1.send(&[VOCALS[0], VOCALS[1], 63]);
     assert!((vocals().0 - 0.96).abs() < 1e-6, "{:?}", vocals());
     assert_eq!(dv1.shown(VOCALS), Some(14));
+}
+
+/// The DV-1's keys of deck A at first (channel 7): STORE loads on it, ERASE is a shift that
+/// closes what is open let go alone, and under it the first hot cue's pad deletes it.
+const STORE: u8 = 86;
+const ERASE: u8 = 85;
+const DV1_PLAY: u8 = 36;
+const DV1_HOT_CUE_1: u8 = 92;
+
+impl Midi {
+    /// The key of `note` on channel 7 pressed, or let go.
+    fn key(&self, note: u8, down: bool) {
+        self.send(&[if down { 0x96 } else { 0x86 }, note, if down { 0x7f } else { 0 }]);
+    }
+
+    fn press_on_7(&self, note: u8) {
+        self.key(note, true);
+        self.key(note, false);
+    }
+}
+
+#[test]
+fn a_question_is_asked_again_by_its_key_and_closed_by_a_shift_let_go_alone() {
+    let dv1 = Midi::plugged(DV1);
+    let bench = &dv1.bench;
+    let track = track("dv1");
+    bench.select(&track.0);
+    dv1.press_on_7(STORE);
+    let loaded = load_id(bench).expect("loaded on deck A");
+    dv1.press_on_7(DV1_PLAY);
+    assert!(playing(bench));
+    bench.told();
+
+    // STORE on the deck that plays asks; pressed again, it asks the same, which the interface
+    // takes for yes
+    dv1.press_on_7(STORE);
+    dv1.press_on_7(STORE);
+    let asked = bench.told();
+    assert_eq!(asked.len(), 2, "{asked:?}");
+    assert_eq!(asked[0], asked[1]);
+    let (event, question) = &asked[0];
+    assert_eq!(event, FAILED_EVENT);
+    assert_eq!(question["code"], "confirmReplace");
+    assert_eq!(question["params"]["target"], "library.load1");
+    assert_eq!(load_id(bench), Some(loaded), "nothing loaded until the DJ says yes");
+
+    // ERASE let go alone: what is open closes, the question answered no
+    dv1.press_on_7(ERASE);
+    let close =
+        |value: f32| (UI_ACTION_EVENT.to_owned(), json!({ "target": "general.close", "value": value }));
+    assert_eq!(bench.told(), [close(1.0), close(0.0)]);
+
+    // ERASE held over a pad: the hot cue deleted, nothing closed; PLAY between plays on
+    dv1.press_on_7(DV1_HOT_CUE_1);
+    let cues = || bench.state.with_track(0, |t| t.cues.len()).unwrap();
+    assert_eq!(cues(), 1, "set");
+    dv1.key(ERASE, true);
+    dv1.press_on_7(DV1_HOT_CUE_1);
+    dv1.key(ERASE, false);
+    assert_eq!(cues(), 0, "deleted");
+    assert_eq!(told(bench), Vec::<String>::new());
+    dv1.key(ERASE, true);
+    dv1.key(ERASE, false);
+    assert_eq!(bench.told(), [close(1.0), close(0.0)], "alone again");
+    assert!(playing(bench));
 }
 
 /// A Traktor Kontrol S4 MK2, simulated: its reports read by the thread a real one is read by.

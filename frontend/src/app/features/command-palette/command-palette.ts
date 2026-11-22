@@ -36,6 +36,10 @@ interface Item {
   run(): void;
 }
 
+/** The actions not offered: the palette's own, a controller's shift (it does nothing alone), and
+ * closing what is open (the palette itself, on top). */
+const NOT_OFFERED = ['general.palette', 'shift', 'general.close'];
+
 const SECTIONS: { id: Section; label: Text; limit: number }[] = [
   {
     id: 'actions',
@@ -104,8 +108,7 @@ export class CommandPalette {
   private readonly everything = computed<Item[]>(() => [
     ...this.controls
       .inUse()
-      // a controller's shift does nothing alone
-      .filter((c) => c.kind === 'button' && c.id !== 'general.palette' && c.id !== 'shift')
+      .filter((c) => c.kind === 'button' && !NOT_OFFERED.includes(c.id))
       .map((c) => ({
         section: 'actions' as const,
         title: c.label,

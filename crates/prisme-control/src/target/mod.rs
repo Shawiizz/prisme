@@ -395,7 +395,8 @@ actions! {
     GeneralAction {
         Button: Library = "general.library", Record = "general.record",
             TempoRange = "general.tempoRange", TempoRangePrevious = "general.tempoRange.previous",
-            Help = "general.help", Palette = "general.palette", Settings = "general.settings";
+            Help = "general.help", Palette = "general.palette", Settings = "general.settings",
+            Close = "general.close";
     }
     {
         Quantize(Turn),
@@ -450,14 +451,14 @@ impl Target {
     }
 
     /// Where it is performed: in the application's core, but the focus of the library's search
-    /// and the application's windows, which the interface keeps, and a controller's shifts and
-    /// modes, which its reader keeps.
+    /// and the application's windows (opened, or the one on top closed), which the interface
+    /// keeps, and a controller's shifts and modes, which its reader keeps.
     pub fn owner(&self) -> Owner {
         match self {
             Target::Library(LibraryAction::Search)
-            | Target::General(GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings) => {
-                Owner::Interface
-            }
+            | Target::General(
+                GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings | GeneralAction::Close,
+            ) => Owner::Interface,
             Target::Shift(_) | Target::Mode { .. } => Owner::Reader,
             _ => Owner::Rust,
         }
@@ -614,7 +615,8 @@ mod tests {
     fn the_interface_performs_its_windows_and_the_focus_of_its_search_and_nothing_else() {
         let ui: BTreeSet<String> =
             Target::all().iter().filter(|t| t.owner() == Owner::Interface).map(Target::to_string).collect();
-        let windows = ["library.search", "general.help", "general.palette", "general.settings"];
+        let windows =
+            ["library.search", "general.help", "general.palette", "general.settings", "general.close"];
         assert_eq!("shift".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         assert_eq!("mode.pads.roll".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).collect();
