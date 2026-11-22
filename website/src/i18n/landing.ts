@@ -8,7 +8,7 @@ const en = {
 	},
 	nav: { features: 'Features', docs: 'Docs', download: 'Download' },
 	hero: {
-		badge: 'Free and open source · Windows · macOS · Linux · Android',
+		badge: 'Alpha · Free and open source · Windows · macOS · Linux · Android',
 		title: ['DJ software that', 'plays your way.'],
 		lead: 'Plug in a controller, put on your timecode records or just open your laptop: mix on two decks or four, and split any track into vocals, drums, bass and melody, on your computer or your phone.',
 		download: 'Download',
@@ -98,7 +98,7 @@ const en = {
 	},
 	dl: {
 		title: 'Get Prisme',
-		body: 'Free, for good. Installed copies update themselves.',
+		body: 'Free, for good. Still in alpha: expect bugs, and tell us about them. Installed copies update themselves.',
 		windows: 'Windows 10 and 11',
 		macos: 'macOS 13.3 or later',
 		linux: 'Debian, Ubuntu, any distribution',
@@ -129,7 +129,7 @@ const fr: typeof en = {
 	},
 	nav: { features: 'Fonctions', docs: 'Documentation', download: 'Télécharger' },
 	hero: {
-		badge: 'Libre et gratuit · Windows · macOS · Linux · Android',
+		badge: 'Alpha · Libre et gratuit · Windows · macOS · Linux · Android',
 		title: ['Le logiciel de DJ', 'qui joue à votre façon.'],
 		lead: 'Branchez un contrôleur, posez vos disques timecode ou ouvrez simplement votre ordinateur : mixez sur deux decks ou quatre, et séparez n’importe quel morceau en voix, batterie, basse et mélodie, sur ordinateur comme sur téléphone.',
 		download: 'Télécharger',
@@ -219,7 +219,7 @@ const fr: typeof en = {
 	},
 	dl: {
 		title: 'Installer Prisme',
-		body: 'Gratuit, pour de bon. Les copies installées se mettent à jour toutes seules.',
+		body: 'Gratuit, pour de bon. Encore en alpha : attendez-vous à des bugs, et signalez-les. Les copies installées se mettent à jour toutes seules.',
 		windows: 'Windows 10 et 11',
 		macos: 'macOS 13.3 ou plus récent',
 		linux: 'Debian, Ubuntu, toute distribution',
