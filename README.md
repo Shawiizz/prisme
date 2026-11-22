@@ -15,6 +15,10 @@
   <a href="https://github.com/Shawiizz/prisme/issues">Report a problem</a>
 </p>
 
+> [!WARNING]
+> Prisme is in alpha: expect bugs, and keep another DJ software at hand for a set that matters.
+> Each problem [reported](https://github.com/Shawiizz/prisme/issues) helps.
+
 <p align="center">
   <img src="docs/screenshots/decks.png" alt="Two decks playing in sync, the stems of deck A split into four knobs, the library below">
 </p>

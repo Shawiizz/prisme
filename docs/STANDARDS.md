@@ -14,6 +14,10 @@ habitude ; une exception se discute, puis s'écrit ici.
     écrite autrement (base, réglages, profils).
   - `1.0.0` : quand Prisme tient un set entier sur scène, sur les trois systèmes et Android,
     sans correction pressante en attente. À partir de là, `MAJEUR` pour ce qui casse.
+- **Alpha** tant que Prisme n'a pas tenu de vrais sets sans correction pressante : dit par le
+  README, le site et le titre des versions (`Prisme X.Y.Z (alpha)`), pas par le numéro. Un
+  suffixe `-alpha` ferait des versions des pré-versions GitHub, que `releases/latest`, dont
+  les mises à jour dépendent, ne donne pas.
 - **Une version publiée ne change jamais.** Une erreur dans une version se corrige par la
   suivante, pas en remplaçant ses fichiers.
 
@@ -21,7 +25,7 @@ habitude ; une exception se discute, puis s'écrit ici.
 
 | Ce qui est publié | Tag | Titre | Statut |
 | --- | --- | --- | --- |
-| L'application | `X.Y.Z` | `Prisme X.Y.Z` | brouillon, puis publiée, « Latest » |
+| L'application | `X.Y.Z` | `Prisme X.Y.Z (alpha)` | brouillon, puis publiée, « Latest » |
 | Un modèle de séparation | `model-<id>-<n>` | `Separation model: <nom> (<n>)` | pré-version, jamais « Latest » |
 
 - Pas de préfixe `v`. Plus de tag `mobile-…` (une version unique pour tous les systèmes).
