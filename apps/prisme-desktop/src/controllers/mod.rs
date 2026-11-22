@@ -1046,6 +1046,16 @@ mod tests {
     }
 
     #[test]
+    fn a_key_lit_while_held_stays_dark_let_go_whatever_its_action_shows() {
+        let c = with_mappings([with(mapping(PAD, "library.load1"), lit(PRESSED, 1))]);
+        let mut loaded = view();
+        loaded.status.decks[0].loaded = true;
+        assert_eq!(c.lights_of("DDJ", &loaded), [(PAD, LightValue::Steady(0))], "a track on the deck");
+        route(&c, &[0x90, 36, 127]);
+        assert_eq!(c.lights_of("DDJ", &loaded), [(PAD, LightValue::Steady(1))]);
+    }
+
+    #[test]
     fn a_mapping_to_play_lights_while_its_deck_plays() {
         let c = with_mappings([with(mapping(PAD, "deck1.play"), lit(ON, 10))]);
         let mut playing = view();
