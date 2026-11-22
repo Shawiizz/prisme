@@ -72,6 +72,9 @@ pub struct TimecodeDecoder {
     format: &'static TimecodeFormat,
     sample_rate: f64,
     primary_is_left: bool,
+    /// -1 for the records whose bits ride the primary's positive lobes: turned over, they read
+    /// as the others.
+    polarity: f64,
     stop_decay: f64,
 
     conditioner: Conditioner,
@@ -103,6 +106,7 @@ impl TimecodeDecoder {
             format,
             sample_rate,
             primary_is_left,
+            polarity: if format.bits_on_positive { -1.0 } else { 1.0 },
             stop_decay: (-1.0 / (STOP_TAU_S * sample_rate)).exp(),
             conditioner: Conditioner::new(sample_rate),
             level: LevelMonitor::new(sample_rate),
@@ -128,7 +132,7 @@ impl TimecodeDecoder {
     /// Feeds interleaved stereo samples (left, right), full scale = 1.0.
     pub fn process(&mut self, stereo: &[f32]) {
         for frame in stereo.chunks_exact(2) {
-            let (left, right) = (frame[0] as f64, frame[1] as f64);
+            let (left, right) = (frame[0] as f64 * self.polarity, frame[1] as f64 * self.polarity);
             if self.primary_is_left {
                 self.process_frame(left, right);
             } else {

@@ -2253,6 +2253,10 @@ export type TimecodeFormat = {
   record: string;
   side: string | null;
   leadInS: number;
+  /**
+   * Read on the record itself, not only on signals made from its description.
+   */
+  verified: boolean;
 };
 
 /**

@@ -45,6 +45,12 @@ pub struct TimecodeFormat {
     pub primary: Channel,
     /// Sign of the carrier phase rotation (atan2(primary, secondary)) for forward play.
     pub phase_sign: f64,
+    /// The bits ride the positive lobes of the primary, not the negative ones as on Serato's
+    /// records.
+    pub bits_on_positive: bool,
+    /// Read on the record itself. The others are read as xwax describes them, on signals made
+    /// from that description.
+    pub verified: bool,
 }
 
 /// Serato Control Vinyl, 2nd edition, side A.
@@ -62,6 +68,8 @@ pub const SERATO_CV02_A: TimecodeFormat = TimecodeFormat {
     lead_in_s: 28.0,
     primary: Channel::Right,
     phase_sign: -1.0,
+    bits_on_positive: false,
+    verified: true,
 };
 
 /// Serato Control Vinyl, 2nd edition, side B.
@@ -79,6 +87,8 @@ pub const SERATO_CV02_B: TimecodeFormat = TimecodeFormat {
     lead_in_s: 28.0,
     primary: Channel::Right,
     phase_sign: -1.0,
+    bits_on_positive: false,
+    verified: true,
 };
 
 /// Serato control CD.
@@ -96,11 +106,177 @@ pub const SERATO_CD: TimecodeFormat = TimecodeFormat {
     lead_in_s: 0.0,
     primary: Channel::Right,
     phase_sign: -1.0,
+    bits_on_positive: false,
+    verified: true,
+};
+
+/// Traktor Scratch control vinyl MK1, side A (xwax's description, Mixxx's lead-in).
+pub const TRAKTOR_MK1_A: TimecodeFormat = TimecodeFormat {
+    id: "traktor_mk1_a",
+    maker: "Native Instruments",
+    record: "Traktor Scratch MK1",
+    side: Some("A"),
+    bits: 23,
+    seed: 0x134503,
+    taps: 0x041040,
+    length: 1_500_000,
+    safe: 605_000,
+    resolution: 2000.0,
+    lead_in_s: 10.0,
+    primary: Channel::Left,
+    phase_sign: 1.0,
+    bits_on_positive: true,
+    verified: false,
+};
+
+/// Traktor Scratch control vinyl MK1, side B (xwax's description, Mixxx's lead-in).
+pub const TRAKTOR_MK1_B: TimecodeFormat = TimecodeFormat {
+    id: "traktor_mk1_b",
+    maker: "Native Instruments",
+    record: "Traktor Scratch MK1",
+    side: Some("B"),
+    bits: 23,
+    seed: 0x32066c,
+    taps: 0x041040,
+    length: 2_110_000,
+    safe: 907_000,
+    resolution: 2000.0,
+    lead_in_s: 10.0,
+    primary: Channel::Left,
+    phase_sign: 1.0,
+    bits_on_positive: true,
+    verified: false,
+};
+
+/// Pioneer DJ rekordbox DVS control vinyl, side A (xwax's description, Mixxx's lead-in).
+pub const PIONEER_A: TimecodeFormat = TimecodeFormat {
+    id: "pioneer_a",
+    maker: "Pioneer DJ",
+    record: "rekordbox DVS control vinyl",
+    side: Some("A"),
+    bits: 20,
+    seed: 0x78370,
+    taps: 0x7933a,
+    length: 635_000,
+    safe: 614_000,
+    resolution: 1000.0,
+    lead_in_s: 10.0,
+    primary: Channel::Right,
+    phase_sign: -1.0,
+    bits_on_positive: true,
+    verified: false,
+};
+
+/// Pioneer DJ rekordbox DVS control vinyl, side B (xwax's description, Mixxx's lead-in).
+pub const PIONEER_B: TimecodeFormat = TimecodeFormat {
+    id: "pioneer_b",
+    maker: "Pioneer DJ",
+    record: "rekordbox DVS control vinyl",
+    side: Some("B"),
+    bits: 20,
+    seed: 0xf7012,
+    taps: 0x2ef1c,
+    length: 918_500,
+    safe: 913_000,
+    resolution: 1000.0,
+    lead_in_s: 10.0,
+    primary: Channel::Right,
+    phase_sign: -1.0,
+    bits_on_positive: true,
+    verified: false,
+};
+
+/// MixVibes DVS control vinyl V2 (xwax's description, Mixxx's lead-in).
+pub const MIXVIBES_V2: TimecodeFormat = TimecodeFormat {
+    id: "mixvibes_v2",
+    maker: "MixVibes",
+    record: "Control vinyl V2",
+    side: None,
+    bits: 20,
+    seed: 0x22c90,
+    taps: 0x00008,
+    length: 950_000,
+    safe: 655_000,
+    resolution: 1300.0,
+    lead_in_s: 0.0,
+    primary: Channel::Right,
+    phase_sign: 1.0,
+    bits_on_positive: false,
+    verified: false,
+};
+
+/// MixVibes 7-inch control vinyl (xwax's description, Mixxx's lead-in).
+pub const MIXVIBES_7INCH: TimecodeFormat = TimecodeFormat {
+    id: "mixvibes_7inch",
+    maker: "MixVibes",
+    record: "Control vinyl 7\"",
+    side: None,
+    bits: 20,
+    seed: 0x22c90,
+    taps: 0x00008,
+    length: 312_000,
+    safe: 238_000,
+    resolution: 1300.0,
+    lead_in_s: 0.0,
+    primary: Channel::Right,
+    phase_sign: 1.0,
+    bits_on_positive: false,
+    verified: false,
+};
+
+/// Algoriddim djay control vinyl, side A (xwax's description, Mixxx's lead-in).
+pub const ALGORIDDIM_A: TimecodeFormat = TimecodeFormat {
+    id: "algoriddim_a",
+    maker: "Algoriddim",
+    record: "djay control vinyl",
+    side: Some("A"),
+    bits: 20,
+    seed: 0x1ba77,
+    taps: 0x1a0f1b,
+    length: 600_000,
+    safe: 590_000,
+    resolution: 1000.0,
+    lead_in_s: 0.0,
+    primary: Channel::Right,
+    phase_sign: -1.0,
+    bits_on_positive: false,
+    verified: false,
+};
+
+/// Algoriddim djay control vinyl, side B (xwax's description, Mixxx's lead-in).
+pub const ALGORIDDIM_B: TimecodeFormat = TimecodeFormat {
+    id: "algoriddim_b",
+    maker: "Algoriddim",
+    record: "djay control vinyl",
+    side: Some("B"),
+    bits: 20,
+    seed: 0xe4606,
+    taps: 0x1f1e7b,
+    length: 900_000,
+    safe: 890_000,
+    resolution: 1000.0,
+    lead_in_s: 0.0,
+    primary: Channel::Right,
+    phase_sign: -1.0,
+    bits_on_positive: false,
+    verified: false,
 };
 
 /// Every record Prisme reads, by maker, then record, then side: the settings offer them in
 /// this order. Another record is another entry here.
-pub const FORMATS: &[TimecodeFormat] = &[SERATO_CV02_A, SERATO_CV02_B, SERATO_CD];
+pub const FORMATS: &[TimecodeFormat] = &[
+    SERATO_CV02_A,
+    SERATO_CV02_B,
+    SERATO_CD,
+    TRAKTOR_MK1_A,
+    TRAKTOR_MK1_B,
+    PIONEER_A,
+    PIONEER_B,
+    MIXVIBES_V2,
+    MIXVIBES_7INCH,
+    ALGORIDDIM_A,
+    ALGORIDDIM_B,
+];
 
 impl TimecodeFormat {
     /// Finds a format by its identifier.
@@ -120,25 +296,24 @@ impl TimecodeFormat {
     }
 }
 
-/// Maps every register value of a format to its cycle index on the record.
-///
-/// This is a direct table (2^bits entries, 4 MB for 20 bits), built once per format and
-/// shared between decoders. Build it off the audio thread.
+/// Maps every register value of a format to its cycle index on the record: 8 bytes a cycle
+/// (7 MB for Serato's side B, 17 MB for Traktor's), built once per format and shared between
+/// decoders. Build it off the audio thread.
 pub struct SequenceTable {
-    lut: Vec<u32>,
+    /// Each register value in the high half, its cycle in the low half, sorted.
+    entries: Vec<u64>,
 }
-
-const NONE: u32 = u32::MAX;
 
 impl SequenceTable {
     fn build(format: &TimecodeFormat) -> Self {
-        let mut lut = vec![NONE; 1usize << format.bits];
+        let mut entries = Vec::with_capacity(format.length as usize);
         let mut state = format.seed;
         for index in 0..format.length {
-            lut[state as usize] = index;
+            entries.push(u64::from(state) << 32 | u64::from(index));
             state = format.next_state(state);
         }
-        Self { lut }
+        entries.sort_unstable();
+        Self { entries }
     }
 
     /// Returns the shared table for `format`, building it on first use.
@@ -151,10 +326,9 @@ impl SequenceTable {
 
     /// Cycle index of the register value whose newest bit is the most significant one.
     pub fn index_of(&self, state: u32) -> Option<u32> {
-        match self.lut.get(state as usize) {
-            Some(&i) if i != NONE => Some(i),
-            _ => None,
-        }
+        let state = u64::from(state);
+        let at = self.entries.partition_point(|&entry| entry >> 32 < state);
+        self.entries.get(at).filter(|&&entry| entry >> 32 == state).map(|&entry| entry as u32)
     }
 }
 
@@ -172,6 +346,16 @@ mod tests {
             state = f.next_state(state);
         }
         assert_eq!(table.index_of(0), None, "the all-zero register never appears in an LFSR");
+    }
+
+    #[test]
+    fn no_record_repeats_a_register_value_so_each_tells_one_place() {
+        for f in FORMATS {
+            let table = SequenceTable::for_format(f);
+            assert_eq!(table.entries.len(), f.length as usize, "{}", f.id);
+            assert!(table.entries.windows(2).all(|w| w[0] >> 32 != w[1] >> 32), "{}", f.id);
+            assert!(f.safe < f.length && f.lead_in_s * f.resolution < f64::from(f.safe), "{}", f.id);
+        }
     }
 
     /// Whether equal keys all sit next to each other.

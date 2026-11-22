@@ -3,7 +3,7 @@
 //! that makes the decoder slower or less robust fails here.
 
 use prisme_timecode::testing::{Degradation, Degrader, SignalGenerator};
-use prisme_timecode::{DecoderConfig, TimecodeDecoder, SERATO_CV02_A};
+use prisme_timecode::{DecoderConfig, TimecodeDecoder, TimecodeFormat, FORMATS, SERATO_CV02_A};
 use std::f64::consts::TAU;
 
 const SR: u32 = 48_000;
@@ -38,7 +38,10 @@ struct Result {
 }
 
 fn run(sc: Scenario) -> Result {
-    let format = &SERATO_CV02_A;
+    run_on(&SERATO_CV02_A, sc)
+}
+
+fn run_on(format: &'static TimecodeFormat, sc: Scenario) -> Result {
     let mut generator = SignalGenerator::new(format, SR, sc.start_ms, 60_000.0);
     let mut degrader = Degrader::new(sc.degradation, SR, 42);
     let mut decoder = TimecodeDecoder::new(DecoderConfig { format, sample_rate: SR, swap_channels: false });
@@ -227,6 +230,26 @@ fn a_record_stopped_dead_then_dragged_slowly_is_followed() {
         }
         let ms = followed_ms.unwrap_or_else(|| panic!("held {held_s} s: never followed"));
         assert!(ms < 100.0, "held {held_s} s: followed after {ms:.0} ms");
+    }
+}
+
+#[test]
+fn every_record_is_read_forwards_backwards_pitched_and_after_a_needle_drop() {
+    for format in FORMATS {
+        for speed in [|_| 1.0, |_| -1.0, |_| 1.06, |_| 0.5] as [fn(f64) -> f64; 4] {
+            let degradation = Degradation::default();
+            let r =
+                run_on(format, Scenario { measure: Measure::Steady, start_ms: 60_000.0, speed, degradation });
+            assert!(r.lock_ms.is_some_and(|ms| ms < 150.0), "{}: {r:?}", format.id);
+            assert!(r.speed_rms < 1e-3 && r.position_rms < 1.0, "{}: {r:?}", format.id);
+            assert_eq!(r.lost_ratio, 0.0, "{}: {r:?}", format.id);
+        }
+        let degradation = Degradation::default();
+        let r = run_on(
+            format,
+            Scenario { measure: Measure::NeedleDrop, start_ms: 5_000.0, speed: |_| 1.0, degradation },
+        );
+        assert!(r.reaction_ms.is_some_and(|ms| ms < 100.0), "{}: {r:?}", format.id);
     }
 }
 

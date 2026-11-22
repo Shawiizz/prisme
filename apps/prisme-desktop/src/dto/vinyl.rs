@@ -57,11 +57,20 @@ pub struct TimecodeFormatDto {
     pub record: &'static str,
     pub side: Option<&'static str>,
     pub lead_in_s: f64,
+    /// Read on the record itself, not only on signals made from its description.
+    pub verified: bool,
 }
 
 impl From<&'static TimecodeFormat> for TimecodeFormatDto {
     fn from(f: &'static TimecodeFormat) -> Self {
-        Self { id: f.id, maker: f.maker, record: f.record, side: f.side, lead_in_s: f.lead_in_s }
+        Self {
+            id: f.id,
+            maker: f.maker,
+            record: f.record,
+            side: f.side,
+            lead_in_s: f.lead_in_s,
+            verified: f.verified,
+        }
     }
 }
 

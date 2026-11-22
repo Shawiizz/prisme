@@ -57,6 +57,9 @@
               @for (record of maker.records; track record.name) {
                 <option [value]="record.sides[0].id" [selected]="record === current()">
                   {{ maker.name }} · {{ record.name }}
+                  @if (!record.sides[0].verified) {
+                    ({{ 'not verified' | t }})
+                  }
                 </option>
               }
             </optgroup>

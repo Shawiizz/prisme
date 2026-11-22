@@ -36,4 +36,7 @@ mod speed;
 pub mod testing;
 
 pub use decoder::{DecoderConfig, DecoderStatus, SignalState, TimecodeDecoder};
-pub use format::{Channel, SequenceTable, TimecodeFormat, FORMATS, SERATO_CD, SERATO_CV02_A, SERATO_CV02_B};
+pub use format::{
+    Channel, SequenceTable, TimecodeFormat, ALGORIDDIM_A, ALGORIDDIM_B, FORMATS, MIXVIBES_7INCH, MIXVIBES_V2,
+    PIONEER_A, PIONEER_B, SERATO_CD, SERATO_CV02_A, SERATO_CV02_B, TRAKTOR_MK1_A, TRAKTOR_MK1_B,
+};

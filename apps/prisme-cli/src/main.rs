@@ -62,7 +62,8 @@ enum Cmd {
         input: String,
         #[arg(long, value_enum, default_value_t = Mode::Absolute)]
         mode: Mode,
-        /// Timecode format id (serato_cv02_a, serato_cv02_b, serato_cd).
+        /// Timecode format id: serato_cv02_a, serato_cv02_b, serato_cd, traktor_mk1_a, traktor_mk1_b,
+        /// pioneer_a, pioneer_b, mixvibes_v2, mixvibes_7inch, algoriddim_a, algoriddim_b.
         #[arg(long, default_value = "serato_cv02_a")]
         format: String,
         /// Position of the track start on the record, in seconds; else the record's own.
@@ -92,7 +93,8 @@ enum Cmd {
     /// Decodes a recording of a turntable (WAV) and says how steadily the record reads.
     Timecode {
         file: PathBuf,
-        /// Timecode format id (serato_cv02_a, serato_cv02_b, serato_cd).
+        /// Timecode format id: serato_cv02_a, serato_cv02_b, serato_cd, traktor_mk1_a, traktor_mk1_b,
+        /// pioneer_a, pioneer_b, mixvibes_v2, mixvibes_7inch, algoriddim_a, algoriddim_b.
         #[arg(long, default_value = "serato_cv02_a")]
         format: String,
         /// The left and right channels are crossed.

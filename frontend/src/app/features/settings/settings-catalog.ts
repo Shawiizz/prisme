@@ -30,7 +30,8 @@ const PAGES: readonly SettingsPage[] = [
     id: 'turntables',
     label: () => t('Turntables'),
     description: () => t('The timecode signal of each record, and how it drives its deck.'),
-    keywords: 'dvs vinyl cd timecode record side serato scope',
+    keywords:
+      'dvs vinyl cd timecode record side serato traktor rekordbox pioneer mixvibes djay scope',
   },
   {
     id: 'mixing',
