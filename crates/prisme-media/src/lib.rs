@@ -8,6 +8,7 @@
 //! that only scans the audio once (library analysis).
 
 mod audio_id;
+mod resident;
 mod tag_writing;
 mod tags;
 mod track;

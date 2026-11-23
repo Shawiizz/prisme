@@ -5,13 +5,15 @@
 //! count (release); readers see only what was published (acquire). Samples are stored as
 //! `f32` bits in `AtomicU32`s: plain loads and stores on x86 and ARM, no locks, no
 //! `unsafe`. A track longer than its header said (MP3s joined, the first one's header kept)
-//! gets the frames that found no room in a second buffer once its decoding ends.
+//! gets the frames that found no room in a second buffer once its decoding ends. All of it
+//! is kept in RAM ([`Resident`]).
 //!
 //! A stem being separated is written in parts from anywhere in the track, islands that grow
 //! and meet ([`TrackAudio::pending`]): a frame can be read once the block of
 //! [`PENDING_BLOCK`] frames around it is all written, which the writer counts after the
 //! samples (release) and readers check before them (acquire).
 
+use crate::resident::Resident;
 use crate::{DecodeStream, MediaError};
 use std::ops::Range;
 use std::path::Path;
@@ -27,9 +29,9 @@ pub const PENDING_BLOCK: usize = 1024;
 pub struct TrackAudio {
     sample_rate: u32,
     /// Interleaved stereo samples (`f32` bits).
-    samples: Box<[AtomicU32]>,
+    samples: Resident<AtomicU32>,
     /// The samples that follow those of a full `samples`, set once at the end of the decoding.
-    more: OnceLock<Box<[AtomicU32]>>,
+    more: OnceLock<Resident<AtomicU32>>,
     /// The end of the frames that can be read.
     decoded: AtomicUsize,
     /// The track's length: while decoding, the header's estimate or, past it, one more than
@@ -37,7 +39,7 @@ pub struct TrackAudio {
     frames: AtomicUsize,
     /// For a [`TrackAudio::pending`] track, the frames written of each block of
     /// [`PENDING_BLOCK`]; empty for the others.
-    filled: Box<[AtomicU32]>,
+    filled: Resident<AtomicU32>,
     /// For a [`TrackAudio::pending`] track, its blocks not all written yet.
     unfilled: AtomicUsize,
 }
@@ -53,7 +55,7 @@ impl TrackAudio {
             more: OnceLock::new(),
             decoded: AtomicUsize::new(frames),
             frames: AtomicUsize::new(frames),
-            filled: Box::new([]),
+            filled: Resident::new(Box::new([])),
             unfilled: AtomicUsize::new(0),
         }
     }
@@ -82,7 +84,7 @@ impl TrackAudio {
             more: OnceLock::new(),
             decoded: AtomicUsize::new(0),
             frames: AtomicUsize::new(frames),
-            filled: Box::new([]),
+            filled: Resident::new(Box::new([])),
             unfilled: AtomicUsize::new(0),
         }
     }
