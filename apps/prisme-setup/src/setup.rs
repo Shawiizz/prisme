@@ -1,10 +1,12 @@
-//! The installation: the window shows, the NSIS installer is written to the temporary folder and
-//! run silently (`/S`) while the bar fills, then Prisme opens from where it was installed and the
-//! window fades out. Without the WebView2 runtime to show the window, the NSIS installer runs
-//! with its own.
+//! The installation: the window shows, Prisme is unpacked into its folder of the user's local
+//! data while the bar fills, its shortcuts and its entry among the installed applications are
+//! written, then Prisme opens and the window fades out. No administrator is asked for. The
+//! versions before 0.7 run it as their update (`/UPDATE`), from the NSIS installer they had:
+//! what NSIS left is cleared. Without the WebView2 runtime to show the window (and Prisme),
+//! Microsoft's installer of it runs first.
 
-use std::os::windows::process::CommandExt;
-use std::path::PathBuf;
+use prisme_update::windows::{self as system, french, runs_from};
+use prisme_update::{Identity, Install, EXE};
 use std::process::Command;
 use std::time::{Duration, Instant};
 use tao::dpi::{LogicalSize, PhysicalPosition};
@@ -17,21 +19,22 @@ use windows_sys::Win32::Graphics::Dwm::{
 };
 use wry::{WebContext, WebView, WebViewBuilder};
 
-/// The NSIS installer of this version (empty in a development build).
-const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/payload.exe"));
+/// Prisme's package of this version (empty in a development build).
+const PAYLOAD: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/payload.tar.gz"));
+/// Microsoft's installer of the WebView2 runtime (empty in a development build).
+const WEBVIEW2: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/webview2.exe"));
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 const PAGE: &str = include_str!(concat!(env!("OUT_DIR"), "/page.html"));
 const SIZE: LogicalSize<f64> = LogicalSize::new(440.0, 280.0);
-/// The executable an installed Prisme leaves running, which the installation cannot replace.
-const APP_EXE: &str = "prisme-desktop.exe";
-/// Where the NSIS installer says where it put Prisme.
-const UNINSTALL_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\Prisme";
-/// The bar nears its end as an installation of this many seconds would.
-const TYPICAL_S: f64 = 4.0;
+/// The bar nears its end as an installation of this many seconds would, and shows that long
+/// at least, to be read.
+const TYPICAL_S: f64 = 2.0;
+/// How long the version updated from is waited for to quit.
+const QUITTING: Duration = Duration::from_secs(20);
 const TICK: Duration = Duration::from_millis(50);
 /// Installed, the window stays this long before Prisme opens, then fades out for this long.
 const DONE_SHOWN: Duration = Duration::from_millis(1100);
 const FADE: Duration = Duration::from_millis(280);
-const NO_WINDOW: u32 = 0x0800_0000;
 
 /// What happens, as the window's loop hears it.
 #[derive(Debug)]
@@ -50,8 +53,26 @@ enum Happened {
     Leave,
 }
 
+/// How it was started: by the DJ, or by Tauri's updater of a version before 0.7.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Fresh,
+    Update,
+}
+
+impl Mode {
+    fn of_the_arguments() -> Self {
+        if std::env::args().skip(1).any(|a| a.eq_ignore_ascii_case("/UPDATE")) {
+            Self::Update
+        } else {
+            Self::Fresh
+        }
+    }
+}
+
 pub fn run() {
     let texts = Texts::of_the_system();
+    let mode = Mode::of_the_arguments();
     let event_loop = EventLoopBuilder::<Happened>::with_user_event().build();
     let window = WindowBuilder::new()
         .with_title("Prisme")
@@ -68,28 +89,35 @@ pub fn run() {
     centre(&window);
     round_corners(&window);
     let proxy = event_loop.create_proxy();
-    let asks = proxy.clone();
     let init = format!("window.TEXTS = {};", texts.json());
     // the web view keeps its files in the temporary folder, not beside the installer
     let mut context = WebContext::new(Some(std::env::temp_dir().join("Prisme setup")));
-    let webview = WebViewBuilder::new_with_web_context(&mut context)
-        .with_html(PAGE)
-        .with_initialization_script(init)
-        .with_background_color((10, 11, 13, 255))
-        .with_ipc_handler(move |request| {
-            let asked = match request.body().as_str() {
-                "ready" => Happened::Ready,
-                "drag" => Happened::Drag,
-                "close" => Happened::Close,
-                "retry" => Happened::Retry,
-                _ => return,
-            };
-            let _ = asks.send_event(asked);
-        })
-        .build(&window);
+    let build = |context: &mut WebContext| {
+        let asks = proxy.clone();
+        WebViewBuilder::new_with_web_context(context)
+            .with_html(PAGE)
+            .with_initialization_script(&init)
+            .with_background_color((10, 11, 13, 255))
+            .with_ipc_handler(move |request| {
+                let asked = match request.body().as_str() {
+                    "ready" => Happened::Ready,
+                    "drag" => Happened::Drag,
+                    "close" => Happened::Close,
+                    "retry" => Happened::Retry,
+                    _ => return,
+                };
+                let _ = asks.send_event(asked);
+            })
+            .build(&window)
+    };
+    // no runtime to show the page with: Microsoft's installer of it first, which Prisme needs too
+    let webview = build(&mut context).or_else(|_| {
+        install_webview2();
+        build(&mut context)
+    });
     let Ok(webview) = webview else {
-        // no web view to show the window with: the installer shows its own
-        return install_with_its_own_window();
+        system::message(texts.no_webview);
+        return;
     };
 
     let mut started = false;
@@ -100,7 +128,7 @@ pub fn run() {
                 started = true;
                 window.set_visible(true);
                 window.set_focus();
-                install_in_the_background(proxy.clone());
+                install_in_the_background(proxy.clone(), mode);
             }
             Event::UserEvent(Happened::Progress(share)) => call(&webview, &format!("progress({share})")),
             Event::UserEvent(Happened::Installed) => {
@@ -115,7 +143,7 @@ pub fn run() {
             Event::UserEvent(Happened::Failed(message)) => {
                 call(&webview, &format!("failed({})", serde_json::Value::String(message)));
             }
-            Event::UserEvent(Happened::Retry) => install_in_the_background(proxy.clone()),
+            Event::UserEvent(Happened::Retry) => install_in_the_background(proxy.clone(), mode),
             Event::UserEvent(Happened::Drag) => {
                 let _ = window.drag_window();
             }
@@ -164,9 +192,9 @@ fn round_corners(window: &Window) {
 }
 
 /// Installs on a thread of its own, telling the window how far it went.
-fn install_in_the_background(proxy: EventLoopProxy<Happened>) {
+fn install_in_the_background(proxy: EventLoopProxy<Happened>, mode: Mode) {
     std::thread::spawn(move || {
-        let outcome = install(&proxy);
+        let outcome = install(&proxy, mode);
         let _ = proxy.send_event(match outcome {
             Ok(()) => Happened::Installed,
             Err(message) => Happened::Failed(message),
@@ -174,129 +202,73 @@ fn install_in_the_background(proxy: EventLoopProxy<Happened>) {
     });
 }
 
-fn install(proxy: &EventLoopProxy<Happened>) -> Result<(), String> {
+fn install(proxy: &EventLoopProxy<Happened>, mode: Mode) -> Result<(), String> {
     let texts = Texts::of_the_system();
-    let _ = proxy.send_event(Happened::Progress(0.0));
-    if prisme_is_running() {
-        return Err(texts.close_prisme.into());
-    }
     let started = Instant::now();
     let progress = || {
         // nearing the end as a typical installation would, never reaching it before it is done
         let share = 0.95 * (1.0 - (-started.elapsed().as_secs_f64() / TYPICAL_S).exp());
         let _ = proxy.send_event(Happened::Progress(share));
     };
-    if PAYLOAD.is_empty() {
-        // a development build carries no installer: the installation is only played
-        while started.elapsed() < Duration::from_secs_f64(TYPICAL_S) {
+    progress();
+    let folder = Identity::current().folder().ok_or("no local data folder")?;
+    // the version updated from quits as it starts the installer
+    while mode == Mode::Update && runs_from(&folder) && started.elapsed() < QUITTING {
+        progress();
+        std::thread::sleep(TICK);
+    }
+    if runs_from(&folder) {
+        return Err(texts.close_prisme.into());
+    }
+    let installed = std::thread::scope(|scope| {
+        let installing = scope.spawn(|| put_in_place(mode));
+        while !installing.is_finished() || started.elapsed().as_secs_f64() < TYPICAL_S {
             progress();
             std::thread::sleep(TICK);
         }
-        return Ok(());
-    }
-    let installer = installer_path();
-    std::fs::write(&installer, PAYLOAD).map_err(|e| format!("{}: {e}", texts.not_written))?;
-    let mut child = Command::new(&installer)
-        .arg("/S")
-        .creation_flags(NO_WINDOW)
-        .spawn()
-        .map_err(|e| format!("{}: {e}", texts.not_started))?;
-    let status = loop {
-        if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
-            break status;
-        }
-        progress();
-        std::thread::sleep(TICK);
-    };
-    let _ = std::fs::remove_file(&installer);
-    if status.success() {
-        Ok(())
-    } else {
-        Err(texts.failed.replace("{code}", &status.code().unwrap_or(-1).to_string()))
-    }
+        installing.join().unwrap_or_else(|_| Err("stopped".into()))
+    });
+    installed.map_err(|e| format!("{} ({e}).", texts.failed))
 }
 
-/// The NSIS installer, the window shown by itself: what runs without a web view.
-fn install_with_its_own_window() {
-    let installer = installer_path();
-    if std::fs::write(&installer, PAYLOAD).is_ok() {
-        let _ = Command::new(&installer).status();
+/// Prisme unpacked into its folder, in the place of the version there if one is, then its
+/// shortcuts and its entry among the installed applications; what NSIS left cleared. Nothing in
+/// a development build, which carries no Prisme.
+fn put_in_place(mode: Mode) -> Result<(), String> {
+    if PAYLOAD.is_empty() {
+        return Ok(());
+    }
+    let identity = Identity::current();
+    let folder = identity.folder().ok_or("no local data folder")?;
+    std::fs::create_dir_all(&folder).map_err(|e| e.to_string())?;
+    let exe = folder.join(EXE);
+    let install = Install::Windows { exe: exe.clone() };
+    install.stage(VERSION, PAYLOAD).map_err(|e| e.to_string())?;
+    install.tidy();
+    system::forget_nsis(&identity, &folder);
+    system::register(&identity, &exe, VERSION).map_err(|e| e.to_string())?;
+    system::shortcuts(&identity, &exe, mode == Mode::Fresh).map_err(|e| e.to_string())
+}
+
+/// Microsoft's installer of the WebView2 runtime, run with its own window until it is done.
+fn install_webview2() {
+    if WEBVIEW2.is_empty() {
+        return;
+    }
+    let installer = std::env::temp_dir().join("MicrosoftEdgeWebview2Setup.exe");
+    if std::fs::write(&installer, WEBVIEW2).is_ok() {
+        let _ = Command::new(&installer).arg("/install").status();
         let _ = std::fs::remove_file(&installer);
     }
 }
 
-fn installer_path() -> PathBuf {
-    std::env::temp_dir().join(format!("Prisme {} setup.exe", env!("CARGO_PKG_VERSION")))
-}
-
-fn prisme_is_running() -> bool {
-    runs(APP_EXE)
-}
-
-/// Whether a process of executable `exe` runs, read from the system's list of them: no program
-/// is started to ask, which Windows would look for beside the installer first, in the
-/// downloads folder.
-fn runs(exe: &str) -> bool {
-    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
-    use windows_sys::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W, TH32CS_SNAPPROCESS,
-    };
-    // SAFETY: no pointer is given
-    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
-    if snapshot == INVALID_HANDLE_VALUE {
-        return false;
-    }
-    let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
-    let mut found = false;
-    // SAFETY: the snapshot is open and the entry says its own size
-    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
-    while more && !found {
-        let name = &entry.szExeFile;
-        let length = name.iter().position(|&c| c == 0).unwrap_or(name.len());
-        found = String::from_utf16_lossy(&name[..length]).eq_ignore_ascii_case(exe);
-        // SAFETY: as above
-        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
-    }
-    // SAFETY: the snapshot is open, and closed once
-    unsafe { CloseHandle(snapshot) };
-    found
-}
-
-/// Opens Prisme where the installer put it (none was, in a development build).
+/// Opens Prisme where it was installed (none was, in a development build).
 fn open_prisme() {
     if PAYLOAD.is_empty() {
         return;
     }
-    let Some(folder) = registry_text(UNINSTALL_KEY, "InstallLocation") else { return };
-    let exe = registry_text(UNINSTALL_KEY, "MainBinaryName").unwrap_or_else(|| APP_EXE.into());
-    let folder = PathBuf::from(folder.trim_matches('"'));
-    let _ = Command::new(folder.join(exe)).current_dir(&folder).spawn();
-}
-
-/// A text value of the current user's registry.
-fn registry_text(key: &str, name: &str) -> Option<String> {
-    use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_SZ};
-    let wide = |s: &str| s.encode_utf16().chain([0]).collect::<Vec<u16>>();
-    let (key, name) = (wide(key), wide(name));
-    let mut buffer = vec![0u16; 1024];
-    let mut bytes = (buffer.len() * 2) as u32;
-    // SAFETY: the strings end with a nul, the buffer holds `bytes` bytes
-    let status = unsafe {
-        RegGetValueW(
-            HKEY_CURRENT_USER,
-            key.as_ptr(),
-            name.as_ptr(),
-            RRF_RT_REG_SZ,
-            std::ptr::null_mut(),
-            buffer.as_mut_ptr().cast(),
-            &mut bytes,
-        )
-    };
-    if status != 0 {
-        return None;
-    }
-    let chars = (bytes as usize / 2).saturating_sub(1);
-    Some(String::from_utf16_lossy(&buffer[..chars]))
+    let Some(folder) = Identity::current().folder() else { return };
+    let _ = Command::new(folder.join(EXE)).current_dir(&folder).spawn();
 }
 
 /// What the window says, in French on a French system, else in English.
@@ -307,17 +279,13 @@ struct Texts {
     close: &'static str,
     retry: &'static str,
     close_prisme: &'static str,
-    not_written: &'static str,
-    not_started: &'static str,
     failed: &'static str,
+    no_webview: &'static str,
 }
 
 impl Texts {
     fn of_the_system() -> Self {
-        // SAFETY: no argument, no state
-        let language = unsafe { windows_sys::Win32::Globalization::GetUserDefaultUILanguage() };
-        const FRENCH: u16 = 0x0c;
-        if language & 0x3ff == FRENCH {
+        if french() {
             Self {
                 installing: "Installation de Prisme…",
                 installed: "Prisme est installé",
@@ -325,9 +293,8 @@ impl Texts {
                 close: "Fermer",
                 retry: "Réessayer",
                 close_prisme: "Prisme est ouvert : fermez-le pour l’installer.",
-                not_written: "L’installation n’a pas pu être préparée",
-                not_started: "L’installation n’a pas pu démarrer",
-                failed: "L’installation n’a pas abouti (code {code}).",
+                failed: "L’installation n’a pas abouti",
+                no_webview: "Prisme a besoin du runtime WebView2 de Microsoft, qui n’a pas pu être installé. Installez-le depuis le site de Microsoft, puis relancez l’installation.",
             }
         } else {
             Self {
@@ -337,9 +304,8 @@ impl Texts {
                 close: "Close",
                 retry: "Try again",
                 close_prisme: "Prisme is open: close it to install.",
-                not_written: "The installation could not be prepared",
-                not_started: "The installation could not start",
-                failed: "The installation did not finish (code {code}).",
+                failed: "The installation did not finish",
+                no_webview: "Prisme needs Microsoft's WebView2 runtime, which could not be installed. Install it from Microsoft's site, then run the installation again.",
             }
         }
     }
@@ -354,19 +320,5 @@ impl Texts {
             "retry": self.retry,
         })
         .to_string()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::runs;
-
-    #[test]
-    fn a_running_program_is_found_by_its_executable_whatever_its_case() {
-        let exe = std::env::current_exe().unwrap();
-        let name = exe.file_name().unwrap().to_str().unwrap();
-        assert!(runs(name));
-        assert!(runs(&name.to_uppercase()));
-        assert!(!runs("no-such-program-prisme.exe"));
     }
 }

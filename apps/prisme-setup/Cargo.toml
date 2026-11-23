@@ -1,6 +1,6 @@
 [package]
 name = "prisme-setup"
-description = "The Windows installer: Prisme's own window over the NSIS installer run silently"
+description = "The Windows installer: Prisme's own window while Prisme is put in place, no administrator asked for"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -8,16 +8,11 @@ publish.workspace = true
 license.workspace = true
 
 [target.'cfg(windows)'.dependencies]
+prisme-update.workspace = true
 tao = "0.37"
 wry = "0.57"
 serde_json.workspace = true
-windows-sys = { workspace = true, features = [
-  "Win32_Foundation",
-  "Win32_Globalization",
-  "Win32_Graphics_Dwm",
-  "Win32_System_Diagnostics_ToolHelp",
-  "Win32_System_Registry",
-] }
+windows-sys = { workspace = true, features = ["Win32_Graphics_Dwm"] }
 
 [target.'cfg(windows)'.build-dependencies]
 tauri-winres = "0.3"
