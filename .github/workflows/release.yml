@@ -47,6 +47,7 @@ jobs:
         if: runner.os == 'macOS'
         run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
       - uses: tauri-apps/tauri-action@v0
+        if: runner.os != 'Windows'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -56,6 +57,26 @@ jobs:
           tauriScript: npx --yes @tauri-apps/cli@2.12.2
           # signed update packages: only here, where the signing key is
           args: --config tauri.release.conf.json ${{ matrix.args }}
+      # Windows: Prisme alone, packed and signed for the copies that update themselves, then
+      # carried by Prisme's own installer, which the versions before 0.7 run as their update
+      - name: Prisme for Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          tauri="npx --yes @tauri-apps/cli@2.12.2"
+          (cd apps/prisme-desktop && $tauri build --no-bundle)
+          mkdir -p packages
+          update="packages/Prisme-$TAG-windows-x64-update.tar.gz"
+          tar -czf "$update" -C target/release prisme-desktop.exe
+          curl -fsSL -o webview2.exe "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+          PRISME_SETUP_PAYLOAD="$PWD/$update" PRISME_SETUP_WEBVIEW2="$PWD/webview2.exe" \
+            cargo build --release -p prisme-setup
+          cp target/release/prisme-setup.exe "packages/Prisme-$TAG-windows-x64.exe"
+          for package in packages/*; do $tauri signer sign "$package"; done
       # the packages under Prisme's names (docs/STANDARDS.md), each with its signature
       - name: The packages
         shell: bash
@@ -70,8 +91,6 @@ jobs:
             if [ -f "$1.sig" ]; then cp "$1.sig" "$out/$2.sig"; fi
           }
           case "$RUNNER_OS" in
-            Windows)
-              put target/release/bundle/nsis/*-setup.exe "Prisme-$TAG-windows-x64-update.exe" ;;
             Linux)
               put target/release/bundle/appimage/*.AppImage "Prisme-$TAG-linux-x64.AppImage"
               put target/release/bundle/deb/*.deb "Prisme-$TAG-linux-x64.deb" ;;
@@ -81,20 +100,6 @@ jobs:
               put "$bundle"/macos/*.app.tar.gz "Prisme-$TAG-macos-universal-update.tar.gz" ;;
           esac
           gh release upload "$TAG" "$out"/* --clobber
-      # what people download on Windows: Prisme's own window over the NSIS installer, which
-      # the updates keep running without one
-      - name: The Windows installer
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          $env:PRISME_SETUP_PAYLOAD = (Get-ChildItem target/release/bundle/nsis/*-setup.exe | Select-Object -First 1).FullName
-          cargo build --release -p prisme-setup
-          $installer = "Prisme-${env:TAG}-windows-x64.exe"
-          Copy-Item target/release/prisme-setup.exe $installer
-          gh release upload $env:TAG $installer --clobber
 
   android:
     needs: draft

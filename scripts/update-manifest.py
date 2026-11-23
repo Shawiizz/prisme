@@ -10,9 +10,12 @@ import json
 import sys
 from pathlib import Path
 
-# the end of a package's name, and the systems it updates
+# the end of a package's name, and the systems it updates: `<os>-<arch>-app` and
+# `linux-x86_64-appimage` for Prisme's own updates, the others for Tauri's updater of the
+# versions before 0.7 (on Windows, Prisme's installer, which it runs as their update)
 PACKAGES = {
-    '-windows-x64-update.exe': ['windows-x86_64', 'windows-x86_64-nsis'],
+    '-windows-x64.exe': ['windows-x86_64', 'windows-x86_64-nsis'],
+    '-windows-x64-update.tar.gz': ['windows-x86_64-app'],
     '-linux-x64.AppImage': ['linux-x86_64', 'linux-x86_64-appimage'],
     '-linux-x64.deb': ['linux-x86_64-deb'],
     '-macos-universal-update.tar.gz': ['darwin-aarch64', 'darwin-x86_64', 'darwin-aarch64-app', 'darwin-x86_64-app'],
