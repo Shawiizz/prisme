@@ -45,13 +45,19 @@ habitude ; une exception se discute, puis s'écrit ici.
 
 | Système | Fichier pour le DJ | Fichier de mise à jour (signé) |
 | --- | --- | --- |
-| Windows | `Prisme-X.Y.Z-windows-x64.exe` (l'installateur Prisme) | `Prisme-X.Y.Z-windows-x64-update.exe` + `.sig` |
+| Windows | `Prisme-X.Y.Z-windows-x64.exe` (l'installateur Prisme) | `Prisme-X.Y.Z-windows-x64-update.tar.gz` + `.sig` |
 | macOS | `Prisme-X.Y.Z-macos-universal.dmg` | `Prisme-X.Y.Z-macos-universal-update.tar.gz` + `.sig` |
 | Linux | `Prisme-X.Y.Z-linux-x64.AppImage`, `Prisme-X.Y.Z-linux-x64.deb` | l'AppImage + `.sig` |
 | Android | `Prisme-X.Y.Z-android-arm64.apk` | le même APK |
 
 - Architectures : `x64`, `arm64`, `universal`. Jamais `amd64` ni `x86_64` dans un nom publié.
 - `latest.json` est le seul fichier sans version dans son nom.
+- Les mises à jour sont celles de Prisme (`crates/prisme-update`) : téléchargées en
+  arrière-plan, vérifiées avec la clé des versions, mises à la place de la version qui tourne
+  et ouvertes au prochain lancement, sans installateur. Sur Windows, l'installateur Prisme est
+  aussi signé : les versions d'avant 0.7 le lancent comme leur mise à jour (`/UPDATE`), et il
+  efface ce que NSIS avait laissé. Ce passage disparaîtra quand plus aucune installation d'avant
+  0.7 ne restera.
 
 ## 4. Modèles de séparation
 
