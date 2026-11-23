@@ -1,4 +1,12 @@
-import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
+import {
+  ErrorHandler,
+  Injectable,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import {
   ControlState,
@@ -28,6 +36,8 @@ import type {
 
 /** How long a refusal stays said. */
 const REFUSAL_MS = 5000;
+/** How long after a state it failed to take the page listens anew. */
+const RELISTEN_MS = 1000;
 
 /** What the DJ is asked before the backend does what it did not, by the code of its answer. */
 const QUESTIONS: Record<string, (p: Params) => Question> = {
@@ -75,6 +85,7 @@ function answeredBy(question: Question, { yes, no }: AnswerKeys): string {
 @Injectable({ providedIn: 'root' })
 export class EngineService {
   private readonly confirm = inject(ConfirmService);
+  private readonly errors = inject(ErrorHandler);
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
@@ -127,32 +138,53 @@ export class EngineService {
   /** Subscribes to the engine state: done once its first state came, which tells all the app
    * mirrors (the decks' settings, the mixer's…). */
   async connect(): Promise<void> {
-    const channel = new Channel<StatusChanges>();
-    let mirrored: () => void;
+    let mirrored!: () => void;
     const told = new Promise<void>((resolve) => (mirrored = resolve));
-    channel.onmessage = ({ controls, ...changes }) => {
-      const s = withChanges(this.status(), changes);
-      this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
-      if (controls) {
-        this.applyControls(controls);
-        mirrored();
-      }
-      this.status.set(s);
-    };
-    await invoke('subscribe_status', { channel });
+    await this.listen(mirrored);
     await told;
   }
 
+  /** Listens to the engine state on a channel of its own, told all of it first. A state the
+   * page fails to take is reported, and the page listens anew a moment later, told all again:
+   * Tauri would hold back every state after one left half taken. */
+  private listen(mirrored: () => void): Promise<void> {
+    const channel = new Channel<StatusChanges>();
+    let failed = false;
+    channel.onmessage = (changes) => {
+      if (failed) return;
+      try {
+        this.take(changes, mirrored);
+      } catch (error) {
+        failed = true;
+        this.errors.handleError(error);
+        setTimeout(
+          () => this.listen(mirrored).catch((e) => this.errors.handleError(e)),
+          RELISTEN_MS,
+        );
+      }
+    };
+    return invoke('subscribe_status', { channel });
+  }
+
+  private take({ controls, ...changes }: StatusChanges, mirrored: () => void) {
+    const s = withChanges(this.status(), changes);
+    this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
+    if (controls) {
+      this.applyControls(controls);
+      mirrored();
+    }
+    this.status.set(s);
+  }
+
   /** The sections the backend changed of what the app mirrors (`changed`, the first time all
-   * of them): of the mixer the fields that changed, of the decks' settings those that changed,
-   * the other sections whole (their tracks, a new load's waveform followed). The sections not
-   * sent, and the decks and tracks that are the same, stay as they are, for the views that
-   * follow them. */
+   * of them): of the mixer the fields that changed, the other sections whole (the decks'
+   * settings, their tracks, a new load's waveform followed). The sections not sent, and the
+   * decks and tracks that are the same, stay as they are, for the views that follow them. */
   private applyControls(changed: ControlsTold) {
     const before = this.controls();
     const mixer = changed.mixer && ({ ...before?.mixer, ...changed.mixer } as MixerState);
     const decks = changed.decks?.map((d, deck) =>
-      d === null || same(d, this.decks()[deck]) ? this.decks()[deck] : d,
+      same(d, this.decks()[deck]) ? this.decks()[deck] : d,
     );
     const controls = {
       ...before,

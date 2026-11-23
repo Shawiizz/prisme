@@ -1,6 +1,8 @@
+import { ErrorHandler } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { Channel } from '@tauri-apps/api/core';
 import { clearMocks, mockIPC } from '@tauri-apps/api/mocks';
-import { ControlState, Waveform } from '../models/engine';
+import { ControlState, StatusChanges, Waveform } from '../models/engine';
 import { EngineService } from './engine.service';
 import { ConfirmService } from '../../shared/confirm/confirm';
 import type { Cue, DeckSettings, TrackInfo } from '../models/backend';
@@ -214,6 +216,28 @@ describe('EngineService', () => {
     });
   });
 
+  it('reports a state it fails to take, and listens anew, told all again', async () => {
+    vi.useFakeTimers();
+    const channels: Channel<StatusChanges>[] = [];
+    mockIPC((command, args) => {
+      if (command === 'subscribe_status') {
+        channels.push((args as { channel: Channel<StatusChanges> }).channel);
+      }
+    });
+    const reported = vi.spyOn(TestBed.inject(ErrorHandler), 'handleError');
+    reported.mockImplementation(() => {});
+    void engine.connect();
+    await vi.advanceTimersByTimeAsync(0);
+    // no decks: it cannot be taken
+    channels[0].onmessage({} as StatusChanges);
+    channels[0].onmessage({} as StatusChanges);
+    expect(reported).toHaveBeenCalledOnce();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(channels).toHaveLength(2);
+    clearMocks();
+    vi.useRealTimers();
+  });
+
   describe('what the backend changed', () => {
     const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
     const level = { level: 1, on: true };
@@ -240,14 +264,9 @@ describe('EngineService', () => {
       engine.tracks.set([null, { loadId: 7, cues: [] } as unknown as TrackInfo, null, null]),
     );
 
-    it('takes of the mixer and the decks what changed of them, the rest kept as it was', () => {
+    it('takes of the mixer the fields that changed, the others kept as they were', () => {
       engine['applyControls'](controls({ mixer: { limiter: true } as never }));
-      const before = engine.decks();
-      const moved = { pitch: 1.02 } as DeckSettings;
-      engine['applyControls']({ mixer: { talkover: true }, decks: [null, moved, null, null] });
-      expect(engine.decks()[1]).toBe(moved);
-      expect(engine.decks()[0]).toBe(before[0]);
-      expect(engine.controls()!.decks).toEqual(engine.decks());
+      engine['applyControls']({ mixer: { talkover: true } });
       expect(engine.controls()!.mixer).toEqual({ limiter: true, talkover: true });
     });
 
