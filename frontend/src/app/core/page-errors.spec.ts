@@ -28,10 +28,21 @@ describe('PageErrors', () => {
     expect(told).toEqual([error.stack, 'a rejection']);
   });
 
-  it('stops telling after twenty different errors', async () => {
+  it('tells twenty errors a minute at most, and one told again ten minutes on', async () => {
+    vi.useFakeTimers();
     const errors = new PageErrors();
     for (let i = 0; i < 30; i++) errors.handleError(`error ${i}`);
+    await vi.advanceTimersByTimeAsync(60_000);
+    errors.handleError('error 0');
+    errors.handleError('error 25');
+    await vi.advanceTimersByTimeAsync(9 * 60_000);
+    errors.handleError('error 0');
     await Promise.resolve();
-    expect(told).toHaveLength(20);
+    expect(told).toEqual([
+      ...Array.from({ length: 20 }, (_, i) => `error ${i}`),
+      'error 25',
+      'error 0',
+    ]);
+    vi.useRealTimers();
   });
 });
