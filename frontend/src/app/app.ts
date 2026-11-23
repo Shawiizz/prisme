@@ -112,6 +112,7 @@ export class App implements OnInit {
     } finally {
       void dismissSplash();
     }
-    this.updates.look();
+    // a computer's backend looks by itself
+    if (PHONE) void this.updates.look();
   }
 }

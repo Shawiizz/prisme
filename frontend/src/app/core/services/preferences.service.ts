@@ -78,6 +78,7 @@ export class PreferencesService {
   readonly dj = computed(() => this.current().dj);
   readonly library = computed(() => this.current().library);
   readonly ui = computed(() => this.current().ui);
+  readonly updates = computed(() => this.current().updates);
   /** The keyboard's shortcuts in use. */
   readonly shortcuts = computed(() => this.current().shortcuts);
   /** The actions whose keys the DJ changed. */

@@ -46,6 +46,8 @@ pub enum Setting {
     PhoneTouch(Option<bool>),
     /// Spread over the screen below at the next start (`span_screens` spreads at once).
     ScreenBelow(bool),
+    /// New versions downloaded and put in place by themselves (a computer's).
+    AutomaticUpdates(bool),
 }
 
 /// What a setting changed does beyond the preferences.
@@ -61,6 +63,8 @@ enum Then {
     WriteTags,
     /// Other separation models take over.
     Rechoose,
+    /// A new version found is downloaded now.
+    LookForUpdate,
 }
 
 impl Setting {
@@ -116,6 +120,10 @@ impl Setting {
             }
             Setting::PhoneTouch(touch) => p.ui.phone_touch = touch,
             Setting::ScreenBelow(on) => p.ui.screen_below = on,
+            Setting::AutomaticUpdates(on) => {
+                p.updates.automatic = on;
+                return Ok(if on { Then::LookForUpdate } else { Then::Nothing });
+            }
         }
         Ok(Then::Nothing)
     }
@@ -147,6 +155,10 @@ pub async fn set_preference(app: AppHandle, setting: Setting) -> AppResult<()> {
             }
             Then::WriteTags => app.state::<TagWriter>().wake(),
             Then::Rechoose => app.state::<StemsService>().rechosen(),
+            Then::LookForUpdate => {
+                #[cfg(desktop)]
+                let _ = app.state::<crate::updates::Updates>().look();
+            }
         }
         Ok(())
     })

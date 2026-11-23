@@ -26,13 +26,13 @@ prisme-import.workspace = true
 prisme-control.workspace = true
 prisme-actions.workspace = true
 prisme-stems.workspace = true
+prisme-update.workspace = true
 midir.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tracing-appender.workspace = true
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
-tauri-plugin-process = "2"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
@@ -54,7 +54,6 @@ prisme-library = { workspace = true, features = ["ts"] }
 ts-rs.workspace = true
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "2"
 tauri-plugin-single-instance = "2"
 hidapi = "2.6"
 

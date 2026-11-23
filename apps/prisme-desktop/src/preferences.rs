@@ -27,6 +27,22 @@ pub struct Preferences {
     /// plugged ([`base_device_name`](prisme_audio_io::base_device_name)): not offered again.
     pub declined_cards: Vec<String>,
     pub ui: UiPreferences,
+    pub updates: UpdatePreferences,
+}
+
+/// How a computer brings Prisme's new versions.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub struct UpdatePreferences {
+    /// Downloaded and put in place by themselves, for the next start; else when the DJ asks.
+    pub automatic: bool,
+}
+
+impl Default for UpdatePreferences {
+    fn default() -> Self {
+        Self { automatic: true }
+    }
 }
 
 /// How the interface shows itself, chosen in it.

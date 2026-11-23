@@ -1562,10 +1562,9 @@ export type NamedTrack = {
 };
 
 /**
- * A newer version than the one running: installed in place on a computer, its APK handed to
- * Android on a phone.
+ * A newer version than the one running, its APK handed to Android.
  */
-export type NewVersion = { version: string; apk: Apk | null };
+export type NewVersion = { version: string; apk: Apk };
 
 /**
  * A profile the DJ may choose for a controller.
@@ -1684,6 +1683,7 @@ export type Preferences = {
   dj: DjPreferences;
   library: LibraryPreferences;
   ui: UiPreferences;
+  updates: UpdatePreferences;
   /**
    * The keyboard's shortcuts in use: the keys the DJ gave, the defaults of the other actions.
    */
@@ -1930,7 +1930,8 @@ export type Setting =
   | { "setting": "stemsFast"; "value": boolean }
   | { "setting": "language"; "value": string | null }
   | { "setting": "phoneTouch"; "value": boolean | null }
-  | { "setting": "screenBelow"; "value": boolean };
+  | { "setting": "screenBelow"; "value": boolean }
+  | { "setting": "automaticUpdates"; "value": boolean };
 
 /**
  * The values the settings offer where there are a few.
@@ -2331,6 +2332,29 @@ export type UiPreferences = {
    */
   screenBelow: boolean;
 };
+
+/**
+ * How a computer brings Prisme's new versions.
+ */
+export type UpdatePreferences = {
+  /**
+   * Downloaded and put in place by themselves, for the next start; else when the DJ asks.
+   */
+  automatic: boolean;
+};
+
+/**
+ * Where the new versions stand, as the page shows it.
+ */
+export type UpdateState =
+  | { "stage": "unknown" }
+  | { "stage": "looking" }
+  | { "stage": "latest" }
+  | { "stage": "unreachable" }
+  | { "stage": "available"; version: string; installsItself: boolean }
+  | { "stage": "downloading"; version: string; progress: number }
+  | { "stage": "ready"; version: string }
+  | { "stage": "failed"; version: string; error: string };
 
 /**
  * A setting of a deck's vinyl control, changed alone: how the record drives the deck, how fast

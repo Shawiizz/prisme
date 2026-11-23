@@ -103,6 +103,7 @@ fn the_page_has_the_types_the_backend_declares() {
         .of::<SeparateDto>()
         .of::<LiveSource>()
         .of::<NewVersionDto>()
+        .of::<crate::updates::UpdateState>()
         .of::<Setting>()
         .of::<KeyPreference>()
         .of::<TakenKeyDto>()

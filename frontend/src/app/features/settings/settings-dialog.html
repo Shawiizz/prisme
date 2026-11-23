@@ -733,69 +733,148 @@
                   >Prisme <span class="pr-num">{{ version() }}</span></span
                 >
               </app-setting-row>
-              @let update = updates.available();
-              @let progress = updates.progress();
-              <app-setting-row
-                id="about.updates"
-                [help]="
-                  update
-                    ? updates.needsLeave()
-                      ? ('Android asks for your leave first: turn on Allow from this source, then come back.'
-                        | t)
-                      : updates.waitsForDecks()
-                        ? update.apk
+              @if (!PHONE) {
+                @let state = updates.state();
+                <app-setting-row
+                  id="about.updates"
+                  [help]="
+                    state.stage === 'ready'
+                      ? updates.decksPlaying()
+                        ? ('Prisme {version} is installed and opens at the next start. Stop the decks to restart into it now.'
+                          | t: { version: state.version })
+                        : ('Prisme {version} is installed and opens at the next start.'
+                          | t: { version: state.version })
+                      : state.stage === 'available'
+                        ? state.installsItself
+                          ? ('Prisme {version} is available.' | t: { version: state.version })
+                          : ('Prisme {version} is available: install it with your system\'s packages.'
+                            | t: { version: state.version })
+                        : state.stage === 'downloading'
+                          ? ('Downloading Prisme {version}…' | t: { version: state.version })
+                          : state.stage === 'failed'
+                            ? ('Prisme {version} could not be installed: {error}'
+                              | t: { version: state.version, error: state.error })
+                            : state.stage === 'latest'
+                              ? ('This is the latest version.' | t)
+                              : state.stage === 'unreachable'
+                                ? ('Could not reach GitHub to check.' | t)
+                                : null
+                  "
+                >
+                  @switch (state.stage) {
+                    @case ('ready') {
+                      <button
+                        class="pr-btn pr-btn--light"
+                        [disabled]="updates.decksPlaying()"
+                        (click)="updates.restart()"
+                      >
+                        {{ 'Restart now' | t }}
+                      </button>
+                    }
+                    @case ('available') {
+                      @if (state.installsItself) {
+                        <button class="pr-btn pr-btn--light" (click)="updates.download()">
+                          {{ 'Download' | t }}
+                        </button>
+                      }
+                    }
+                    @case ('downloading') {
+                      <button class="pr-btn" disabled>
+                        <span class="pr-num">{{ percent(state.progress) }}</span>
+                      </button>
+                    }
+                    @case ('failed') {
+                      <button class="pr-btn pr-btn--danger" (click)="updates.download()">
+                        {{ 'Try again' | t }}
+                      </button>
+                    }
+                    @default {
+                      <button
+                        class="pr-btn"
+                        [class.is-busy]="state.stage === 'looking'"
+                        [class.pr-btn--danger]="state.stage === 'unreachable'"
+                        [disabled]="state.stage === 'looking'"
+                        (click)="updates.look()"
+                      >
+                        {{
+                          state.stage === 'looking'
+                            ? ('Checking…' | t)
+                            : state.stage === 'unreachable'
+                              ? ('Try again' | t)
+                              : ('Check now' | t)
+                        }}
+                      </button>
+                    }
+                  }
+                </app-setting-row>
+                <app-setting-row id="about.automaticUpdates">
+                  <button
+                    class="pr-switch"
+                    role="switch"
+                    [attr.aria-checked]="preferences.updates().automatic"
+                    settingControl
+                    (click)="preferences.set('automaticUpdates', !preferences.updates().automatic)"
+                  >
+                    <span></span>
+                  </button>
+                </app-setting-row>
+              } @else {
+                @let update = updates.apk();
+                @let progress = updates.progress();
+                <app-setting-row
+                  id="about.updates"
+                  [help]="
+                    update
+                      ? updates.needsLeave()
+                        ? ('Android asks for your leave first: turn on Allow from this source, then come back.'
+                          | t)
+                        : updates.waitsForDecks()
                           ? ('Prisme {version} is ready to install. Stop the decks first: installing closes Prisme.'
                             | t: { version: update.version })
-                          : ('Prisme {version} is ready to install. Stop the decks first: installing restarts Prisme.'
+                          : ('Prisme {version} is ready to install.'
                             | t: { version: update.version })
-                        : ('Prisme {version} is ready to install.' | t: { version: update.version })
-                    : updates.looked() === 'latest'
-                      ? ('This is the latest version.' | t)
-                      : updates.looked() === 'unreachable'
-                        ? ('Could not reach GitHub to check.' | t)
-                        : null
-                "
-              >
-                @if (update && updates.needsLeave()) {
-                  <button class="pr-btn pr-btn--light" (click)="updates.allow()">
-                    {{ 'Allow…' | t }}
-                  </button>
-                } @else if (update) {
-                  <button
-                    class="pr-btn pr-btn--light"
-                    [disabled]="updates.waitsForDecks() || updates.installing()"
-                    (click)="updates.install()"
-                  >
-                    @if (progress !== null) {
-                      {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(progress) }}</span>
-                    } @else {
-                      {{
-                        updates.installing()
-                          ? ('Installing…' | t)
-                          : update.apk
-                            ? ('Install' | t)
-                            : ('Install and restart' | t)
-                      }}
-                    }
-                  </button>
-                } @else {
-                  <button
-                    class="pr-btn"
-                    [class.is-busy]="updates.looked() === 'looking'"
-                    [class.pr-btn--danger]="updates.looked() === 'unreachable'"
-                    [disabled]="updates.looked() === 'looking'"
-                    (click)="updates.look()"
-                  >
-                    {{
-                      updates.looked() === 'looking'
-                        ? ('Checking…' | t)
+                      : updates.looked() === 'latest'
+                        ? ('This is the latest version.' | t)
                         : updates.looked() === 'unreachable'
-                          ? ('Try again' | t)
-                          : ('Check now' | t)
-                    }}
-                  </button>
-                }
-              </app-setting-row>
+                          ? ('Could not reach GitHub to check.' | t)
+                          : null
+                  "
+                >
+                  @if (update && updates.needsLeave()) {
+                    <button class="pr-btn pr-btn--light" (click)="updates.allow()">
+                      {{ 'Allow…' | t }}
+                    </button>
+                  } @else if (update) {
+                    <button
+                      class="pr-btn pr-btn--light"
+                      [disabled]="updates.waitsForDecks() || updates.installing()"
+                      (click)="updates.install()"
+                    >
+                      @if (progress !== null) {
+                        {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(progress) }}</span>
+                      } @else {
+                        {{ updates.installing() ? ('Installing…' | t) : ('Install' | t) }}
+                      }
+                    </button>
+                  } @else {
+                    <button
+                      class="pr-btn"
+                      [class.is-busy]="updates.looked() === 'looking'"
+                      [class.pr-btn--danger]="updates.looked() === 'unreachable'"
+                      [disabled]="updates.looked() === 'looking'"
+                      (click)="updates.look()"
+                    >
+                      {{
+                        updates.looked() === 'looking'
+                          ? ('Checking…' | t)
+                          : updates.looked() === 'unreachable'
+                            ? ('Try again' | t)
+                            : ('Check now' | t)
+                      }}
+                    </button>
+                  }
+                </app-setting-row>
+              }
               <app-setting-row id="about.diagnostics">
                 <button class="pr-btn" (click)="saveDiagnostics()">
                   {{

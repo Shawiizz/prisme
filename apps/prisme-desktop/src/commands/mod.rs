@@ -35,8 +35,6 @@ pub mod simulated;
 pub mod stems;
 pub mod targets;
 pub mod tracks;
-#[cfg(desktop)]
-pub mod update;
 
 /// Runs `work` off the commands' threads: a command that waits for the audio to restart or
 /// for the disk would hold the window up meanwhile.

@@ -384,6 +384,15 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     description: () => t('New versions are offered in the title bar.'),
   },
   {
+    id: 'about.automaticUpdates',
+    page: 'about',
+    label: () => t('Automatic updates'),
+    description: () =>
+      t(
+        'New versions download in the background and open at the next start, without an installer.',
+      ),
+  },
+  {
     id: 'about.diagnostics',
     page: 'about',
     label: () => t('Diagnostic report'),
@@ -393,7 +402,10 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
 ];
 
 /** The settings a phone has no use for: it has one screen. */
-const COMPUTER_ONLY_SETTINGS: readonly string[] = ['interface.screenBelow'];
+const COMPUTER_ONLY_SETTINGS: readonly string[] = [
+  'interface.screenBelow',
+  'about.automaticUpdates',
+];
 /** The settings only Android has the means of yet. */
 const ANDROID_ONLY_SETTINGS: readonly string[] = ['dj.lockControls'];
 

@@ -22,6 +22,7 @@ prisme-dsp = { path = "crates/prisme-dsp" }
 prisme-control = { path = "crates/prisme-control" }
 prisme-actions = { path = "crates/prisme-actions" }
 prisme-stems = { path = "crates/prisme-stems" }
+prisme-update = { path = "crates/prisme-update" }
 
 anyhow = "1"
 thiserror = "2"

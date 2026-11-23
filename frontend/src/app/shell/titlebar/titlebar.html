@@ -1,7 +1,7 @@
 <header
   class="titlebar"
   [class.mac]="MAC"
-  [class.updating]="updates.available()"
+  [class.updating]="updates.offer() !== null"
   data-tauri-drag-region
 >
   <div class="brand" data-tauri-drag-region>
@@ -127,28 +127,39 @@
   </button>
 
   <nav class="actions">
-    @if (updates.available(); as update) {
-      @let progress = updates.progress();
-      <button
-        class="pr-btn pr-btn--light pr-btn--sm update"
-        [disabled]="updates.waitsForDecks() || updates.installing()"
-        [title]="
-          updates.waitsForDecks()
-            ? ('Stop the decks first: installing restarts Prisme' | t)
-            : ('Install Prisme {version} and restart' | t: { version: update.version })
-        "
-        (click)="updates.install()"
-      >
-        @if (progress !== null) {
-          {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(progress) }}</span>
-        } @else {
-          {{
-            updates.installing()
-              ? ('Installing…' | t)
-              : ('Update {version}' | t: { version: update.version })
-          }}
+    @if (updates.offer(); as offer) {
+      @switch (offer.kind) {
+        @case ('restart') {
+          <button
+            class="pr-btn pr-btn--light pr-btn--sm update"
+            [disabled]="updates.decksPlaying()"
+            [title]="
+              updates.decksPlaying()
+                ? ('Prisme {version} opens at the next start, or once the decks are stopped'
+                  | t: { version: offer.version })
+                : ('Prisme {version} is installed: restart to open it'
+                  | t: { version: offer.version })
+            "
+            (click)="updates.restart()"
+          >
+            {{ 'Restart to update' | t }}
+          </button>
         }
-      </button>
+        @case ('download') {
+          <button
+            class="pr-btn pr-btn--light pr-btn--sm update"
+            [title]="'Download Prisme {version}' | t: { version: offer.version }"
+            (click)="updates.download()"
+          >
+            {{ 'Update {version}' | t: { version: offer.version } }}
+          </button>
+        }
+        @case ('downloading') {
+          <button class="pr-btn pr-btn--light pr-btn--sm update" disabled>
+            {{ 'Downloading…' | t }} <span class="pr-num">{{ percent(offer.progress) }}</span>
+          </button>
+        }
+      }
     }
     <div class="rec">
       @if (recording.status(); as r) {

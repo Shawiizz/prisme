@@ -1,26 +1,29 @@
-//! Newer versions of Prisme: looked for on the releases, installed only once no deck plays (on a
-//! computer `update`, on Android `apk`).
+//! Newer versions of Prisme on a phone: looked for on the releases, installed only once no deck
+//! plays (on Android its APK, `apk`; a computer updates itself, `updates`).
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
+#[cfg(any(mobile, test))]
 use serde::Serialize;
+#[cfg(mobile)]
 use tauri::AppHandle;
 
 /// The latest release, from GitHub's API.
 #[cfg(target_os = "android")]
 const LATEST: &str = "https://api.github.com/repos/Shawiizz/prisme/releases/latest";
 
-/// A newer version than the one running: installed in place on a computer, its APK handed to
-/// Android on a phone.
+/// A newer version than the one running, its APK handed to Android.
+#[cfg(any(mobile, test))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "NewVersion"))]
 pub struct NewVersionDto {
     pub version: String,
-    pub apk: Option<ApkDto>,
+    pub apk: ApkDto,
 }
 
 /// The APK of a release, and its size in bytes.
+#[cfg(any(mobile, test))]
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Apk"))]
@@ -29,17 +32,11 @@ pub struct ApkDto {
     pub size: u64,
 }
 
-/// The newer version published, if there is one: by the updater on a computer, from the latest
-/// release's APK on Android; none on iOS, updated by its store.
+/// The newer version published, if there is one: from the latest release's APK on Android;
+/// none on iOS, updated by its store.
+#[cfg(mobile)]
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> AppResult<Option<NewVersionDto>> {
-    #[cfg(desktop)]
-    {
-        use tauri_plugin_updater::UpdaterExt;
-        let failed = |e: tauri_plugin_updater::Error| AppError::Other(e.to_string());
-        let update = app.updater().map_err(failed)?.check().await.map_err(failed)?;
-        Ok(update.map(|u| NewVersionDto { version: u.version, apk: None }))
-    }
     #[cfg(target_os = "android")]
     {
         let client = crate::http::client(std::time::Duration::from_secs(30)).map_err(AppError::Other)?;
@@ -71,31 +68,12 @@ fn newer_apk(release: &serde_json::Value, running: &str) -> Option<NewVersionDto
     let assets = release["assets"].as_array()?;
     let apk = assets.iter().find(|a| a["name"].as_str().is_some_and(|n| n.ends_with(".apk")))?;
     let apk = ApkDto { url: apk["browser_download_url"].as_str()?.to_owned(), size: apk["size"].as_u64()? };
-    newer(tag, running).then(|| NewVersionDto { version: tag.to_owned(), apk: Some(apk) })
-}
-
-/// Whether version `a` (`1.2.3`) comes after `b`, number by number.
-#[cfg(any(target_os = "android", test))]
-fn newer(a: &str, b: &str) -> bool {
-    let numbers = |v: &str| -> Vec<u64> { v.split('.').map(|n| n.parse().unwrap_or(0)).collect() };
-    let (a, b) = (numbers(a), numbers(b));
-    let at = |v: &[u64], i: usize| v.get(i).copied().unwrap_or(0);
-    let order = (0..a.len().max(b.len())).map(|i| at(&a, i).cmp(&at(&b, i))).find(|o| o.is_ne());
-    order == Some(std::cmp::Ordering::Greater)
+    prisme_update::newer(tag, running).then(|| NewVersionDto { version: tag.to_owned(), apk })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_version_is_newer_number_by_number_not_by_its_text() {
-        assert!(newer("0.3.10", "0.3.9"));
-        assert!(newer("0.4.0", "0.3.12"));
-        assert!(newer("1.0.0", "0.9.9"));
-        assert!(!newer("0.3.6", "0.3.6"));
-        assert!(!newer("0.3.5", "0.3.6"));
-    }
 
     #[test]
     fn the_latest_release_offers_its_apk_when_newer() {
@@ -107,7 +85,7 @@ mod tests {
             ]
         });
         let apk = ApkDto { url: "x.apk".into(), size: 3 };
-        let found = NewVersionDto { version: "0.4.0".into(), apk: Some(apk) };
+        let found = NewVersionDto { version: "0.4.0".into(), apk };
         assert_eq!(newer_apk(&release, "0.3.9"), Some(found));
         assert_eq!(newer_apk(&release, "0.4.0"), None);
     }

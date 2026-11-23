@@ -75,6 +75,8 @@ mod track_loading;
 mod track_waveform;
 #[cfg(test)]
 mod ts_types;
+#[cfg(desktop)]
+mod updates;
 #[cfg(target_os = "android")]
 mod usb_android;
 
@@ -151,7 +153,7 @@ fn models_dir(app: &tauri::App, data_dir: Option<&Path>) -> PathBuf {
 }
 
 /// What only a computer has: a second launch on the same data shows the running one (two
-/// would share the library), and updates come from the releases, not from a store.
+/// would share the library), and Prisme updates itself from the releases (`updates`).
 #[cfg(desktop)]
 fn desktop_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = if dev_startup::data_dir().is_none() {
@@ -164,9 +166,7 @@ fn desktop_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri:
     } else {
         builder
     };
-    builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(commands::update::Downloaded::default())
+    builder.manage(updates::Updates::new())
 }
 
 /// The page over the whole screen of an iPhone, under the notch and the home bar (it keeps
@@ -197,12 +197,15 @@ fn fill_the_screen(app: &tauri::App) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(desktop)]
+    if let Some(code) = updates::before_start() {
+        std::process::exit(code);
+    }
     let builder = tauri::Builder::default();
     #[cfg(desktop)]
     let builder = desktop_plugins(builder);
     builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_process::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
             app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
@@ -223,6 +226,8 @@ pub fn run() {
         .run(|app, event| {
             if let tauri::RunEvent::Exit = event {
                 close(app);
+                #[cfg(desktop)]
+                app.state::<updates::Updates>().on_quit();
             }
         });
 }
@@ -241,8 +246,6 @@ fn prepare_window(app: &tauri::App) {
     browser_keys_off(app);
     #[cfg(any(windows, target_os = "macos"))]
     file_drop::listen(app);
-    #[cfg(windows)]
-    commands::update::clear_leftovers(app.handle());
     #[cfg(target_os = "android")]
     commands::apk::clear_leftovers(app.handle());
     #[cfg(target_os = "ios")]
@@ -343,6 +346,8 @@ fn start_services(app: &tauri::App, library: &Arc<LibraryService>) {
     android_jni::install(app.handle());
     library.show_folders();
     library.browse();
+    #[cfg(desktop)]
+    updates::start(app.handle());
     library.start();
     library.watch();
 }
@@ -434,6 +439,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::mixer::set_booth_output,
         commands::mixer::set_headphones_output,
         commands::mixer::set_limiter,
+        #[cfg(mobile)]
         commands::new_version::check_update,
         commands::pads::anchor_slicer,
         commands::pads::pad_pages,
@@ -479,9 +485,13 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         #[cfg(debug_assertions)]
         commands::simulated::simulated_hid_written,
         #[cfg(desktop)]
-        commands::update::download_update,
+        updates::update_state,
         #[cfg(desktop)]
-        commands::update::install_update,
+        updates::look_for_update,
+        #[cfg(desktop)]
+        updates::download_update,
+        #[cfg(desktop)]
+        updates::restart_to_update,
         #[cfg(target_os = "android")]
         commands::apk::allow_installs,
         #[cfg(target_os = "android")]

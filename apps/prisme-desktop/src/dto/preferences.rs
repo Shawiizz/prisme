@@ -3,6 +3,7 @@
 use super::TargetDto;
 use crate::preferences::{
     AutoDjPreferences, DeckCount, DjPreferences, LibraryPreferences, MixerPreferences, UiPreferences,
+    UpdatePreferences,
 };
 use crate::shortcuts::{self, Shortcut};
 use crate::state::AppState;
@@ -18,6 +19,7 @@ pub struct PreferencesDto {
     pub dj: DjPreferences,
     pub library: LibraryPreferences,
     pub ui: UiPreferences,
+    pub updates: UpdatePreferences,
     /// The keyboard's shortcuts in use: the keys the DJ gave, the defaults of the other actions.
     pub shortcuts: Vec<ShortcutDto>,
     /// The actions whose keys the DJ changed.
@@ -54,8 +56,8 @@ pub struct SettingChoicesDto {
 
 impl PreferencesDto {
     pub fn of(state: &AppState) -> Self {
-        let (dj, library, ui, keys) =
-            state.preferences.read(|p| (p.dj, p.library.clone(), p.ui.clone(), p.keys.clone()));
+        let (dj, library, ui, updates, keys) =
+            state.preferences.read(|p| (p.dj, p.library.clone(), p.ui.clone(), p.updates, p.keys.clone()));
         let in_use = |control: &str| control.parse::<Target>().is_ok_and(|t| t.in_use(dj.decks()));
         let shortcuts = shortcuts::effective(&keys)
             .into_iter()
@@ -73,7 +75,7 @@ impl PreferencesDto {
             fade_beats: AutoDjPreferences::FADE_BEATS,
             fade_seconds: AutoDjPreferences::FADE_SECONDS,
         };
-        Self { dj, library, ui, shortcuts, changed: keys.into_keys().collect(), choices }
+        Self { dj, library, ui, updates, shortcuts, changed: keys.into_keys().collect(), choices }
     }
 }
 
