@@ -208,7 +208,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .register_asynchronous_uri_scheme_protocol(cover_protocol::SCHEME, cover_protocol::handle)
         .setup(|app| {
-            app.manage(logging::init(app.path().app_log_dir().ok().as_deref()));
+            // a development start on data of its own logs beside them
+            let logs =
+                dev_startup::data_dir().map(|d| d.join("logs")).or_else(|| app.path().app_log_dir().ok());
+            app.manage(logging::init(logs.as_deref()));
             prepare_window(app);
             let data_dir = data_dir(app);
             let library = manage_states(app, data_dir.as_deref());
