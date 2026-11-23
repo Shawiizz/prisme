@@ -238,6 +238,24 @@ describe('EngineService', () => {
     vi.useRealTimers();
   });
 
+  it('listens anew when no state comes for three seconds, and not before', async () => {
+    vi.useFakeTimers();
+    let subscribed = 0;
+    mockIPC((command) => {
+      if (command === 'subscribe_status') subscribed++;
+    });
+    const reported = vi.spyOn(TestBed.inject(ErrorHandler), 'handleError');
+    reported.mockImplementation(() => {});
+    void engine.connect();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(subscribed).toBe(1);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(reported).toHaveBeenCalledOnce();
+    expect(subscribed).toBe(2);
+    clearMocks();
+    vi.useRealTimers();
+  });
+
   describe('what the backend changed', () => {
     const drop: Cue = { hot: 2, positionS: 12, loopLengthS: null, color: 0xff0000, label: '' };
     const level = { level: 1, on: true };

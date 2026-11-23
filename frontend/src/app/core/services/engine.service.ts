@@ -1,4 +1,5 @@
 import {
+  DestroyRef,
   ErrorHandler,
   Injectable,
   computed,
@@ -38,6 +39,10 @@ import type {
 const REFUSAL_MS = 5000;
 /** How long after a state it failed to take the page listens anew. */
 const RELISTEN_MS = 1000;
+/** How often the page looks whether a state came, and how many looks in a row may find none
+ * before it listens anew: the backend tells one twice a second at least. */
+const LOOK_MS = 1000;
+const SILENT_LOOKS = 3;
 
 /** What the DJ is asked before the backend does what it did not, by the code of its answer. */
 const QUESTIONS: Record<string, (p: Params) => Question> = {
@@ -86,6 +91,7 @@ function answeredBy(question: Question, { yes, no }: AnswerKeys): string {
 export class EngineService {
   private readonly confirm = inject(ConfirmService);
   private readonly errors = inject(ErrorHandler);
+  private readonly destroyed = inject(DestroyRef);
 
   /** Latest engine state (drives the templates). */
   readonly status = signal<EngineStatus | null>(null);
@@ -134,39 +140,57 @@ export class EngineService {
 
   /** Where each deck's playhead was when, and its speed: what it is drawn from. */
   private playheads: (Playhead | null)[] = [];
+  /** The channel the page listens on: the states of an older one are let go. */
+  private channel?: Channel<StatusChanges>;
+  /** Whether a state came since the page last looked, and how many looks in a row found none. */
+  private heard = false;
+  private silentLooks = 0;
 
   /** Subscribes to the engine state: done once its first state came, which tells all the app
    * mirrors (the decks' settings, the mixer's…). */
   async connect(): Promise<void> {
     let mirrored!: () => void;
     const told = new Promise<void>((resolve) => (mirrored = resolve));
+    const looking = setInterval(() => {
+      this.silentLooks = this.heard ? 0 : this.silentLooks + 1;
+      this.heard = false;
+      if (this.silentLooks === SILENT_LOOKS) {
+        this.relisten(mirrored, new Error(`No engine state for ${SILENT_LOOKS} s`), 0);
+      }
+    }, LOOK_MS);
+    this.destroyed.onDestroy(() => clearInterval(looking));
     await this.listen(mirrored);
     await told;
   }
 
-  /** Listens to the engine state on a channel of its own, told all of it first. A state the
-   * page fails to take is reported, and the page listens anew a moment later, told all again:
-   * Tauri would hold back every state after one left half taken. */
+  /** Listens to the engine state on a channel of its own, told all of it first. */
   private listen(mirrored: () => void): Promise<void> {
     const channel = new Channel<StatusChanges>();
-    let failed = false;
+    this.channel = channel;
+    this.silentLooks = 0;
     channel.onmessage = (changes) => {
-      if (failed) return;
+      if (channel !== this.channel) return;
+      this.heard = true;
       try {
         this.take(changes, mirrored);
       } catch (error) {
-        failed = true;
-        this.errors.handleError(error);
-        setTimeout(
-          () => this.listen(mirrored).catch((e) => this.errors.handleError(e)),
-          RELISTEN_MS,
-        );
+        this.relisten(mirrored, error, RELISTEN_MS);
       }
     };
     return invoke('subscribe_status', { channel });
   }
 
+  /** Reports why the page listens anew, `afterMs` later, told all again: Tauri holds back every
+   * state after one left half taken, or lost. */
+  private relisten(mirrored: () => void, why: unknown, afterMs: number) {
+    this.channel = undefined;
+    this.errors.handleError(why);
+    setTimeout(() => this.listen(mirrored).catch((e) => this.errors.handleError(e)), afterMs);
+  }
+
   private take({ controls, ...changes }: StatusChanges, mirrored: () => void) {
+    // nothing changed: the backend only says it still tells
+    if (!controls && this.status() && Object.keys(changes).length === 0) return;
     const s = withChanges(this.status(), changes);
     this.playheads = s.decks.map((d, i) => followPlayhead(this.playheads[i] ?? null, d));
     if (controls) {

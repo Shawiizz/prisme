@@ -1,7 +1,7 @@
 //! Tells the page the state of the application about 60 times a second, as the backend's clock
 //! builds it (`clock`), with the sections of what the interface mirrors that moved since last
-//! sent. Each status says only what changed since the one before (see [`Told`]): nothing at all
-//! while nothing moves.
+//! sent. Each status says only what changed since the one before (see [`Told`]); while nothing
+//! moves, an empty one now and then ([`ALIVE`]), by which the page knows it is still told.
 
 use crate::actions::Actions;
 use crate::dto::{ControlStateDto, StatusDto};
@@ -11,8 +11,13 @@ use serde::Serialize;
 use serde_json::{Map, Value};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
 use tauri::State;
+
+/// The longest the page is told nothing: told nothing for much longer, it lost a status and
+/// listens anew.
+const ALIVE: Duration = Duration::from_millis(500);
 
 /// The page listening, if one does.
 #[derive(Default)]
@@ -25,6 +30,7 @@ struct Listener {
     told: Told,
     /// The revisions of what the interface mirrors it was last sent: none, all sent first.
     revision: Option<[u64; SECTIONS]>,
+    sent: Instant,
 }
 
 /// The page listens from now on: a newer one in place of an older (a page reloaded), the keys
@@ -36,7 +42,7 @@ pub fn subscribe_status(
     channel: Channel<Value>,
 ) {
     actions.page_loaded();
-    *lock(&stream.listener) = Some(Listener { channel, told: Told::default(), revision: None });
+    *lock(&stream.listener) = Some(Listener::new(channel));
 }
 
 impl StatusStream {
@@ -70,8 +76,12 @@ impl StatusStream {
 }
 
 impl Listener {
-    /// Sends what changed: whether the page still listens (its window is gone when its channel
-    /// is).
+    fn new(channel: Channel<Value>) -> Self {
+        Self { channel, told: Told::default(), revision: None, sent: Instant::now() }
+    }
+
+    /// Sends what changed, or now and then that nothing did: whether the page still listens (its
+    /// window is gone when its channel is).
     fn tell(
         &mut self,
         state: &AppState,
@@ -90,7 +100,13 @@ impl Listener {
             self.revision = Some(revision);
         }
         let changes = self.told.changes(status);
-        changes.is_none_or(|changes| self.channel.send(changes).is_ok())
+        let Some(changes) =
+            changes.or_else(|| (self.sent.elapsed() >= ALIVE).then(|| Value::Object(Map::new())))
+        else {
+            return true;
+        };
+        self.sent = Instant::now();
+        self.channel.send(changes).is_ok()
     }
 }
 
@@ -194,7 +210,7 @@ mod tests {
             Ok(())
         });
         let stream = StatusStream::default();
-        *lock(&stream.listener) = Some(Listener { channel, told: Told::default(), revision: None });
+        *lock(&stream.listener) = Some(Listener::new(channel));
         let tell = || {
             stream.tell(&state, &view, state.revision(), false, || {
                 StatusDto::of(&view, None, Default::default())
@@ -207,6 +223,9 @@ mod tests {
         assert!(catch_unwind(AssertUnwindSafe(failed)).is_err());
         tell();
         assert_eq!(*lock(&sent), 2, "listening still, told it whole");
+        std::thread::sleep(ALIVE);
+        tell();
+        assert_eq!(*lock(&sent), 3, "nothing moved, but the page knows it is told");
     }
 
     #[test]
