@@ -37,7 +37,7 @@ The window needs at least 1280 × 640 pixels: a 1080p laptop screen at 150 % sca
 
 3. The installer asks nothing: it installs Prisme for your user account only, so without administrator rights, in English or French following your system, then opens Prisme. If Prisme is already open, it asks you to close it first.
 
-4. Afterwards, start Prisme from the Start menu. New versions install themselves when Prisme offers them.
+4. Afterwards, start Prisme from the Start menu. New versions come by themselves: see [Updates](#updates).
 
 </Steps>
 
@@ -115,13 +115,18 @@ On a computer you can choose another folder under **Settings** › **Library** �
 
 ## Updates
 
-On Windows, macOS and Linux, Prisme looks for a new version on GitHub each time it starts. When one is out, an **Update** button with its version number appears in the title bar.
+On Windows, macOS and the AppImage on Linux, Prisme updates itself as most programs do today: no installer to go through, nothing to wait for.
 
-- Press it when you are ready: Prisme downloads the update, showing how much has come, installs it and restarts.
-- The button is disabled while a deck plays or a record turns, since installing restarts Prisme. Stop the decks first.
+- A few seconds after it starts, then every few hours, Prisme looks on GitHub for a new version. When there is one, it downloads it in the background, even during a set, and puts it in place.
+- The new version opens the next time you start Prisme. Until then, nothing changes in the one you play with.
+- To open it at once, press **Restart to update** in the title bar. The button waits while a deck plays or a record turns.
 - To look again, open **Settings** > **About** and press **Check now**.
 
-The updates are signed: Prisme installs only those published by the project.
+To choose when a new version downloads, turn off **Automatic updates** in **Settings** > **About**. Prisme then shows an **Update** button with the version number in the title bar, and downloads it when you press it.
+
+The updates are signed: Prisme puts in place only those published by the project.
+
+Installed from the `.deb`, Prisme tells you of a new version in **Settings** > **About**, and your system's packages install it.
 
 On Android, Prisme looks at each start too, and offers the new version in **Settings** > **About**:
 

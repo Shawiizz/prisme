@@ -146,7 +146,7 @@ The packages land in `target/release/bundle`:
 
 | System | Package |
 | --- | --- |
-| Windows | An installer (NSIS), installed for the current user. |
+| Windows | Nothing: `target/release/prisme-desktop.exe` runs as it is. Prisme's installer carries it, packed: `tar -czf prisme.tar.gz -C target/release prisme-desktop.exe`, then `PRISME_SETUP_PAYLOAD=prisme.tar.gz cargo build --release -p prisme-setup`. |
 | Linux | A `.deb` and an AppImage. |
 | macOS | The `.app` and a `.dmg`. |
 

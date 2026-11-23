@@ -146,7 +146,7 @@ Les paquets arrivent dans `target/release/bundle` :
 
 | Système | Paquet |
 | --- | --- |
-| Windows | Un installeur (NSIS), installé pour l’utilisateur courant. |
+| Windows | Rien : `target/release/prisme-desktop.exe` se lance tel quel. L’installeur de Prisme le porte, compressé : `tar -czf prisme.tar.gz -C target/release prisme-desktop.exe`, puis `PRISME_SETUP_PAYLOAD=prisme.tar.gz cargo build --release -p prisme-setup`. |
 | Linux | Un `.deb` et une AppImage. |
 | macOS | L’`.app` et un `.dmg`. |
 

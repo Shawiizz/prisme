@@ -37,7 +37,7 @@ La fenêtre demande au moins 1280 × 640 pixels : un écran de portable 1080p �
 
 3. L’installeur ne demande rien : il installe Prisme pour votre seul compte utilisateur, donc sans droits d’administrateur, en français ou en anglais selon votre système, puis ouvre Prisme. Si Prisme est déjà ouvert, il vous demande d’abord de le fermer.
 
-4. Ensuite, lancez Prisme depuis le menu Démarrer. Les nouvelles versions s’installent d’elles-mêmes quand Prisme les propose.
+4. Ensuite, lancez Prisme depuis le menu Démarrer. Les nouvelles versions arrivent d’elles-mêmes : voir [Mises à jour](#mises-à-jour).
 
 </Steps>
 
@@ -115,13 +115,18 @@ Sur ordinateur, vous pouvez choisir un autre dossier dans **Réglages** › **Bi
 
 ## Mises à jour
 
-Sous Windows, macOS et Linux, Prisme cherche une nouvelle version sur GitHub à chaque démarrage. Quand il y en a une, un bouton **Mise à jour** avec son numéro de version apparaît dans la barre de titre.
+Sous Windows, macOS et avec l’AppImage sous Linux, Prisme se met à jour comme la plupart des logiciels aujourd’hui : pas d’installeur à passer, rien à attendre.
 
-- Appuyez dessus quand vous êtes prêt : Prisme télécharge la mise à jour en montrant où il en est, l’installe et redémarre.
-- Le bouton est désactivé tant qu’un deck joue ou qu’un disque tourne, puisque l’installation redémarre Prisme. Arrêtez d’abord les decks.
+- Quelques secondes après son démarrage, puis toutes les quelques heures, Prisme cherche une nouvelle version sur GitHub. Quand il y en a une, il la télécharge en arrière-plan, même pendant un set, et la met en place.
+- La nouvelle version s’ouvre au prochain lancement de Prisme. D’ici là, rien ne change dans celle avec laquelle vous jouez.
+- Pour l’ouvrir tout de suite, appuyez sur **Redémarrer pour mettre à jour** dans la barre de titre. Le bouton attend tant qu’un deck joue ou qu’un disque tourne.
 - Pour vérifier à nouveau, ouvrez **Réglages** > **À propos** et appuyez sur **Vérifier maintenant**.
 
-Les mises à jour sont signées : Prisme n’installe que celles publiées par le projet.
+Pour choisir quand une nouvelle version se télécharge, désactivez **Mises à jour automatiques** dans **Réglages** > **À propos**. Prisme affiche alors un bouton **Mise à jour** avec le numéro de version dans la barre de titre, et la télécharge quand vous appuyez dessus.
+
+Les mises à jour sont signées : Prisme ne met en place que celles publiées par le projet.
+
+Installé depuis le `.deb`, Prisme vous signale une nouvelle version dans **Réglages** > **À propos**, et les paquets de votre système l’installent.
 
 Sur Android, Prisme cherche aussi à chaque démarrage, et propose la nouvelle version dans **Réglages** > **À propos** :
 
