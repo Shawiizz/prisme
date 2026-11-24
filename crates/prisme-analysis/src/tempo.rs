@@ -39,6 +39,9 @@ pub struct Tempo {
     pub first_beat_s: f64,
     /// 0 (no clear pulse) to 1 (a single dominant pulse).
     pub confidence: f32,
+    /// Whether bar 1 is where the kick, each time it comes back after an absence, says the bars
+    /// start: else they are to be checked by ear.
+    pub bars_sure: bool,
 }
 
 impl Tempo {
@@ -82,7 +85,8 @@ pub fn estimate_tempo(env: &OnsetEnvelopes, min_bpm: f64) -> Option<Tempo> {
 
     let bpm = refine(&signal, env.frame_rate, best_bpm);
     let first_beat_s = beat_phase(env, bpm);
-    Some(Tempo { bpm, first_beat_s, confidence })
+    // the bars are placed apart (`crate::analyze`)
+    Some(Tempo { bpm, first_beat_s, confidence, bars_sure: false })
 }
 
 fn zero_mean(values: &[f32]) -> Vec<f64> {

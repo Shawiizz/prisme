@@ -166,9 +166,9 @@ impl LibraryDb {
             .prepare_cached(
                 "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
                  first_beat_s, tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error,
-                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version)
+                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version, bars_sure)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
-                 ?20, ?21)",
+                 ?20, ?21, ?22)",
             )?
             .execute(params![
                 record.path,
@@ -192,6 +192,7 @@ impl LibraryDb {
                 tags.year,
                 tags.comment,
                 record.version.tags_version,
+                tempo.is_none_or(|t| t.bars_sure),
             ])?;
         Ok(())
     }
@@ -301,6 +302,7 @@ pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
             bpm,
             first_beat_s,
             confidence: r.get::<_, Option<f32>>("tempo_confidence")?.unwrap_or(0.0),
+            bars_sure: r.get("bars_sure")?,
         }),
         _ => None,
     };
@@ -349,7 +351,7 @@ mod tests {
             STAMP,
             301.5,
             TrackAnalysis {
-                tempo: Some(Tempo { bpm: 124.0, first_beat_s: 0.212, confidence: 0.9 }),
+                tempo: Some(Tempo { bpm: 124.0, first_beat_s: 0.212, confidence: 0.9, bars_sure: true }),
                 key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.3, tuning_cents: -4.0 }),
             },
             TrackTags {

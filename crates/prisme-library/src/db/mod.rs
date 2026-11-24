@@ -161,6 +161,8 @@ const MIGRATIONS: &[&str] = &[
     // the library is searched in memory (`catalogue`): its full-text index goes, nothing else
     "DROP TABLE search_rows;
      DROP TABLE track_search;",
+    // whether the bars are where the kick's comebacks say (prisme_analysis::Tempo::bars_sure)
+    "ALTER TABLE tracks ADD COLUMN bars_sure INTEGER NOT NULL DEFAULT 1;",
 ];
 
 pub fn now_ms() -> i64 {

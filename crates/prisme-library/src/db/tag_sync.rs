@@ -178,7 +178,12 @@ mod tests {
         let keys = (0..12).flat_map(|t| [Key::new(t, Mode::Major), Key::new(t, Mode::Minor)]);
         for (i, key) in keys.clone().enumerate() {
             let analysis = TrackAnalysis {
-                tempo: Some(Tempo { bpm: 120.0 + i as f64, first_beat_s: 0.0, confidence: 1.0 }),
+                tempo: Some(Tempo {
+                    bpm: 120.0 + i as f64,
+                    first_beat_s: 0.0,
+                    confidence: 1.0,
+                    bars_sure: true,
+                }),
                 key: Some(KeyEstimate { key, confidence: 1.0, tuning_cents: 0.0 }),
             };
             save(&db, &format!("{i}.mp3"), BEFORE, analysis);

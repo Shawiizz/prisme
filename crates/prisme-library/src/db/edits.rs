@@ -70,7 +70,7 @@ impl TrackEdits {
         TrackAnalysis {
             tempo: self
                 .grid
-                .map(|g| Tempo { bpm: g.bpm, first_beat_s: g.first_beat_s, confidence: 1.0 })
+                .map(|g| Tempo { bpm: g.bpm, first_beat_s: g.first_beat_s, confidence: 1.0, bars_sure: true })
                 .or(detected.tempo),
             key: self
                 .key
@@ -142,7 +142,7 @@ mod tests {
 
     fn detected() -> TrackAnalysis {
         TrackAnalysis {
-            tempo: Some(Tempo { bpm: 62.0, first_beat_s: 0.4, confidence: 0.5 }),
+            tempo: Some(Tempo { bpm: 62.0, first_beat_s: 0.4, confidence: 0.5, bars_sure: true }),
             key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.2, tuning_cents: -8.0 }),
         }
     }
@@ -169,7 +169,10 @@ mod tests {
             key: Some(Key::new(0, Mode::Major)),
         };
         let applied = edits.apply(detected());
-        assert_eq!(applied.tempo, Some(Tempo { bpm: 124.0, first_beat_s: 0.15, confidence: 1.0 }));
+        assert_eq!(
+            applied.tempo,
+            Some(Tempo { bpm: 124.0, first_beat_s: 0.15, confidence: 1.0, bars_sure: true })
+        );
         let key = applied.key.unwrap();
         assert_eq!((key.key, key.tuning_cents), (Key::new(0, Mode::Major), -8.0));
         assert_eq!(TrackEdits::default().apply(detected()), detected());

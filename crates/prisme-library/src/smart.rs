@@ -106,7 +106,7 @@ mod tests {
 
     fn track(genre: &str, bpm: f64, camelot: &str, year: u16) -> TrackRecord {
         let analysis = TrackAnalysis {
-            tempo: Some(Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 }),
+            tempo: Some(Tempo { bpm, first_beat_s: 0.0, confidence: 1.0, bars_sure: true }),
             key: Key::from_camelot(camelot).map(|key| KeyEstimate {
                 key,
                 confidence: 1.0,

@@ -220,7 +220,7 @@ pub(crate) mod tests {
     /// A track analysed at `path`, with `tags`, at `bpm` in `camelot`.
     pub fn record(path: &str, tags: TrackTags, bpm: Option<f64>, camelot: Option<&str>) -> TrackRecord {
         let analysis = TrackAnalysis {
-            tempo: bpm.map(|bpm| Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 }),
+            tempo: bpm.map(|bpm| Tempo { bpm, first_beat_s: 0.0, confidence: 1.0, bars_sure: true }),
             key: camelot.and_then(Key::from_camelot).map(|key| KeyEstimate {
                 key,
                 confidence: 1.0,

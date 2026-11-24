@@ -33,6 +33,7 @@ fn records() -> Vec<TrackRecord> {
                     bpm: 110.0 + (i % 400) as f64 / 10.0,
                     first_beat_s: 0.0,
                     confidence: 1.0,
+                    bars_sure: true,
                 }),
                 key: Some(KeyEstimate { key: keys[i % keys.len()], confidence: 1.0, tuning_cents: 0.0 }),
             };

@@ -104,7 +104,7 @@ pub fn fit_grid(signal: &MonoSignal, coarse: Tempo) -> Tempo {
     if spread(&attacks, whole) <= spread(&attacks, period) + SNAP_TOLERANCE_S {
         (period, phase) = (whole, grid_phase(&attacks, whole));
     }
-    Tempo { bpm: 60.0 / period, first_beat_s: phase.rem_euclid(period), confidence: coarse.confidence }
+    Tempo { bpm: 60.0 / period, first_beat_s: phase.rem_euclid(period), ..coarse }
 }
 
 /// The attacks of the kicks near the beats of a grid that is on the kicks, even those up to

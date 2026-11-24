@@ -131,7 +131,8 @@ mod tests {
             artist: Some("A, B".into()),
             ..TrackTags::default()
         };
-        let tempo = prisme_analysis::Tempo { bpm: 124.04, first_beat_s: 0.0, confidence: 1.0 };
+        let tempo =
+            prisme_analysis::Tempo { bpm: 124.04, first_beat_s: 0.0, confidence: 1.0, bars_sure: true };
         let analysis = prisme_analysis::TrackAnalysis { tempo: Some(tempo), key: None };
         let record = TrackRecord::analyzed(
             Path::new("C:/Music/yes.mp3"),

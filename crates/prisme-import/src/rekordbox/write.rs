@@ -247,7 +247,7 @@ mod tests {
 
     fn record(path: &Path) -> TrackRecord {
         let analysis = TrackAnalysis {
-            tempo: Some(Tempo { bpm: 124.996, first_beat_s: 0.05, confidence: 0.9 }),
+            tempo: Some(Tempo { bpm: 124.996, first_beat_s: 0.05, confidence: 0.9, bars_sure: true }),
             key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.8, tuning_cents: 0.0 }),
         };
         let tags = TrackTags {

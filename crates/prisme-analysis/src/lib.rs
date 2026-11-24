@@ -129,9 +129,10 @@ fn analyze_signal(
         }
         // the first kick, else the first sound: an intro's first notes or a riser before the
         // first bar may come a beat or two early
-        let first_kick =
-            grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).first().map(|a| a.time_s);
-        on_bars(fitted, &heard, first_kick.unwrap_or_else(|| envelopes.first_onset_s()))
+        let kicks = grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s);
+        let first_kick = kicks.first().map(|a| a.time_s);
+        let bars = on_bars(fitted, &heard, first_kick.unwrap_or_else(|| envelopes.first_onset_s()));
+        Tempo { bars_sure: kick_comebacks_agree(&kicks, fitted, bars), ..bars }
     });
     TrackAnalysis { tempo, key: key::estimate_key(signal) }
 }
@@ -156,6 +157,28 @@ fn heard_beats(onsets: Tempo, heard: &[beat_model::Heard]) -> Option<f64> {
         .map(|phase| beat_model::beat_score(heard, onsets.bpm, phase))
         .fold(0.0f32, f32::max);
     (beat_model::beat_score(heard, onsets.bpm, phase_s) >= HEARD_BETTER * around).then_some(phase_s)
+}
+
+/// Beats without a kick after which the kick coming back starts a section.
+const ABSENCE_BEATS: usize = 8;
+
+/// Whether the kick, each time it comes back after an absence (the start of the track one),
+/// most often comes back on bar 1's beat of the bar: `kicks`, found on `grid`, `bars` the grid
+/// with its bar 1. A track without kicks has nothing to say so.
+fn kick_comebacks_agree(kicks: &[grid::Attack], grid: Tempo, bars: Tempo) -> bool {
+    let period = grid.beat_period_s();
+    // the attacks are numbered from the grid's first beat at or after the start
+    let first = grid.first_beat_s.rem_euclid(period);
+    let offset = ((first - bars.first_beat_s) / period).round() as i64;
+    let mut comebacks = [0usize; 4];
+    let mut last: Option<usize> = None;
+    for kick in kicks {
+        if last.is_none_or(|l| kick.beat >= l + ABSENCE_BEATS) {
+            comebacks[(kick.beat as i64 + offset).rem_euclid(4) as usize] += 1;
+        }
+        last = Some(kick.beat);
+    }
+    comebacks.iter().max().is_some_and(|&most| most > 0 && comebacks[0] == most)
 }
 
 /// The kicks a grid sits on.
