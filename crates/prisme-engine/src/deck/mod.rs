@@ -467,6 +467,7 @@ impl Deck {
         Some(LeaderBeat {
             bpm: grid.bpm * self.tempo_rate(),
             beats: grid.beats_at(self.playhead.position_s()),
+            bars_sure: grid.bars_sure,
         })
     }
 
@@ -521,9 +522,11 @@ impl Deck {
             && self.chases_beats()
             && sync::needs_resnap(target.phase_error);
         if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
-            let position = self.playhead.position_s() + sync::snap_offset_s(&grid, target.phase_error);
+            // engaging lays the bars together, a resnap only the beats
+            let error = if self.sync.snap_pending { target.bar_error } else { target.phase_error };
+            let position = self.playhead.position_s() + sync::snap_offset_s(&grid, error);
             self.playhead.seek_round_s(position);
-            target.phase_error = 0.0;
+            (target.phase_error, target.bar_error) = (0.0, 0.0);
             if self.sync.locked {
                 // start from the platter as it turns now rather than from a stale average
                 if let Some(platter) = self.sync.platter_now() {

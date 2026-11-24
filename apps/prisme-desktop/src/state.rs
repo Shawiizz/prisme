@@ -139,7 +139,11 @@ impl LoadedTrack {
     }
 
     pub fn grid(&self) -> Option<BeatGrid> {
-        self.analysis().tempo.map(|t| BeatGrid { bpm: t.bpm, first_beat_s: t.first_beat_s })
+        self.analysis().tempo.map(|t| BeatGrid {
+            bpm: t.bpm,
+            first_beat_s: t.first_beat_s,
+            bars_sure: t.bars_sure,
+        })
     }
 
     /// Commands that put the track, with its beat grid, key shift and stems, on `deck`, at
@@ -1479,7 +1483,10 @@ mod tests {
         let track = Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 2 * 48_000 * 60]));
         let loaded = [
             Command::LoadTrack { deck: 0, track },
-            Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0 }) },
+            Command::SetBeatGrid {
+                deck: 0,
+                grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
+            },
         ];
         send_all(&mut controller, loaded.into_iter().chain(commands).collect(), RESTORE_WAIT);
         let sent = controller.sent();

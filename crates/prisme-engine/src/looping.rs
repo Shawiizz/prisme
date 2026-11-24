@@ -44,7 +44,7 @@ impl LoopRegion {
 mod tests {
     use super::*;
 
-    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0 };
+    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
 
     #[test]
     fn a_quantized_loop_starts_on_the_nearest_beat() {

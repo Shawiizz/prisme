@@ -144,7 +144,7 @@ mod tests {
 
     const FADE: FadeLength = FadeLength { beats: 16, seconds: 10.0 };
     /// 120 BPM: a beat every half second, a phrase every 16 s.
-    const GRID_120: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.25 };
+    const GRID_120: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.25, bars_sure: true };
 
     fn near(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-9
@@ -164,7 +164,7 @@ mod tests {
     #[test]
     fn a_synced_mix_starts_on_the_last_phrase_that_holds_the_fade() {
         let incoming = Incoming {
-            grid: Some(BeatGrid { bpm: 124.0, first_beat_s: 0.1 }),
+            grid: Some(BeatGrid { bpm: 124.0, first_beat_s: 0.1, bars_sure: true }),
             cue_s: None,
             audible_start_s: 0.0,
         };
@@ -180,13 +180,13 @@ mod tests {
 
     #[test]
     fn the_next_track_starts_on_its_cue_or_on_its_first_beat_heard() {
-        let grid = Some(BeatGrid { bpm: 120.0, first_beat_s: 0.2 });
+        let grid = Some(BeatGrid { bpm: 120.0, first_beat_s: 0.2, bars_sure: true });
         let at = |cue_s, audible_start_s| start_of(&Incoming { grid, cue_s, audible_start_s });
         assert!(near(at(Some(33.3), 5.0), 33.3), "the cue of the DJ");
         assert!(near(at(None, 5.0), 5.2), "the beat after the silence");
         assert!(near(at(None, 5.2), 5.2));
         assert!(near(at(None, 0.0), 0.2));
-        let early = BeatGrid { bpm: 120.0, first_beat_s: 0.7 };
+        let early = BeatGrid { bpm: 120.0, first_beat_s: 0.7, bars_sure: true };
         let start = start_of(&Incoming { grid: Some(early), cue_s: None, audible_start_s: 0.0 });
         assert!(near(start, 0.2), "the grid goes on before its first beat, not before the track");
         let free = Incoming { grid: None, cue_s: None, audible_start_s: 1.5 };
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(matched_rate(174.0, 124.0), None);
         assert_eq!(matched_rate(0.0, 124.0), None);
         let incoming = Incoming {
-            grid: Some(BeatGrid { bpm: 174.0, first_beat_s: 0.0 }),
+            grid: Some(BeatGrid { bpm: 174.0, first_beat_s: 0.0, bars_sure: true }),
             cue_s: None,
             audible_start_s: 0.0,
         };

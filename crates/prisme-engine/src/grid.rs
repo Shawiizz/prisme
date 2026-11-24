@@ -7,6 +7,9 @@ pub const BEATS_PER_BAR: u32 = 4;
 pub struct BeatGrid {
     pub bpm: f64,
     pub first_beat_s: f64,
+    /// Whether its first beat surely starts a bar: SYNC lays its bars on the leader's, else
+    /// only its beats.
+    pub bars_sure: bool,
 }
 
 impl BeatGrid {
@@ -50,7 +53,7 @@ impl BeatGrid {
 mod tests {
     use super::*;
 
-    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.25 };
+    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.25, bars_sure: true };
 
     #[test]
     fn nearest_beat() {

@@ -523,7 +523,7 @@ mod tests {
     use super::*;
 
     const FADE: FadeLength = FadeLength { beats: 16, seconds: 10.0 };
-    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0 };
+    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
 
     fn path(name: &str) -> PathBuf {
         PathBuf::from(name)

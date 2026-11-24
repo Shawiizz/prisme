@@ -8,8 +8,12 @@ use prisme_engine::{BeatGrid, Command, LoopRegion, VinylMode};
 const LEADER_BPM: f64 = 128.0;
 
 fn load(rig: &mut Rig, deck: usize, bpm: f64, first_beat_s: f64) {
+    load_with_bars(rig, deck, bpm, first_beat_s, true);
+}
+
+fn load_with_bars(rig: &mut Rig, deck: usize, bpm: f64, first_beat_s: f64, bars_sure: bool) {
     rig.send(Command::LoadTrack { deck, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid { deck, grid: Some(BeatGrid { bpm, first_beat_s }) });
+    rig.send(Command::SetBeatGrid { deck, grid: Some(BeatGrid { bpm, first_beat_s, bars_sure }) });
 }
 
 fn play_internal(rig: &mut Rig, deck: usize, position_s: f64) {
@@ -27,6 +31,14 @@ fn relative_record(rig: &mut Rig, deck: usize, speed: f64) {
 fn phase_gap(rig: &mut Rig) -> f64 {
     let gap = rig.deck(1).beat_phase.unwrap() - rig.deck(0).beat_phase.unwrap();
     gap - gap.round()
+}
+
+/// Deck 1's beats (a 125 BPM grid from 0.31 s) minus deck 0's (the leader's from 0), each
+/// counted from its grid's first beat, a bar's first, wrapped to `[-2, 2]`.
+fn bar_gap(rig: &mut Rig) -> f64 {
+    let follower = (rig.deck(1).position_s - 0.31) * 125.0 / 60.0;
+    let gap = follower - rig.deck(0).position_s * LEADER_BPM / 60.0;
+    gap - 4.0 * (gap / 4.0).round()
 }
 
 /// Mean speed of `deck` over the next `seconds`, from how far it moves.
@@ -66,6 +78,35 @@ fn an_internal_follower_locks_to_the_tempo_and_the_beats() {
     rig.run(1.0);
     assert_close(mean_speed(&mut rig, 1, 2.0), 1.05 * LEADER_BPM / 125.0, 2e-3);
     assert!(phase_gap(&mut rig).abs() < 0.02, "{}", phase_gap(&mut rig));
+}
+
+#[test]
+fn sync_lays_the_bars_on_the_leader_s_then_lets_a_beat_jump_be() {
+    let mut rig = leader_with_follower(125.0);
+    // two beats into a bar of its own as the leader starts one
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    rig.run(1.0);
+    assert!(bar_gap(&mut rig).abs() < 0.02, "{}", bar_gap(&mut rig));
+
+    let at = rig.deck(1).position_s;
+    rig.send(Command::Seek { deck: 1, seconds: at + 60.0 / 125.0 });
+    rig.run(1.0);
+    assert_close(bar_gap(&mut rig), 1.0, 0.02);
+}
+
+#[test]
+fn sync_lays_only_the_beats_of_a_track_whose_bars_are_unsure() {
+    let mut rig = Rig::new();
+    load(&mut rig, 0, LEADER_BPM, 0.0);
+    load_with_bars(&mut rig, 1, 125.0, 0.31, false);
+    play_internal(&mut rig, 0, 0.0);
+    rig.run(1.0);
+    play_internal(&mut rig, 1, 10.07);
+    rig.send(Command::SetSyncLocked { deck: 1, locked: true });
+    rig.run(1.0);
+    assert!(phase_gap(&mut rig).abs() < 0.01, "{}", phase_gap(&mut rig));
+    assert_close(bar_gap(&mut rig).abs(), 2.0, 0.02);
 }
 
 #[test]
