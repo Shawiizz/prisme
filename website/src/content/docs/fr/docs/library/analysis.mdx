@@ -19,10 +19,11 @@ bon.
 **Tempo et grille rythmique.** Prisme cherche un tempo stable sur tout le morceau, puis le mesure
 sur les kicks eux-mêmes : il trouve où commence l’attaque de chaque kick, à une fraction de
 milliseconde près, et ajuste le tempo sur elles, du premier kick au dernier. La grille se pose
-sur le début des attaques, là où vous la placeriez à l’œil sur la forme d’onde, et non sur
-l’instant le plus fort du kick, quelques millisecondes plus tard : deux morceaux aux grilles
-alignées ne font pas entendre deux kicks au lieu d’un. Les temps sans kick, comme dans un break, sont laissés hors de la
-mesure.
+ensuite sur le clic des kicks, le coup qui les lance, entendu dans les aigus au-dessus de leur
+corps : deux morceaux aux grilles alignées ne font pas entendre deux kicks au lieu d’un, même
+un kick sec contre un kick saturé qui gonfle lentement, comme en schranz. Serato DJ Pro pose
+ses grilles au même endroit, à 2 ms près. Les temps sans kick, comme dans un break, sont
+laissés hors de la mesure.
 
 Quelle pulsation est le temps, et où commencent les mesures, Prisme l’entend avec un petit réseau
 de neurones ([Beat This!](https://github.com/CPJKU/beat_this), sur quelques extraits du

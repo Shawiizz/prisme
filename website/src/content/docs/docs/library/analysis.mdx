@@ -17,10 +17,11 @@ seconds and is kept for good.
 
 **Tempo and beat grid.** Prisme looks for a steady tempo across the whole track, then measures
 it on the kicks themselves: it finds where the attack of each kick starts, to a fraction of a
-millisecond, and fits the tempo through them from the first kick to the last. The grid sits on
-the start of the attacks, where you would put it by eye on the waveform, not on the loudest
-instant of the kick a few milliseconds later, so two tracks with their grids lined up do not
-flam (two kicks heard instead of one). Beats without a kick, as in a breakdown, are left out of the measure.
+millisecond, and fits the tempo through them from the first kick to the last. The grid then
+sits on the kicks' click, the knock that starts them, heard in the highs above their body: two
+tracks with their grids lined up do not flam (two kicks heard instead of one), even a soft
+kick against a distorted one that swells slowly, as in schranz. Serato DJ Pro puts its grids
+there too, within 2 ms. Beats without a kick, as in a breakdown, are left out of the measure.
 
 Which pulse is the beat, and where the bars start, Prisme hears with a small neural network
 ([Beat This!](https://github.com/CPJKU/beat_this), run on a few excerpts of the track): the
