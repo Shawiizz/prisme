@@ -82,7 +82,15 @@
       (click)="editing.set(!editing())"
     >
       <span class="pr-readout">
-        <span class="pr-label" [class.edited]="track()?.gridEdited">BPM</span>
+        <span
+          class="pr-label"
+          [class.edited]="track()?.gridEdited"
+          [class.to-check]="track()?.barsToCheck"
+          [title]="
+            track()?.barsToCheck ? ('Bars to check: the kick does not come back on bar 1' | t) : ''
+          "
+          >BPM</span
+        >
         <span class="pr-readout__value pr-readout__value--mid">{{ bpm() ?? '—' }}</span>
         <span class="pr-readout__sub pr-num">{{ tempoDetail() }}</span>
       </span>

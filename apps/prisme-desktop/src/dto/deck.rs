@@ -109,6 +109,8 @@ pub struct TrackInfoDto {
     pub key: Option<KeyDto>,
     pub grid_edited: bool,
     pub key_edited: bool,
+    /// Its bars are to be checked by ear (`prisme_analysis::Tempo::bars_sure`).
+    pub bars_to_check: bool,
     pub cues: Vec<CueDto>,
     /// Semitones the deck transposes the track by.
     pub key_shift: i8,

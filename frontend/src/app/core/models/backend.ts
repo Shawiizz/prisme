@@ -2291,6 +2291,10 @@ export type TrackInfo = {
   key: MusicalKey | null;
   gridEdited: boolean;
   keyEdited: boolean;
+  /**
+   * Its bars are to be checked by ear (`prisme_analysis::Tempo::bars_sure`).
+   */
+  barsToCheck: boolean;
   cues: Array<Cue>;
   /**
    * Semitones the deck transposes the track by.

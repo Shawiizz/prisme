@@ -139,6 +139,11 @@
   content: ' •';
   color: var(--pr-light);
 }
+// bars the analysis is unsure of
+.pr-label.to-check::after {
+  content: ' •';
+  color: var(--pr-warn);
+}
 // the key heard differs from the track's: the pitch or a key shift moved it
 .pr-label.shifted {
   color: var(--pr-warn);

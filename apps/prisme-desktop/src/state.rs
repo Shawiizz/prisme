@@ -84,7 +84,12 @@ impl LoadedTrack {
     #[cfg(test)]
     pub fn silent(path: &str, seconds: f64, bpm: Option<f64>) -> Self {
         let samples = vec![0.0; (seconds * 48_000.0) as usize * 2];
-        let tempo = bpm.map(|bpm| prisme_analysis::Tempo { bpm, first_beat_s: 0.0, confidence: 1.0 });
+        let tempo = bpm.map(|bpm| prisme_analysis::Tempo {
+            bpm,
+            first_beat_s: 0.0,
+            confidence: 1.0,
+            bars_sure: true,
+        });
         LoadedTrack {
             load_id: Self::next_load_id(),
             path: path.into(),
@@ -121,6 +126,7 @@ impl LoadedTrack {
             key: analysis.key.as_ref().map(KeyDto::from),
             grid_edited: self.edits.grid.is_some(),
             key_edited: self.edits.key.is_some(),
+            bars_to_check: analysis.tempo.is_some_and(|t| !t.bars_sure),
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
             stems: DeckStemsDto::of(&self.stems),
