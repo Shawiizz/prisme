@@ -1488,6 +1488,12 @@
   "kind": "button"
  },
  {
+  "id": "deck1.grid.bar",
+  "group": "Deck A",
+  "label": "A bar of the grid starts here",
+  "kind": "button"
+ },
+ {
   "id": "deck1.grid.earlier",
   "group": "Deck A",
   "label": "Beat grid earlier",
@@ -3621,6 +3627,12 @@
   "id": "deck2.grid.here",
   "group": "Deck B",
   "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.bar",
+  "group": "Deck B",
+  "label": "A bar of the grid starts here",
   "kind": "button"
  },
  {
@@ -5760,6 +5772,12 @@
   "kind": "button"
  },
  {
+  "id": "deck3.grid.bar",
+  "group": "Deck C",
+  "label": "A bar of the grid starts here",
+  "kind": "button"
+ },
+ {
   "id": "deck3.grid.earlier",
   "group": "Deck C",
   "label": "Beat grid earlier",
@@ -7893,6 +7911,12 @@
   "id": "deck4.grid.here",
   "group": "Deck D",
   "label": "A beat of the grid here",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.bar",
+  "group": "Deck D",
+  "label": "A bar of the grid starts here",
   "kind": "button"
  },
  {

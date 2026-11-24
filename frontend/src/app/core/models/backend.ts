@@ -970,6 +970,7 @@ export type GridChange =
   | { "kind": "scale"; factor: number }
   | { "kind": "shift"; seconds: number }
   | { "kind": "beatHere" }
+  | { "kind": "barHere" }
   | { "kind": "align" }
   | { "kind": "reset" };
 

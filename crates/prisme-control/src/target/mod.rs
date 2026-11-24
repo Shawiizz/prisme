@@ -301,7 +301,7 @@ actions! {
             BendDownSmall = "bend.down.small", BendUpSmall = "bend.up.small", KeySync = "key.sync",
             LoopClear = "loop.clear", ReloopStop = "reloop.stop", LoopInGoto = "loop.in.goto",
             LoopOutGoto = "loop.out.goto", LoopMoveBack = "loop.move.back",
-            LoopMoveForward = "loop.move.forward", GridHere = "grid.here",
+            LoopMoveForward = "loop.move.forward", GridHere = "grid.here", GridBar = "grid.bar",
             GridEarlier = "grid.earlier", GridLater = "grid.later", GridFaster = "grid.faster",
             GridSlower = "grid.slower", Tap = "tap", SlipHeld = "slip.held",
             FilterToggle = "filter.toggle", FxPart = "fx.part", JogTouch = "jog.touch";

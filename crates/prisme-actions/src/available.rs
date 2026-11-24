@@ -79,6 +79,7 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::KeySync
         | DeckAction::GridMove
         | DeckAction::GridHere
+        | DeckAction::GridBar
         | DeckAction::GridEarlier
         | DeckAction::GridLater
         | DeckAction::GridFaster

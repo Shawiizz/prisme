@@ -34,6 +34,8 @@ pub enum GridChange {
     Shift { seconds: f64 },
     /// Puts a beat where the deck is.
     BeatHere,
+    /// Starts a bar where the deck is, on a beat.
+    BarHere,
     /// Moves the grid for its beats to fall on those of the deck it is mixed with, both playing.
     Align,
     /// Back to the analysis.
@@ -48,6 +50,7 @@ enum Regrid {
     Scale(f64),
     Shift(f64),
     BeatAt(f64),
+    BarAt(f64),
     Reset,
 }
 
@@ -60,6 +63,7 @@ impl GridChange {
             GridChange::Scale { factor } => Regrid::Scale(factor),
             GridChange::Shift { seconds } => Regrid::Shift(seconds),
             GridChange::BeatHere => Regrid::BeatAt(state.deck_status(deck)?.position_s),
+            GridChange::BarHere => Regrid::BarAt(state.deck_status(deck)?.position_s),
             GridChange::Align => match shift_to_other(state, deck)? {
                 Some(seconds) => Regrid::Shift(seconds),
                 None => return Ok(None),
@@ -103,6 +107,7 @@ fn grid_change(action: DeckAction, given: Given, bpm: impl FnOnce() -> Option<f6
         (DeckAction::GridMove, Given::Steps(steps)) => Some(shift(f64::from(steps))),
         _ if !given.pressed() => None,
         (DeckAction::GridHere, _) => Some(GridChange::BeatHere),
+        (DeckAction::GridBar, _) => Some(GridChange::BarHere),
         (DeckAction::GridEarlier, _) => Some(shift(-1.0)),
         (DeckAction::GridLater, _) => Some(shift(1.0)),
         (DeckAction::GridFaster, _) => stretch(1.0),
@@ -130,6 +135,7 @@ pub fn change_grid(
             Regrid::Scale(factor) => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
             Regrid::Shift(seconds) => Some(grid()?.shifted(seconds)),
             Regrid::BeatAt(position_s) => Some(grid()?.with_beat_at(position_s)),
+            Regrid::BarAt(position_s) => Some(grid()?.with_bar_at(position_s)),
             Regrid::Reset => None,
         };
         Ok(())
@@ -214,6 +220,7 @@ mod tests {
     fn the_grid_is_put_on_a_beat_moved_by_a_few_milliseconds_or_stretched_by_a_hundredth() {
         let pressed = Given::Value(1.0);
         assert!(matches!(change("deck1.grid.here", pressed, None), Some(GridChange::BeatHere)));
+        assert!(matches!(change("deck1.grid.bar", pressed, None), Some(GridChange::BarHere)));
         let earlier = change("deck1.grid.earlier", pressed, None);
         assert!(matches!(earlier, Some(GridChange::Shift { seconds }) if seconds == -0.005));
         let moved = change("deck1.grid.move", Given::Steps(3), None);

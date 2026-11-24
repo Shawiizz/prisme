@@ -220,6 +220,7 @@ impl Performing<'_> {
             DeckAction::CrossfaderSide(side) => mixer::set_crossfader_side(state, deck, side),
             DeckAction::Eject => self.eject(deck),
             DeckAction::GridHere
+            | DeckAction::GridBar
             | DeckAction::GridEarlier
             | DeckAction::GridLater
             | DeckAction::GridFaster

@@ -65,6 +65,13 @@
     >
       {{ 'Beat here' | t }}
     </button>
+    <button
+      class="pr-btn pr-btn--sm wide"
+      [title]="'Start a bar where the deck is' | t"
+      (click)="press('grid.bar')"
+    >
+      {{ 'Bar here' | t }}
+    </button>
     <button class="pr-btn pr-btn--sm" [title]="'Grid later (2 ms)' | t" (click)="shift(fine)">
       ▶
     </button>
