@@ -74,7 +74,8 @@ conversion: report what works and what does not.
   per part, cut and brought back on the bar, and bands under the waveform showing where
   each part plays.
 - **Library**: MP3, AAC, ALAC, FLAC, Ogg Vorbis, WAV and AIFF, from several music folders
-  or dropped from the file manager. Tempo, beat grid and key analysed in the background,
+  or dropped from the file manager. Tempo, beat grid (on the kicks, bars numbered from where
+  the music starts) and key analysed in the background,
   instant search, crates and smart crates, a prepare list, set history, duplicates,
   Serato and rekordbox import, Auto DJ. A file renamed, moved or on another drive letter is
   known again, cues included.
@@ -193,6 +194,12 @@ version 3 of the License, or (at your option) any later version. See [LICENSE](L
 
 The controller profiles are adapted from the mappings of Mixxx (GPL-2.0-or-later), each
 naming the authors of the mapping it comes from.
+
+The beat grids are placed with the small model of
+[Beat This!](https://github.com/CPJKU/beat_this) (Institute of Computational Perception, JKU
+Linz; MIT licence), run through its Rust port
+[beat-this-rs](https://github.com/danigb/beat-this-rs) (MIT licence), both notices in
+[`crates/prisme-analysis/models/LICENSE-beat-this`](crates/prisme-analysis/models/LICENSE-beat-this).
 
 The separation models, downloaded separately, are Kimberley Jensen's
 [Mel-Band RoFormer](https://huggingface.co/KimberleyJSN/melbandroformer) (MIT licence) for
