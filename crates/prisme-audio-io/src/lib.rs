@@ -48,3 +48,10 @@ pub enum AudioError {
     #[error(transparent)]
     Backend(#[from] cpal::Error),
 }
+
+impl AudioError {
+    /// Whether another application holds the device (one opening it for itself alone).
+    pub fn device_busy(&self) -> bool {
+        matches!(self, AudioError::Backend(e) if e.kind() == cpal::ErrorKind::DeviceBusy)
+    }
+}

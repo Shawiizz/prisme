@@ -161,6 +161,10 @@ export type AudioState = {
    * The USB card the DJ is asked to let Prisme open, or refused it.
    */
   asked: CardAsked | null;
+  /**
+   * The default output another application held as the audio started.
+   */
+  busy: string | null;
 };
 
 /**

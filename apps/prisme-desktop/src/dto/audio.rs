@@ -309,6 +309,8 @@ pub struct AudioStateDto {
     pub info: Option<AudioInfoDto>,
     /// The USB card the DJ is asked to let Prisme open, or refused it.
     pub asked: Option<CardAskedDto>,
+    /// The default output another application held as the audio started.
+    pub busy: Option<String>,
 }
 
 /// A USB card the DJ is asked to let Prisme open (Android asks), or refused it.
@@ -328,7 +330,7 @@ impl AudioStateDto {
             AudioInfo { missing, ..s.info.clone() }.into()
         });
         let asked = usb_asks::asked().map(|a| CardAskedDto { card: a.card, refused: a.refused });
-        Self { settings, info, asked }
+        Self { settings, info, asked, busy: lock(&state.busy_output).clone() }
     }
 }
 

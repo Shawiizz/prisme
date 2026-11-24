@@ -166,6 +166,7 @@ fn apply(state: &AppState, settings: AudioSettings) -> AppResult<()> {
         }
     }
     state.update_preferences(|p| p.audio = settings);
+    *lock(&state.busy_output) = None;
     state.moved(Section::Audio);
     Ok(())
 }

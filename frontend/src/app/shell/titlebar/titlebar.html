@@ -21,8 +21,8 @@
           <span
             class="pr-chip pr-chip--warn device"
             [title]="
-              'The sound card chosen is missing: the sound plays on the default device until it is back'
-                | t
+              'The sound card chosen is missing: the sound plays on {device} until it is back'
+                | t: { device: info.device }
             "
           >
             <span class="pr-sig pr-sig--weak"></span>
@@ -58,6 +58,17 @@
       <span class="pr-chip pr-chip--alert device">
         <span class="pr-sig pr-sig--none"></span>
         <span class="pr-chip__text">{{ 'audio device lost, reconnecting…' | t }}</span>
+      </span>
+    } @else if (engine.told().audio.busy; as busy) {
+      <span
+        class="pr-chip pr-chip--alert device"
+        [title]="
+          '{device} is held by another application (an audio mixer such as VoiceMeeter): choose another output in the settings'
+            | t: { device: busy }
+        "
+      >
+        <span class="pr-sig pr-sig--none"></span>
+        <span class="pr-chip__text">{{ '{device} busy' | t: { device: busy } }}</span>
       </span>
     } @else {
       <span class="pr-chip">

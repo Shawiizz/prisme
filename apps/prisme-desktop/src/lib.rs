@@ -83,12 +83,15 @@ mod usb_android;
 use actions::Actions;
 use controllers::Controllers;
 use crash_recovery::{CrashRecovery, SavedDeck};
+use dto::AudioSettings;
+use error::AppError;
 use library_service::LibraryService;
 use midi_clock::MidiClock;
+use prisme_audio_io::DeviceKind;
 use prisme_session::JsonFile;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use state::AppState;
+use state::{lock, AppState, Section};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
@@ -535,15 +538,35 @@ fn open_json<T: Serialize + DeserializeOwned + Default + Clone + Send + 'static>
     file
 }
 
-/// The saved devices, or the default ones if they are missing (interface unplugged); neither
-/// if the audio runs already, the DJ having chosen devices meanwhile.
+/// The saved devices, or the default ones if they are missing (interface unplugged), or another
+/// output if another application holds the default one; none if the audio runs already, the
+/// DJ having chosen devices meanwhile.
 fn start_saved_audio(state: &AppState) {
     let mut settings = state.preferences.get().audio;
     settings.simulate |= dev_startup::simulate_requested();
-    if let Err(e) = commands::audio::start_audio_unless_running(state, &settings) {
-        warn!("saved audio settings unusable ({e}), using the default devices");
-        if let Err(e) = commands::audio::start_audio_unless_running(state, &settings.on_default_devices()) {
-            error!("audio could not start: {e}");
+    let start = |settings: &AudioSettings| commands::audio::start_audio_unless_running(state, settings);
+    let Err(e) = start(&settings) else { return };
+    warn!("saved audio settings unusable ({e}), using the default devices");
+    let defaults = settings.on_default_devices();
+    let e = match start(&defaults) {
+        Ok(_) => return,
+        Err(AppError::Audio(e)) if e.device_busy() => e,
+        Err(e) => return error!("audio could not start: {e}"),
+    };
+    let busy = prisme_audio_io::default_output_name();
+    *lock(&state.busy_output) = busy.clone();
+    state.moved(Section::Audio);
+    let others = prisme_audio_io::list_devices(defaults.backend.into()).unwrap_or_default();
+    let others =
+        others.into_iter().filter(|d| d.kind == DeviceKind::Output && Some(&d.name) != busy.as_ref());
+    for output in others {
+        let on_it = AudioSettings { output_device: Some(output.name.clone()), ..defaults.clone() };
+        if start(&on_it).is_ok() {
+            return warn!(
+                "the default output is held by another application, the sound plays on {}",
+                output.name
+            );
         }
     }
+    error!("audio could not start: {e}");
 }

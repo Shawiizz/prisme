@@ -332,6 +332,9 @@ pub struct AppState {
     pub recorded: Mirrored<Option<RecordingDto>>,
     /// Held while the audio starts: the watchdog and the user never start it at once.
     pub audio_start: Mutex<()>,
+    /// The default output another application held as the audio started (a mixer such as
+    /// VoiceMeeter takes the speakers for itself), until the DJ chooses devices.
+    pub busy_output: Mutex<Option<String>>,
     /// Where the decks were as the audio last stopped to start again: kept for the start
     /// after it, should that one fail or its engine never run.
     carried: Mutex<[Option<Place>; MAX_DECKS]>,
@@ -616,6 +619,7 @@ impl AppState {
             recorder: Mutex::new(None),
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
+            busy_output: Mutex::new(None),
             carried: Mutex::default(),
             samplers: Mirrored::showing(Samplers::default(), &revisions, Section::Decks, |samplers| {
                 samplers.each_ref().map(|slots| slots.each_ref().map(|s| s.as_ref().map(|s| s.path.clone())))
