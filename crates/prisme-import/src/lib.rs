@@ -55,8 +55,8 @@ pub struct ImportedCue {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ImportedGrid {
     pub bpm: f64,
-    /// A beat (any one).
-    pub beat_s: f64,
+    /// The first beat of a bar.
+    pub bar_s: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -151,7 +151,7 @@ fn apply_grid(db: &LibraryDb, path: &Path, grid: Option<ImportedGrid>) -> Result
     if edits.grid.is_some() {
         return Ok(false);
     }
-    edits.grid = Some(GridEdit { bpm: grid.bpm, first_beat_s: 0.0 }.with_beat_at(grid.beat_s));
+    edits.grid = Some(GridEdit { bpm: grid.bpm, first_beat_s: grid.bar_s });
     db.save_edits(path, &edits)?;
     Ok(true)
 }
@@ -208,7 +208,7 @@ mod tests {
                         cue(None, 0.5, None),
                         cue(None, 0.7, None),
                     ],
-                    grid: Some(ImportedGrid { bpm: 125.0, beat_s: 12.25 }),
+                    grid: Some(ImportedGrid { bpm: 125.0, bar_s: 12.25 }),
                     color: Some(0xff0000),
                     rating: Some(5),
                 },
@@ -241,7 +241,7 @@ mod tests {
         );
         assert_eq!(cues[2].color, 0x112233);
         let grid = db.edits(&path).unwrap().grid.unwrap();
-        assert!((grid.bpm, (grid.first_beat_s - 0.25).abs() < 1e-9) == (125.0, true));
+        assert!((grid.bpm, (grid.first_beat_s - 12.25).abs() < 1e-9) == (125.0, true));
         assert_eq!(db.marks(&path).unwrap(), prisme_library::TrackMarks { color: Some(0xff0000), rating: 2 });
 
         let again = apply(&db, &import).unwrap();

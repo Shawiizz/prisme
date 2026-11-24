@@ -2,7 +2,7 @@
 //! FLAC and MP4 files, base64 of `application/octet-stream\0\0<name>\0` and the same
 //! content.
 
-use super::markers::{parse_beatgrid, parse_markers2, Markers};
+use super::markers::{parse_beatgrid, parse_markers2, parse_tempo_map, Markers};
 use crate::ImportedGrid;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
@@ -16,6 +16,8 @@ use std::path::Path;
 
 const MARKERS: Names = Names { geob: "Serato Markers2", vorbis: "SERATO_MARKERS_V2", mp4: "markersv2" };
 const BEATGRID: Names = Names { geob: "Serato BeatGrid", vorbis: "SERATO_BEATGRID", mp4: "beatgrid" };
+/// The grid Serato DJ Pro 3 writes instead, seen in MP3 files only.
+const TEMPO_MAP: &str = "Serato Tempo Map";
 
 /// What a tag is called in each format.
 struct Names {
@@ -38,6 +40,11 @@ pub fn read_serato_tags(path: &Path) -> Option<SeratoTags> {
     let (markers, grid) = match file_type {
         FileType::Mpeg => {
             let tag = lofty::mpeg::MpegFile::read_from(&mut file, options).ok()?.id3v2()?.clone();
+            let tempo_map = geob(&tag, TEMPO_MAP).and_then(|d| parse_tempo_map(&d));
+            if let Some(grid) = tempo_map {
+                let markers = geob(&tag, MARKERS.geob).and_then(|d| parse_markers2(&d));
+                return Some(SeratoTags { markers, grid: Some(grid) });
+            }
             (geob(&tag, MARKERS.geob), geob(&tag, BEATGRID.geob))
         }
         FileType::Flac => {

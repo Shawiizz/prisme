@@ -7,11 +7,11 @@
 //! disturbed. Files are decoded chunk by chunk ([`prisme_analysis::analyze_file`]), so
 //! each worker holds a few MB, not a track.
 
-pub use prisme_analysis::background_priority;
 use crate::db::{path_key, FileStamp, LibraryDb, RecordVersion, TrackRecord};
 use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
 use crate::scan::{is_online_only, scan_folders, Scan, ScannedFile};
+pub use prisme_analysis::background_priority;
 use prisme_analysis::AnalysisOptions;
 use prisme_media::MediaError;
 use std::collections::{HashMap, HashSet};
@@ -408,4 +408,3 @@ fn analyze(
     let record = TrackRecord::analyzed(&file.path, file.stamp, a.duration_s, a.analysis, metadata.tags);
     Ok((record, metadata.cover))
 }
-

@@ -112,10 +112,12 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                 if let (Some(track), Some(bpm), Some(beat_s)) =
                     (tracks.last_mut().filter(|_| kept), number(&a, "Bpm"), number(&a, "Inizio"))
                 {
-                    // a grid that changes tempo is not a single grid; `Battito`, the beat of
-                    // the bar `Inizio` falls on, is not kept, Prisme's bars starting on the
-                    // first beat of the track
-                    track.grid = (tempos == 1).then_some(ImportedGrid { bpm, beat_s });
+                    // a grid that changes tempo is not a single grid; `Battito` is the beat of
+                    // the bar `Inizio` falls on
+                    let beat_of_bar =
+                        number(&a, "Battito").filter(|b| (1.0..=4.0).contains(b)).unwrap_or(1.0);
+                    let bar_s = beat_s - (beat_of_bar - 1.0) * 60.0 / bpm;
+                    track.grid = (tempos == 1).then_some(ImportedGrid { bpm, bar_s });
                 }
             }
             b"POSITION_MARK" => {
@@ -264,7 +266,7 @@ mod tests {
         let import = parse(&xml()).unwrap();
         let strobe = &import.tracks[0];
         assert_eq!(strobe.path, file("Users/Me/Music/Strobe (Club).mp3"));
-        assert_eq!(strobe.grid, Some(ImportedGrid { bpm: 128.0, beat_s: 0.05 }));
+        assert_eq!(strobe.grid, Some(ImportedGrid { bpm: 128.0, bar_s: 0.05 }));
         assert_eq!((strobe.color, strobe.rating), (Some(0xe86bd6), Some(4)), "rose is Prisme's pink");
         assert_eq!(
             strobe.cues,
@@ -310,7 +312,7 @@ mod tests {
         </COLLECTION></DJ_PLAYLISTS>"#;
         let import = parse(&xml.replace("{ROOT}", ROOT)).unwrap();
         let [local] = &import.tracks[..] else { panic!("{:?}", import.tracks) };
-        assert_eq!(local.grid, Some(ImportedGrid { bpm: 124.0, beat_s: 0.1 }));
+        assert_eq!(local.grid, Some(ImportedGrid { bpm: 124.0, bar_s: 0.1 }));
         assert_eq!(local.cues.iter().map(|c| c.position_s).collect::<Vec<_>>(), [8.0]);
     }
 

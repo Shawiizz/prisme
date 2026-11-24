@@ -10,7 +10,7 @@ use std::path::Path;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct GridEdit {
     pub bpm: f64,
-    /// The first beat at or after the start of the track.
+    /// The first beat of bar 1 (see [`Tempo::first_beat_s`]).
     pub first_beat_s: f64,
 }
 
@@ -27,14 +27,16 @@ impl GridEdit {
         Self::BPM_RANGE.contains(&bpm).then_some(Self { bpm, ..self })
     }
 
-    /// The grid moved by `seconds` (later when positive).
+    /// The grid moved by `seconds` (later when positive), its bars with it.
     pub fn shifted(self, seconds: f64) -> Self {
-        Self { first_beat_s: (self.first_beat_s + seconds).rem_euclid(self.period_s()), ..self }
+        Self { first_beat_s: self.first_beat_s + seconds, ..self }
     }
 
-    /// The grid moved so that a beat falls at `position_s`.
+    /// The grid moved the least so that a beat falls at `position_s`, its bars with it.
     pub fn with_beat_at(self, position_s: f64) -> Self {
-        Self { first_beat_s: position_s.rem_euclid(self.period_s()), ..self }
+        let period = self.period_s();
+        let late = (position_s - self.first_beat_s).rem_euclid(period);
+        self.shifted(if late > period / 2.0 { late - period } else { late })
     }
 }
 
@@ -144,9 +146,10 @@ mod tests {
         assert_eq!(grid.with_bpm(20.0), None);
         let close = |a: GridEdit, first_beat_s: f64| (a.first_beat_s - first_beat_s).abs() < 1e-9;
         assert!(close(grid.shifted(0.05), 0.15));
-        assert!(close(grid.shifted(-0.15), 0.45), "the first beat stays within the first period");
-        assert!(close(grid.shifted(0.5), 0.1), "a whole beat later is the same grid");
+        assert!(close(grid.shifted(-0.15), -0.05), "the bars move with the beats");
+        assert!(close(grid.shifted(0.5), 0.6), "a beat later, the bars start a beat later");
         assert!(close(grid.with_beat_at(10.3), 0.3));
+        assert!(close(grid.with_beat_at(10.05), 0.05), "moved the least: earlier");
     }
 
     #[test]

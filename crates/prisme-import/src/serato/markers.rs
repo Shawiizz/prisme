@@ -75,8 +75,8 @@ fn parse_loop(body: &[u8]) -> Option<ImportedCue> {
 }
 
 /// The grid of a "Serato BeatGrid" tag: `01 00 | marker count (u32) | markers`, each
-/// marker a position (f32 seconds) and, for the last one, the tempo (f32). Only grids
-/// with a single tempo are kept.
+/// marker a position (f32 seconds) and, for the last one, the tempo (f32); the first marker
+/// on bar 1. Only grids with a single tempo are kept.
 pub fn parse_beatgrid(data: &[u8]) -> Option<ImportedGrid> {
     let rest = data.strip_prefix(&[1, 0])?;
     let count = u32::from_be_bytes(rest.get(..4)?.try_into().ok()?);
@@ -86,7 +86,21 @@ pub fn parse_beatgrid(data: &[u8]) -> Option<ImportedGrid> {
     let marker = rest.get(4..12)?;
     let position = f32::from_be_bytes(marker[..4].try_into().ok()?) as f64;
     let bpm = f32::from_be_bytes(marker[4..8].try_into().ok()?) as f64;
-    (bpm > 0.0).then_some(ImportedGrid { bpm, beat_s: position })
+    (bpm > 0.0).then_some(ImportedGrid { bpm, bar_s: position })
+}
+
+/// The grid of a "Serato Tempo Map" tag, as Serato DJ Pro 3 writes it: `02 00 00 01 | first
+/// beat, on bar 1 (f64 seconds) | marker count (u32) | markers`, each 33 bytes and starting
+/// with its place (u64) and its tempo (f64). Only grids with a single tempo are kept.
+pub fn parse_tempo_map(data: &[u8]) -> Option<ImportedGrid> {
+    let rest = data.strip_prefix(&[2, 0])?;
+    let bar_s = f64::from_be_bytes(rest.get(2..10)?.try_into().ok()?);
+    let count = u32::from_be_bytes(rest.get(10..14)?.try_into().ok()?);
+    if count != 1 {
+        return None;
+    }
+    let bpm = f64::from_be_bytes(rest.get(22..30)?.try_into().ok()?);
+    (bpm > 0.0 && bar_s.is_finite()).then_some(ImportedGrid { bpm, bar_s })
 }
 
 fn ms(bytes: &[u8]) -> f64 {
@@ -209,10 +223,28 @@ pub(crate) mod tests {
         data.extend(0.125f32.to_be_bytes());
         data.extend(124.0f32.to_be_bytes());
         data.push(0);
-        assert_eq!(parse_beatgrid(&data), Some(ImportedGrid { bpm: 124.0, beat_s: 0.125 }));
+        assert_eq!(parse_beatgrid(&data), Some(ImportedGrid { bpm: 124.0, bar_s: 0.125 }));
 
         let mut dynamic = vec![1, 0];
         dynamic.extend(2u32.to_be_bytes());
         assert_eq!(parse_beatgrid(&dynamic), None);
+    }
+
+    /// As Serato DJ Pro wrote it for a track at 132 BPM.
+    const TEMPO_MAP: &str = "02 00 00 01 3f af 20 0a 5f 6a 53 6d 00 00 00 01 00 00 00 00 00 00 00 00 \
+        40 60 7f fe 6c 06 81 a0 3f d0 00 00 00 00 00 00 01 00 00 00 00 00 00 00 00";
+
+    fn bytes(hex: &str) -> Vec<u8> {
+        hex.split_whitespace().map(|h| u8::from_str_radix(h, 16).unwrap()).collect()
+    }
+
+    #[test]
+    fn a_single_tempo_map() {
+        let grid = parse_tempo_map(&bytes(TEMPO_MAP)).unwrap();
+        assert!((grid.bpm - 132.0).abs() < 0.001 && (grid.bar_s - 0.0608).abs() < 0.0001, "{grid:?}");
+        let mut dynamic = bytes(TEMPO_MAP);
+        dynamic[15] = 2;
+        assert_eq!(parse_tempo_map(&dynamic), None);
+        assert_eq!(parse_tempo_map(b"\x01\x00"), None);
     }
 }
