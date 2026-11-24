@@ -209,8 +209,14 @@ fn power(signal: &MonoSignal, kicks: &[Kick], lags: &[f64]) -> Vec<f64> {
 }
 
 /// The lag (samples, fractional) at which `envelope` best matches `picture` over `stretch`:
-/// the peak of the correlation of their slopes, so that rises meet rises.
+/// the peak of the correlation of their slopes, so that rises meet rises. A stretch past the
+/// picture's end (an attack found at its very end) stops there.
 fn alignment(picture: &[f32], envelope: &[f32], stretch: Range<usize>, max_lag: usize) -> f64 {
+    let end = stretch.end.min(picture.len());
+    let stretch = stretch.start.min(end)..end;
+    if stretch.len() < 2 {
+        return 0.0;
+    }
     let slopes = |e: &[f32]| -> Vec<f32> { e.windows(2).map(|w| w[1] - w[0]).collect() };
     let (target, slope) = (slopes(&picture[stretch.clone()]), slopes(envelope));
     let scores: Vec<f32> = (0..=2 * max_lag)
@@ -425,5 +431,18 @@ impl BeatWindows {
                 *e = a.norm();
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_stretch_past_the_picture_stops_at_its_end() {
+        let picture: Vec<f32> = (0..100).map(|i| if i < 90 { 0.0 } else { 1.0 }).collect();
+        let lag = alignment(&picture, &picture, 80..130, 5);
+        assert!(lag.abs() < 0.5, "{lag}");
+        assert_eq!(alignment(&picture, &picture, 120..130, 5), 0.0, "nothing left to match");
     }
 }
