@@ -137,8 +137,9 @@ fn analyze_signal(
 const HEARD_BETTER: f32 = 2.0;
 const AROUND_ONSETS: f64 = 0.15;
 /// ...and where that grid sits on this share of the kicks the onsets' grid sits on, at least:
-/// a kick without an attack (a sub) may go unheard by the network, not by the signal.
-const KICKS_KEPT: f64 = 0.8;
+/// a kick without an attack (a sub) may go unheard by the network, not by the signal. Not
+/// more: the notes of a bass line on the off-beats pass for kicks on the onsets' grid.
+const KICKS_KEPT: f64 = 0.5;
 
 /// Where the network hears the beats of the onsets' grid, if it hears none around them: the
 /// onsets of a bass line on the off-beats outweighed the kicks'.
