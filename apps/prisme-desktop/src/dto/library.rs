@@ -213,6 +213,9 @@ pub struct LibraryRowDto {
     pub plays: usize,
     /// Its analysis is known (until then its values are waited for).
     pub analysed: bool,
+    /// Its bars are to be checked by ear (`prisme_analysis::Tempo::bars_sure`), its grid not
+    /// corrected by hand.
+    pub bars_to_check: bool,
     /// Its file could not be decoded.
     pub failed: bool,
     pub stems: RowStemsDto,

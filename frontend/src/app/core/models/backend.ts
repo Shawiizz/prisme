@@ -1218,6 +1218,11 @@ export type LibraryRow = {
    */
   analysed: boolean;
   /**
+   * Its bars are to be checked by ear (`prisme_analysis::Tempo::bars_sure`), its grid not
+   * corrected by hand.
+   */
+  barsToCheck: boolean;
+  /**
    * Its file could not be decoded.
    */
   failed: boolean;

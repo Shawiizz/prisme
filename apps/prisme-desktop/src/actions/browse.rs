@@ -146,6 +146,9 @@ impl Library {
                 rating: record.map_or(0, |r| r.marks.rating),
                 plays: record.map_or(0, |r| r.play_count),
                 analysed: record.is_some(),
+                bars_to_check: record.is_some_and(|r| {
+                    r.edits.grid.is_none() && r.analysis.tempo.is_some_and(|t| !t.bars_sure)
+                }),
                 failed: track.failed(),
                 stems,
                 selected: row.selected,

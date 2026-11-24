@@ -51,6 +51,11 @@
   :is(.year, .bpm, .pitch, .plays, .order) {
     text-align: right;
   }
+  // bars the analysis is unsure of
+  .bpm.to-check::before {
+    content: '• ';
+    color: var(--pr-warn);
+  }
 }
 .row {
   height: var(--pr-row);
