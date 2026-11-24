@@ -38,6 +38,14 @@ impl GridEdit {
         let late = (position_s - self.first_beat_s).rem_euclid(period);
         self.shifted(if late > period / 2.0 { late - period } else { late })
     }
+
+    /// The grid moved the least so that a beat falls at `position_s`, a bar starting on it: bar
+    /// 1 the bar's nearest the one before.
+    pub fn with_bar_at(self, position_s: f64) -> Self {
+        let bar = f64::from(prisme_analysis::BEATS_PER_BAR) * self.period_s();
+        let bars = ((self.with_beat_at(position_s).first_beat_s - position_s) / bar).round();
+        Self { first_beat_s: position_s + bars * bar, ..self }
+    }
 }
 
 impl From<Tempo> for GridEdit {
@@ -150,6 +158,8 @@ mod tests {
         assert!(close(grid.shifted(0.5), 0.6), "a beat later, the bars start a beat later");
         assert!(close(grid.with_beat_at(10.3), 0.3));
         assert!(close(grid.with_beat_at(10.05), 0.05), "moved the least: earlier");
+        assert!(close(grid.with_bar_at(10.3), 0.3), "bar 1 stays the nearest, ten seconds being five bars");
+        assert!(close(grid.with_bar_at(11.3), -0.7), "half way between two bars 1, the earlier");
     }
 
     #[test]
