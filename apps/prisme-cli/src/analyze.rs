@@ -18,6 +18,8 @@ pub fn run(paths: &[PathBuf], options: AnalysisOptions, csv: Option<&Path>) -> R
         collect(p, &mut files);
     }
     files.sort();
+    // nothing plays: the whole computer
+    prisme_analysis::set_full_speed(true);
     let started = Instant::now();
     let next = AtomicUsize::new(0);
     let rows = Mutex::new(Vec::with_capacity(files.len()));

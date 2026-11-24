@@ -25,7 +25,7 @@ pub mod waveform;
 
 pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
 pub use loudness::{loudness, Loudness};
-pub use priority::background_priority;
+pub use priority::{analysis_priority, background_priority, full_speed, normal_priority, set_full_speed};
 pub use stem_activity::{stem_activity, ACTIVITY_SLICES_PER_S};
 pub use tempo::{octave_ratio, Tempo, DEFAULT_MIN_BPM};
 pub use waveform::{compute_waveform, Waveform, WaveformBuilder};

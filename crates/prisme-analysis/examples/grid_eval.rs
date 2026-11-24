@@ -8,7 +8,8 @@
 //! program), prints the offset of the grid from the attacks: per track, its median and 90th
 //! percentile, and over all the kicks. `--dump` prints the grids found, in the same format.
 //! Tracks are analysed on every core at once, or one at a time with `--serial` (for the
-//! analysis times).
+//! analysis times); at full speed, as while no deck plays, or with `--background` as while one
+//! does.
 
 use prisme_analysis::dsp::analysis_signal;
 use prisme_analysis::grid::{fit_grid, kick_attacks, Attack};
@@ -32,6 +33,8 @@ struct Track {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // as while no deck plays, but with `--background`
+    prisme_analysis::set_full_speed(!args.iter().any(|a| a == "--background"));
     let dump = args.iter().any(|a| a == "--dump");
     let threads = if args.iter().any(|a| a == "--serial") {
         1

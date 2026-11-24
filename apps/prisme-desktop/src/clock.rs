@@ -151,6 +151,10 @@ impl Clock {
             None => (actions.view_with(app, Default::default(), None), None),
         };
         let now_s = actions.now_s();
+        let status = &view.status;
+        prisme_analysis::set_full_speed(
+            !status.decks[..status.deck_count].iter().any(prisme_actions::view::plays),
+        );
         let due = self.metered.is_none_or(|at| at.elapsed() >= METERS_EVERY);
         let levels = (due && stream.is_some()).then(|| Levels::of(&view.status));
         if due {

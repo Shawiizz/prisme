@@ -9,7 +9,7 @@ use beat_this::{BeatThis, Model, Tensor};
 use rten_tensor::Layout;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 static MEL_MODEL: &[u8] = include_bytes!("../models/mel_spectrogram.onnx");
 static BEAT_MODEL: &[u8] = include_bytes!("../models/beat_this_small.onnx");
@@ -116,17 +116,18 @@ impl Heard {
     }
 }
 
-/// The threads the network runs on: half the cores, in the background as the rest of the
-/// analysis is, so that the audio and the interface come first during a set.
+thread_local! {
+    /// The thread each analysing thread's network runs on, one: the network's small operations
+    /// gain little from more, and tracks analysed side by side use the cores better.
+    static THREAD: Arc<rten::ThreadPool> = Arc::new(rten::ThreadPool::with_num_threads(1));
+}
+
+/// The analysing thread's own, at the priority the analysis runs at now: the background while a
+/// deck plays, that of ordinary work otherwise (see [`crate::set_full_speed`]).
 fn threads() -> Arc<rten::ThreadPool> {
-    static POOL: OnceLock<Arc<rten::ThreadPool>> = OnceLock::new();
-    POOL.get_or_init(|| {
-        let count = std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).max(1));
-        let pool = rten::ThreadPool::with_num_threads(count);
-        pool.run(|| rayon::broadcast(|_| crate::background_priority()));
-        Arc::new(pool)
-    })
-    .clone()
+    let pool = THREAD.with(Arc::clone);
+    pool.run(crate::analysis_priority);
+    pool
 }
 
 thread_local! {

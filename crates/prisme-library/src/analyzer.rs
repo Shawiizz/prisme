@@ -124,6 +124,15 @@ pub fn default_workers() -> usize {
     std::thread::available_parallelism().map_or(2, |n| (n.get() / 2).clamp(1, 4))
 }
 
+/// Number of analysis threads while no deck plays: every core but one, for the interface, 8 at
+/// most for the memory each takes; on a phone, as many as while a deck plays.
+fn full_speed_workers(workers: usize) -> usize {
+    if cfg!(any(target_os = "android", target_os = "ios")) {
+        return workers;
+    }
+    std::thread::available_parallelism().map_or(workers, |n| (n.get() - 1).clamp(workers, 8))
+}
+
 /// The music folders, and those they no longer are.
 #[derive(Clone, Copy)]
 struct Folders<'a> {
@@ -185,11 +194,18 @@ fn run(
     };
     report(true);
 
+    // the threads past `workers` analyse only while no deck plays
+    let started = AtomicUsize::new(0);
     std::thread::scope(|s| {
-        for _ in 0..workers.min(total) {
+        for _ in 0..full_speed_workers(workers).min(total) {
             s.spawn(|| {
                 background_priority();
+                let extra = started.fetch_add(1, Ordering::Relaxed) >= workers;
                 while !cancel.load(Ordering::Relaxed) && next.load(Ordering::Relaxed) < total {
+                    if extra && !prisme_analysis::full_speed() {
+                        std::thread::sleep(HELD_BACK_POLL);
+                        continue;
+                    }
                     // told once, by the worker that sees it first
                     let held_back = listener.holds_back();
                     if paused.swap(held_back, Ordering::Relaxed) != held_back {
@@ -202,6 +218,8 @@ fn run(
                     let Some(file) = todo.get(next.fetch_add(1, Ordering::Relaxed)) else {
                         break;
                     };
+                    // the whole computer while no deck plays, the background otherwise
+                    prisme_analysis::analysis_priority();
                     // a file never seen there may be one known elsewhere: renamed and tagged
                     // again, or moved in from outside the folder; its audio is read once, for
                     // this and to be known again later
