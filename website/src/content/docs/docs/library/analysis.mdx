@@ -22,11 +22,19 @@ the start of the attacks, where you would put it by eye on the waveform, not on 
 instant of the kick a few milliseconds later, so two tracks with their grids lined up do not
 flam (two kicks heard instead of one). Beats without a kick, as in a breakdown, are left out of the measure.
 
+Which pulse is the beat, and where the bars start, Prisme hears with a small neural network
+([Beat This!](https://github.com/CPJKU/beat_this), run on a few excerpts of the track): the
+onsets alone can take a bass line playing between the kicks for the beat, and put the grid on
+the off-beats. Bar 1 is the first bar where the music starts, as a track made to be mixed starts
+on a bar's first beat, unless the network clearly hears the bars start on another beat.
+
 The tempo is rounded to a whole BPM (tracks made in a DAW usually have one) only if the whole
 BPM keeps the grid within 2 ms of the kicks to the end of the track; otherwise it stays as
 measured, to a hundredth of a BPM or better: a track at 123.95 BPM is not shown as 124. The grid
-is drawn across the waveform: a line on each beat, and every fourth beat a thicker red one
-with small arrows at the top and the bottom.
+is drawn across the waveform: a line on each beat, and on the first beat of each bar a thicker
+red one with small arrows at the top and the bottom, and the bar's number. Zoomed out, the
+numbers show every 4, 8 or 16 bars, on the phrases' first bars (1, 5, 9…, or 1, 17, 33…); the
+bars before bar 1 count down (−1, −2…).
 
 - The grid has **one tempo for the whole track**. That suits most electronic music. A track
   that speeds up or slows down, or was played by a live drummer, will drift off its grid.
@@ -73,7 +81,8 @@ Corrections are made on a deck, with the track loaded.
 | **Tap** | Tap it in time with the music: after four taps the tempo you tap shows in the field. Click **Apply** to keep it |
 | **◀◀** / **▶▶** | Moves the whole grid 20 ms earlier or later |
 | **◀** / **▶** | Moves the whole grid 2 ms earlier or later |
-| **Beat here** | Moves the grid so that a beat falls exactly where the deck is now |
+| **Beat here** | Moves the grid the least so that a beat falls exactly where the deck is now, the bars with it |
+| **Bar here** | The same, and a bar starts on that beat: for bars counted from the wrong beat |
 | **Grid onto the other deck** | Both decks playing, the grid moves onto the beats of the other deck: see below |
 | **Reset** | **Back to the analysed grid**. Shown once you changed it |
 
@@ -88,6 +97,9 @@ A good way to fix a grid that is off:
 
 3. Play a few bars further on and listen with the waveform zoomed in. Nudge with **◀** and **▶**
    until the lines sit on the kicks.
+
+4. If the bars start on the wrong beat (the numbers fall a beat or two away from where the phrases
+   change), pause on the first kick of a bar and click **Bar here**.
 
 </Steps>
 

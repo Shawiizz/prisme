@@ -24,11 +24,21 @@ l’instant le plus fort du kick, quelques millisecondes plus tard : deux morce
 alignées ne font pas entendre deux kicks au lieu d’un. Les temps sans kick, comme dans un break, sont laissés hors de la
 mesure.
 
+Quelle pulsation est le temps, et où commencent les mesures, Prisme l’entend avec un petit réseau
+de neurones ([Beat This!](https://github.com/CPJKU/beat_this), sur quelques extraits du
+morceau) : les attaques seules peuvent prendre pour le temps une basse qui joue entre les kicks,
+et poser la grille sur les contretemps. La mesure 1 est la première mesure où la musique
+commence, un morceau fait pour être mixé commençant sur le premier temps d’une mesure, sauf si
+le réseau entend clairement les mesures commencer sur un autre temps.
+
 Le tempo n’est arrondi à un BPM entier (les morceaux produits dans un DAW en ont généralement
 un) que si ce BPM entier garde la grille à moins de 2 ms des kicks jusqu’à la fin du morceau ;
 sinon il reste tel que mesuré, au centième de BPM près ou mieux : un morceau à 123,95 BPM ne
 s’affiche pas à 124. La grille est dessinée sur la forme d’onde : un trait sur chaque temps et,
-tous les quatre temps, un trait rouge plus épais avec de petites flèches en haut et en bas.
+sur le premier temps de chaque mesure, un trait rouge plus épais avec de petites flèches en haut
+et en bas, et le numéro de la mesure. Dézoomée, les numéros s’affichent toutes les 4, 8 ou 16
+mesures, sur les premières mesures des phrases (1, 5, 9…, ou 1, 17, 33…) ; avant la mesure 1,
+les mesures se comptent à rebours (−1, −2…).
 
 - La grille a **un seul tempo pour tout le morceau**. Cela convient à la plupart des musiques
   électroniques. Un morceau qui accélère ou ralentit, ou joué par un batteur en live, va dériver
@@ -80,7 +90,8 @@ Les corrections se font sur un deck, avec le morceau chargé.
 | **Tap** | Tapez en rythme avec la musique : après quatre frappes, le tempo que vous tapez s’affiche dans le champ. Cliquez sur **Appliquer** pour le garder |
 | **◀◀** / **▶▶** | Déplace toute la grille 20 ms plus tôt ou plus tard |
 | **◀** / **▶** | Déplace toute la grille 2 ms plus tôt ou plus tard |
-| **Temps ici** | Déplace la grille pour qu’un temps tombe exactement là où est le deck |
+| **Temps ici** | Déplace la grille le moins possible pour qu’un temps tombe exactement là où est le deck, les mesures avec elle |
+| **Mesure ici** | La même chose, et une mesure commence sur ce temps : pour des mesures comptées depuis le mauvais temps |
 | **Caler la grille sur l’autre deck** | Les deux decks jouent, la grille se cale sur les temps de l’autre deck : voir plus bas |
 | **Rétablir** | **Revenir à la grille analysée**. Affiché une fois la grille modifiée |
 
@@ -96,6 +107,10 @@ Une bonne méthode pour corriger une grille décalée :
 
 3. Jouez quelques mesures plus loin et écoutez, la forme d’onde zoomée. Ajustez avec **◀** et
    **▶** jusqu’à ce que les traits tombent sur les kicks.
+
+4. Si les mesures commencent sur le mauvais temps (les numéros tombent un ou deux temps à côté
+   des changements de phrase), mettez en pause sur le premier kick d’une mesure et cliquez sur
+   **Mesure ici**.
 
 </Steps>
 
