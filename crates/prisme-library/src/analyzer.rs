@@ -12,7 +12,7 @@ use crate::identity::{adopt_unless, drive_is_there, drive_of, Search};
 use crate::metadata::read_metadata;
 use crate::scan::{is_online_only, scan_folders, Scan, ScannedFile};
 pub use prisme_analysis::background_priority;
-use prisme_analysis::AnalysisOptions;
+use prisme_analysis::{AnalysisOptions, ANALYSIS_VERSION};
 use prisme_media::MediaError;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -363,7 +363,8 @@ fn follow_moves(
 
 /// The record of a file and its cover thumbnail, none when the file could not be read at that
 /// moment (its drive unplugged, the file locked or changed meanwhile): the next run reads it
-/// again. When only the tags are stale, the stored analysis is kept: reading tags takes
+/// again. When only the tags are stale, or only the tags changed (another program wrote its
+/// own, the audio sounding the same), the stored analysis is kept: reading tags takes
 /// milliseconds, analysing seconds. A file that makes a decoder, the tags' reader or the
 /// analysis panic is recorded as failed, and left alone until it changes, instead of stopping
 /// the analysis there.
@@ -372,15 +373,21 @@ fn process(
     file: &ScannedFile,
     options: &AnalysisOptions,
 ) -> Option<(TrackRecord, Option<Vec<u8>>)> {
-    let reusable = db
-        .get(&file.path)
-        .ok()
-        .flatten()
-        .filter(|r| r.error.is_none() && r.version.analysis_is_current(file.stamp));
+    let sounds_the_same = || {
+        let known = db.audio_id(&file.path).ok().flatten();
+        known.is_some() && audio_id(&file.path) == known
+    };
+    let reusable = db.get(&file.path).ok().flatten().filter(|r| {
+        r.error.is_none()
+            && (r.version.analysis_is_current(file.stamp)
+                || r.version.analysis_version == ANALYSIS_VERSION && sounds_the_same())
+    });
     let read = std::panic::catch_unwind(|| match reusable {
         Some(record) => {
             let metadata = read_metadata(&file.path);
-            Ok((record.with_tags(metadata.tags), metadata.cover))
+            let record = record.with_tags(metadata.tags);
+            let version = RecordVersion { stamp: file.stamp, ..record.version };
+            Ok((TrackRecord { version, ..record }, metadata.cover))
         }
         None => analyze(file, options),
     });
