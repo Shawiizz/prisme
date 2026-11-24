@@ -37,7 +37,7 @@ use std::path::Path;
 
 /// Version of the tempo / key algorithms. Stored results from an older version are
 /// recomputed: bump it whenever a change can alter them.
-pub const ANALYSIS_VERSION: u32 = 3;
+pub const ANALYSIS_VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalysisOptions {
@@ -124,6 +124,7 @@ fn analyze_signal(
             .map(|phase_s| grid::fit_grid(signal, Tempo { first_beat_s: phase_s, ..onsets }))
             .filter(|heard| kicks(signal, heard) as f64 >= KICKS_KEPT * kicks(signal, &fitted) as f64)
             .unwrap_or(fitted);
+        let fitted = grid::on_click(signal, fitted);
         if beat_model::bar_start(&heard, fitted.bpm, fitted.first_beat_s).is_none() {
             heard.extend(beat_model::hear(&then));
         }

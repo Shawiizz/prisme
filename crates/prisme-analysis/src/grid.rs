@@ -8,7 +8,9 @@
 //! waveform (not its loudest instant, later and different for every kick). Each kick is
 //! then aligned on the picture, which gives the instant its own attack starts. The tempo is
 //! the median period between kicks a few bars apart (a whole BPM when it fits as well),
-//! and the grid goes on the median of the attacks.
+//! and the grid goes on the median of the attacks. Last, it moves onto the kicks' click
+//! ([`on_click`]): a distorted kick swells slowly, its start lies anywhere in the swell, and
+//! two tracks would flam on grids put there.
 
 use crate::dsp::{dot, MonoSignal};
 use crate::tempo::Tempo;
@@ -60,6 +62,21 @@ const MIN_STRENGTH: f32 = 0.3;
 /// A kick is aligned on the picture of the track's kick over the stretch of the picture from
 /// a little before its attack to a little after.
 const ALIGN_S: (f64, f64) = (0.015, 0.03);
+/// The band of a kick's click, the knock of its attack above its body. Serato DJ Pro's beats
+/// sit at the same distance from it, within 2 ms, on House and distorted kicks alike.
+const CLICK_BAND_HZ: (f64, f64) = (1_000.0, 5_000.0);
+/// How far from a beat the click of its kick is looked for (beats): short of the sixteenths,
+/// where hats and rolling bass lines fall.
+const CLICK_REACH: f64 = 0.2;
+/// The click is where its band's envelope, averaged over the kicks, grows most over this
+/// (seconds)...
+const CLICK_RISE_S: f64 = 0.002;
+/// ...by as much as the envelope's average at least: else nothing clicks there (the pads of a
+/// breakdown).
+const CLICK_MIN_RISE: f32 = 1.0;
+/// The click's band, around the kicks, carries this share of the wide band's envelope at
+/// least: a sub kick has no click.
+const CLICK_PRESENCE: f32 = 0.005;
 /// Fewer kicks than this and the grid is not fitted on them.
 const MIN_KICKS: usize = 16;
 /// The beat period is measured between kicks this many beats apart: far enough for
@@ -107,6 +124,47 @@ pub fn fit_grid(signal: &MonoSignal, coarse: Tempo) -> Tempo {
     Tempo { bpm: 60.0 / period, first_beat_s: phase.rem_euclid(period), ..coarse }
 }
 
+/// `grid` moved onto the click of its kicks: where the envelope of the click's band, averaged
+/// over the beats that hold a kick, grows most steeply near the beats. Two tracks' kicks sound
+/// together when their clicks meet: a kick whose body swells slowly (a distorted one) starts
+/// anywhere in the swell, its click does not. `grid` itself without kicks.
+pub fn on_click(signal: &MonoSignal, grid: Tempo) -> Tempo {
+    let period = grid.beat_period_s();
+    let rate = signal.sample_rate;
+    let reach_s = CLICK_REACH * period;
+    let around_s = reach_s + 2.0 * CLICK_RISE_S;
+    let first = grid.first_beat_s.rem_euclid(period);
+    let beats = ((signal.duration_s() - first) / period).ceil().max(0.0) as usize;
+    let mut windows = BeatWindows::new(rate, (around_s, around_s));
+    // each beat's kick, its click's envelope, and how loud the wide band is around it
+    let beats: Vec<(Kick, f32)> = (0..beats)
+        .map(|beat| {
+            let kick = windows.kick(signal, beat, first + beat as f64 * period, COARSE.body_s);
+            let wide = kick.envelope.iter().sum();
+            (Kick { envelope: windows.click_around(around_s), ..kick }, wide)
+        })
+        .collect();
+    let mut strengths: Vec<f32> = beats.iter().map(|(k, _)| k.strength).collect();
+    strengths.sort_by(f32::total_cmp);
+    let Some(&strong) = strengths.get(strengths.len() * 3 / 4) else { return grid };
+    let (kicks, wide): (Vec<Kick>, Vec<f32>) =
+        beats.into_iter().filter(|(k, _)| k.strength > 0.0 && k.strength >= MIN_STRENGTH * strong).unzip();
+    let clicks: f32 = kicks.iter().flat_map(|k| &k.envelope).sum();
+    if kicks.len() < MIN_KICKS || clicks < CLICK_PRESENCE * wide.iter().sum::<f32>() {
+        return grid;
+    }
+    let picture = average(&kicks, &vec![0.0; kicks.len()]);
+    let samples = |s: f64| (s * rate).round() as usize;
+    let mid = samples(around_s);
+    let (click, rise) =
+        steepest(&picture, mid - samples(reach_s)..mid + samples(reach_s), samples(CLICK_RISE_S));
+    // the picture's average is 1: each kick weighs the same whatever its loudness
+    if rise < CLICK_MIN_RISE {
+        return grid;
+    }
+    Tempo { first_beat_s: grid.first_beat_s + (click as f64 - mid as f64) / rate, ..grid }
+}
+
 /// The attacks of the kicks near the beats of a grid that is on the kicks, even those up to
 /// 12 ms from where the others put them (beats without a kick are missing): to measure how
 /// well a grid fits.
@@ -118,7 +176,7 @@ pub fn kick_attacks(signal: &MonoSignal, bpm: f64, first_beat_s: f64) -> Vec<Att
 fn attacks_near(signal: &MonoSignal, period: f64, first_beat_s: f64, reach: Reach) -> Vec<Attack> {
     let first = first_beat_s.rem_euclid(period);
     let beats = ((signal.duration_s() - first) / period).ceil().max(0.0) as usize;
-    let mut windows = BeatWindows::new(signal.sample_rate);
+    let mut windows = BeatWindows::new(signal.sample_rate, AROUND_S);
     let mut kicks: Vec<Kick> = (0..beats)
         .map(|beat| windows.kick(signal, beat, first + beat as f64 * period, reach.body_s))
         .collect();
@@ -329,6 +387,8 @@ fn median(mut values: Vec<f64>) -> f64 {
 /// signal of each band over a window.
 struct BeatWindows {
     rate: f64,
+    /// The envelope kept around each beat (seconds before, after).
+    around: (f64, f64),
     size: usize,
     taper: Vec<f32>,
     forward: Arc<dyn RealToComplex<f32>>,
@@ -339,6 +399,7 @@ struct BeatWindows {
     scratch: Vec<Complex32>,
     kick: Band,
     wide: Band,
+    click: Band,
 }
 
 /// A band's filter, with the analytic-signal weighting, per bin, and its envelope.
@@ -365,10 +426,10 @@ impl Band {
 }
 
 impl BeatWindows {
-    fn new(rate: f64) -> Self {
+    fn new(rate: f64, around: (f64, f64)) -> Self {
         // twice the envelope kept: the taper stays outside it, and what the band filters
         // smear past one end of the window does not wrap round onto it
-        let size = (((AROUND_S.0 + AROUND_S.1) * 2.0 * rate).ceil() as usize).next_power_of_two();
+        let size = (((around.0 + around.1) * 2.0 * rate).ceil() as usize).next_power_of_two();
         let forward = RealFftPlanner::new().plan_fft_forward(size);
         let inverse = FftPlanner::new().plan_fft_inverse(size);
         let taper = (0..size)
@@ -379,6 +440,7 @@ impl BeatWindows {
             .collect();
         Self {
             rate,
+            around,
             size,
             taper,
             frame: forward.make_input_vec(),
@@ -390,6 +452,7 @@ impl BeatWindows {
             ],
             kick: Band::new(size, rate, KICK_BAND_HZ),
             wide: Band::new(size, rate, WIDE_BAND_HZ),
+            click: Band::new(size, rate, CLICK_BAND_HZ),
             forward,
             inverse,
         }
@@ -402,13 +465,19 @@ impl BeatWindows {
         let mid = self.size / 2;
         let span = samples(BODY_RISE_S);
         let (_, strength) = steepest(&self.kick.envelope, mid - samples(body.0)..mid + samples(body.1), span);
-        let around = mid - samples(AROUND_S.0)..mid + samples(AROUND_S.1);
+        let around = mid - samples(self.around.0)..mid + samples(self.around.1);
         Kick {
             beat,
             at_s: (start + mid as isize) as f64 / self.rate,
             envelope: self.wide.envelope[around].to_vec(),
             strength,
         }
+    }
+
+    /// The envelope of the click's band `seconds` either side of the last beat looked at.
+    fn click_around(&self, seconds: f64) -> Vec<f32> {
+        let (mid, around) = (self.size / 2, (seconds * self.rate).round() as usize);
+        self.click.envelope[mid - around..mid + around].to_vec()
     }
 
     /// Envelopes of the bands over the window starting at sample `start` (silence outside
@@ -421,7 +490,7 @@ impl BeatWindows {
         self.forward
             .process_with_scratch(&mut self.frame, &mut self.spectrum, &mut self.scratch)
             .expect("buffers made by the planner");
-        for band in [&mut self.kick, &mut self.wide] {
+        for band in [&mut self.kick, &mut self.wide, &mut self.click] {
             self.analytic.fill(Complex32::default());
             for ((a, s), g) in self.analytic.iter_mut().zip(&self.spectrum).zip(&band.gains) {
                 *a = s * *g;
