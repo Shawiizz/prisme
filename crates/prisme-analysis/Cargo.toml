@@ -11,6 +11,18 @@ license.workspace = true
 prisme-media.workspace = true
 rustfft.workspace = true
 realfft.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+beat-this = { version = "1.1", default-features = false }
+rayon = "1"
+rten = "0.24"
+rten-tensor = "0.24"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Threading"] }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
 
 [dev-dependencies]
 criterion.workspace = true

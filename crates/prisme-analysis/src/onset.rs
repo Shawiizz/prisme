@@ -41,6 +41,15 @@ impl OnsetEnvelopes {
     pub fn time_of(&self, i: f64) -> f64 {
         self.start_s + i / self.frame_rate
     }
+
+    /// When the music starts: its first onset of some strength (seconds).
+    pub fn first_onset_s(&self) -> f64 {
+        let mut sorted = self.full.clone();
+        sorted.sort_by(f32::total_cmp);
+        let strong = sorted.get(sorted.len() * 98 / 100).copied().unwrap_or(0.0);
+        let first = self.full.iter().position(|&v| v > 0.2 * strong && v > 0.0).unwrap_or(0);
+        self.time_of(first as f64)
+    }
 }
 
 pub fn onset_envelopes(signal: &MonoSignal) -> OnsetEnvelopes {

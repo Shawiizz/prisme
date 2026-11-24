@@ -34,7 +34,8 @@ pub const DEFAULT_MIN_BPM: f64 = 88.0;
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Tempo {
     pub bpm: f64,
-    /// Time of the first beat at or after the start of the track (seconds).
+    /// The first beat of bar 1 (seconds): the first bar where the music starts. The grid goes
+    /// on before it, through the intro's silence or its first notes.
     pub first_beat_s: f64,
     /// 0 (no clear pulse) to 1 (a single dominant pulse).
     pub confidence: f32,

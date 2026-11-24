@@ -14,7 +14,7 @@ use prisme_analysis::dsp::analysis_signal;
 use prisme_analysis::grid::{fit_grid, kick_attacks, Attack};
 use prisme_analysis::onset::onset_envelopes;
 use prisme_analysis::tempo::estimate_tempo;
-use prisme_analysis::{Tempo, DEFAULT_MIN_BPM, MAX_ANALYSED_S};
+use prisme_analysis::{analyze, AnalysisOptions, Tempo, DEFAULT_MIN_BPM, MAX_ANALYSED_S};
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
@@ -145,8 +145,12 @@ fn analyse(path: &str) -> Option<Track> {
     let started = Instant::now();
     let coarse = estimate_tempo(&onset_envelopes(&signal), DEFAULT_MIN_BPM)?;
     let fitting = Instant::now();
-    let tempo = fit_grid(&signal, coarse);
-    let (analysis, grid) = (started.elapsed(), fitting.elapsed());
+    fit_grid(&signal, coarse);
+    let grid = fitting.elapsed();
+    let whole = Instant::now();
+    let tempo = analyze(&audio, &AnalysisOptions::default()).tempo?;
+    let analysis = whole.elapsed();
+    let _ = started;
     let attacks = kick_attacks(&signal, tempo.bpm, tempo.first_beat_s);
     Some(Track { path: path.to_string(), tempo, attacks, analysis, grid })
 }
