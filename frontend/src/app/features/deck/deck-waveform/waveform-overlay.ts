@@ -20,6 +20,18 @@ export const HEADROOM = 0.88;
 const GRID_BEAT = 0.14;
 const GRID_TICK = 0.6;
 const GRID_BAR = 0.5;
+/** Bars numbered every 1, 2, 4… bars, as many as the numbers leave room for: from 4 bars on,
+ * the numbers fall on the phrases' first bars. */
+const NUMBERED_EVERY = [1, 2, 4, 8, 16, 32, 64];
+/** The least room a bar number takes, in CSS pixels. */
+const NUMBER_ROOM = 30;
+
+/** The number of the bar of beat `n` of a grid (beat 0 starting bar 1): before bar 1, bar -1
+ * and on, as a DJ counts down to the first. */
+export function barNumber(n: number, beatsPerBar: number): number {
+  const bar = Math.floor(n / beatsPerBar);
+  return bar >= 0 ? bar + 1 : bar;
+}
 
 /** What is drawn over the audio of a waveform, in both views: the beat grid, the loop, the
  * cues, the rolls' edges and the playhead. */
@@ -60,11 +72,11 @@ export class OverlayPainter {
 
   /** As on a CDJ's screen, discreet so that the music reads first: on each beat a tick at the
    * top and bottom edges, in the room the waveform leaves there, joined by a faint line; on the
-   * first beat of each bar a thin line in the bar colour, pointed at from both edges. Only along
-   * the track, once its length is known. */
+   * first beat of each bar a thin line in the bar colour, pointed at from both edges, and its
+   * number beside the top one. Only along the track, once its length is known. */
   drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, durationS: number | null, view: View) {
     const period = 60 / tempo.bpm;
-    const first = Math.max(Math.ceil((view.fromS - tempo.firstBeatS) / period), 0);
+    const first = Math.ceil((Math.max(view.fromS, 0) - tempo.firstBeatS) / period);
     const toS = Math.min(view.fromS + view.spanS, durationS ?? Infinity);
     const last = Math.floor((toS - tempo.firstBeatS) / period);
     if (last < first) return;
@@ -75,8 +87,10 @@ export class OverlayPainter {
     const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
     ctx.fillStyle = this.palette.text;
     const bar = tempo.beatsPerBar;
+    const onBar = (n: number) => ((n % bar) + bar) % bar === 0;
+    const firstBar = first + ((bar - (((first % bar) + bar) % bar)) % bar);
     for (let n = first; n <= last; n++) {
-      if (n % bar === 0) continue;
+      if (onBar(n)) continue;
       const x = left(n);
       ctx.globalAlpha = GRID_BEAT;
       ctx.fillRect(x, tall, line, h - 2 * tall);
@@ -86,12 +100,11 @@ export class OverlayPainter {
     }
     ctx.fillStyle = this.palette.bar;
     ctx.globalAlpha = GRID_BAR;
-    for (let n = Math.ceil(first / bar) * bar; n <= last; n += bar)
-      ctx.fillRect(left(n), 0, line, h);
+    for (let n = firstBar; n <= last; n += bar) ctx.fillRect(left(n), 0, line, h);
     ctx.globalAlpha = 1;
     const half = 0.8 * tall;
     ctx.beginPath();
-    for (let n = Math.ceil(first / bar) * bar; n <= last; n += bar) {
+    for (let n = firstBar; n <= last; n += bar) {
       const mid = left(n) + line / 2;
       ctx.moveTo(mid - half, 0);
       ctx.lineTo(mid + half, 0);
@@ -103,6 +116,34 @@ export class OverlayPainter {
       ctx.closePath();
     }
     ctx.fill();
+    this.drawBarNumbers(ctx, tempo, firstBar, last, left, view);
+  }
+
+  /** Each numbered bar's number, right of its line at the top. */
+  private drawBarNumbers(
+    ctx: CanvasRenderingContext2D,
+    tempo: Tempo,
+    firstBar: number,
+    last: number,
+    left: (n: number) => number,
+    view: View,
+  ) {
+    const r = view.ratio;
+    const bar = tempo.beatsPerBar;
+    const barPx = (bar * 60 * view.width) / tempo.bpm / view.spanS;
+    const every = NUMBERED_EVERY.find((e) => e * barPx >= NUMBER_ROOM * r);
+    if (every === undefined) return;
+    ctx.font = `600 ${9 * r}px ${this.palette.mono}`;
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = this.palette.bar;
+    for (let n = firstBar; n <= last; n += bar) {
+      const number = barNumber(n, bar);
+      // the phrases' first bars: 1, 5, 9… or -4, -8… counting down before bar 1
+      const at = number > 0 ? number - 1 : -number;
+      if (at % every !== 0) continue;
+      // clear of the bar's pointer
+      ctx.fillText(`${number}`, left(n) + 7 * r, 2 * r);
+    }
   }
 
   /** A band of light between two lines; a stored loop as two dim lines. */

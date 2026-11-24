@@ -128,11 +128,12 @@ export class PhaseStrip {
     const span = ZOOM_SPAN_S * this.rate(deck);
     const period = 60 / tempo.bpm;
     const from = position - span / 2;
-    const first = Math.max(0, Math.ceil((from - tempo.firstBeatS) / period));
+    const first = Math.ceil((Math.max(from, 0) - tempo.firstBeatS) / period);
     const last = Math.floor((from + span - tempo.firstBeatS) / period);
+    const bar = tempo.beatsPerBar;
     for (let n = first; n <= last; n++) {
       const x = Math.round(((tempo.firstBeatS + n * period - from) / span) * width);
-      ctx.fillStyle = n % tempo.beatsPerBar === 0 ? this.palette.light : this.palette.text2;
+      ctx.fillStyle = ((n % bar) + bar) % bar === 0 ? this.palette.light : this.palette.text2;
       ctx.fillRect(x, top, ratio, bottom - top);
     }
   }
