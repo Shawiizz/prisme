@@ -127,7 +127,11 @@ fn analyze_signal(
         if beat_model::bar_start(&heard, fitted.bpm, fitted.first_beat_s).is_none() {
             heard.extend(beat_model::hear(&then));
         }
-        on_bars(fitted, &heard, envelopes.first_onset_s())
+        // the first kick, else the first sound: an intro's first notes or a riser before the
+        // first bar may come a beat or two early
+        let first_kick =
+            grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).first().map(|a| a.time_s);
+        on_bars(fitted, &heard, first_kick.unwrap_or_else(|| envelopes.first_onset_s()))
     });
     TrackAnalysis { tempo, key: key::estimate_key(signal) }
 }
@@ -159,14 +163,15 @@ fn kicks(signal: &dsp::MonoSignal, grid: &Tempo) -> usize {
     grid::kick_attacks(signal, grid.bpm, grid.first_beat_s).len()
 }
 
-/// The grid's first beat on bar 1: the first bar where the music starts, give or take half a
-/// beat. A track made to be mixed starts on a bar's first beat, unless the network surely hears
-/// the bars start on another.
+/// The grid's first beat on bar 1: the first bar where the music starts (its first kick),
+/// give or take half a beat. A track made to be mixed starts on a bar's first beat, unless the
+/// network surely hears the bars start a beat before or after it. Two beats away, it is not
+/// believed: it mistakes a bar's third beat for its first, sure of it all the same.
 fn on_bars(grid: Tempo, heard: &[beat_model::Heard], music_start_s: f64) -> Tempo {
     let period = grid.beat_period_s();
     let bar = f64::from(BEATS_PER_BAR) * period;
     let start = grid.first_beat_s + ((music_start_s - grid.first_beat_s) / period).round() * period;
-    let shift = beat_model::bar_start(heard, grid.bpm, start).unwrap_or(0);
+    let shift = beat_model::bar_start(heard, grid.bpm, start).filter(|&k| k % 2 == 1).unwrap_or(0);
     let downbeat = start + f64::from(shift) * period;
     let bars = ((music_start_s - period / 2.0 - downbeat) / bar).ceil();
     Tempo { first_beat_s: downbeat + bars * bar, ..grid }
