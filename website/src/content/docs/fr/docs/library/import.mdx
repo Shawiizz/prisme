@@ -66,7 +66,7 @@ Ce qui est récupéré :
 | Hot cues, avec leur couleur et leur nom | Hot cues sur les mêmes pads |
 | Boucles enregistrées | Hot cues en boucle, sur les premiers pads libres |
 | Couleur du morceau | La couleur du morceau |
-| Grille rythmique | La grille rythmique, pour les grilles à tempo unique |
+| Grille rythmique | La grille rythmique, ses changements de tempo compris |
 
 Les tags sont lus dans chaque fichier de votre dossier de musique, et dans les morceaux des
 crates même s’ils sont ailleurs.
@@ -106,7 +106,7 @@ Ce qui est récupéré :
 | Hot cues, avec leur couleur et leur nom | Hot cues sur les mêmes pads |
 | Boucles | Hot cues en boucle : sur leur propre pad s’ils en ont un, sinon sur le premier pad libre |
 | Le premier memory cue | Le cue principal, si le morceau n’en a pas |
-| Grille rythmique | La grille rythmique, pour les morceaux à tempo unique |
+| Grille rythmique | La grille rythmique, ses changements de tempo compris |
 | Couleur | La couleur de Prisme à la même place : Rose reste Rose, Red devient Rouge, Lemon Jaune, Green Vert, Blue Bleu, et ainsi de suite |
 | Note | La note, de une à cinq étoiles |
 
@@ -134,8 +134,9 @@ puis chargez un morceau pour voir ses cues et sa grille.
 - Une grille importée compte comme une correction faite à la main. Si elle est moins bonne que
   celle de Prisme, ouvrez l’éditeur de grille sur le deck et cliquez sur **Rétablir** pour revenir
   à l’analyse de Prisme.
-- Une grille à plusieurs tempos (un morceau dont la grille change de vitesse) est laissée de côté,
-  car les grilles de Prisme n’ont qu’un tempo.
+- Une grille à plusieurs tempos (un morceau joué en live, dont la grille change de vitesse)
+  arrive telle quelle : ses temps restent là où vous les avez mis, et **SYNC** suit son tempo
+  d’un temps à l’autre.
 - Les memory cues après le premier ne sont pas importés ; Prisme a un cue principal et 16 hot
   cues par morceau. Voir [Cues et hot cues](/fr/docs/decks/cues/).
 - Une crate peut lister des morceaux hors de votre dossier de musique. Ils se chargent et se

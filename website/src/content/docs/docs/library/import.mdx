@@ -61,7 +61,7 @@ What comes over:
 | Hot cues, with their colour and name | Hot cues on the same pads |
 | Saved loops | Looping hot cues, on the first free pads |
 | Track colour | The track's colour |
-| Beat grid | The beat grid, for grids with a single tempo |
+| Beat grid | The beat grid, its tempo changes included |
 
 The tags are read from every file of your music folder, and from the tracks of the crates even
 if they lie elsewhere.
@@ -97,7 +97,7 @@ What comes over:
 | Hot cues, with their colour and name | Hot cues on the same pads |
 | Loops | Looping hot cues: on their own pad if they have one, else on the first free pad |
 | The first memory cue | The main cue, if the track has none |
-| Beat grid | The beat grid, for tracks with a single tempo |
+| Beat grid | The beat grid, its tempo changes included |
 | Colour | Prisme's colour at the same place: Rose becomes Pink, Lemon Yellow, Turquoise Aqua, Violet Purple, the others keep their name |
 | Rating | The rating, one to five stars |
 
@@ -124,8 +124,8 @@ its cues and grid.
   [Tempo, beat grid and key](/docs/library/analysis/).
 - An imported grid counts as a correction made by hand. If it is worse than Prisme's own, open
   the grid editor on the deck and click **Reset** to go back to Prisme's analysis.
-- A grid with several tempos (a track whose grid changes speed) is left out, as Prisme's grids
-  have one tempo.
+- A grid with several tempos (a track played live, whose grid changes speed) comes over as it
+  is: its beats stay where you set them, and **SYNC** follows its tempo from beat to beat.
 - Memory cues after the first are not imported; Prisme has a main cue and 16 hot cues per
   track. See [Cues and hot cues](/docs/decks/cues/).
 - A crate can list tracks outside your music folder. They load and play, but the background
