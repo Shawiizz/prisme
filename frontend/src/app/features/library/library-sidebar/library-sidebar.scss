@@ -90,6 +90,8 @@ section {
 }
 .history {
   --share: 1;
+  // and the first to give way
+  flex-shrink: 3;
 }
 // in the proportions the DJ dragged the lines to
 .folders.sized,

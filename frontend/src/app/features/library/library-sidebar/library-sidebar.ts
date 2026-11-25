@@ -143,7 +143,7 @@ export class LibrarySidebar {
     const over = open[open.indexOf(section) - 1];
     if (over === undefined) return;
     const height = (s: Foldable) =>
-      this.host.querySelector(`:scope > section.${s}`)!.getBoundingClientRect().height;
+      Math.round(this.host.querySelector(`:scope > section.${s}`)!.getBoundingClientRect().height);
     const from = Object.fromEntries(open.map((s) => [s, height(s)])) as Record<Foldable, number>;
     const both = from[over] + from[section];
     dragSize(
