@@ -1,6 +1,7 @@
 //! How much of the computer the analysis takes: the background while a deck plays, so that the
 //! audio and the interface come first; all of it otherwise, the DJ waiting on it.
 
+use std::cell::Cell;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 /// No deck plays: the analysis may take the whole computer.
@@ -15,9 +16,20 @@ pub fn full_speed() -> bool {
     FULL_SPEED.load(Ordering::Relaxed)
 }
 
-/// Puts the calling thread at the priority the analysis runs at now (see [`set_full_speed`]).
+thread_local! {
+    /// Whether [`analysis_priority`] last left the thread at full speed.
+    static AT_FULL_SPEED: Cell<Option<bool>> = const { Cell::new(None) };
+}
+
+/// Puts the calling thread at the priority the analysis runs at now (see [`set_full_speed`]):
+/// asked as often as the work allows, a deck that starts is given way at once. The system is
+/// told only when that changes.
 pub fn analysis_priority() {
-    if full_speed() {
+    let full = full_speed();
+    if AT_FULL_SPEED.replace(Some(full)) == Some(full) {
+        return;
+    }
+    if full {
         normal_priority();
     } else {
         background_priority();

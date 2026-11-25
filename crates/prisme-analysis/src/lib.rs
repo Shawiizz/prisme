@@ -74,7 +74,8 @@ pub fn analyze(track: &TrackAudio, options: &AnalysisOptions) -> TrackAnalysis {
 }
 
 /// Tempo and key of a file, decoded on the fly: memory stays at the size of the
-/// decimated signal (~13 MB for 5 minutes) instead of the whole track.
+/// decimated signal (~13 MB for 5 minutes) instead of the whole track. The calling thread gives
+/// way to a deck that starts meanwhile (see [`analysis_priority`]).
 pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalysis, MediaError> {
     let mut stream = DecodeStream::open(path)?;
     let rate = f64::from(stream.sample_rate());
@@ -86,6 +87,7 @@ pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalys
     let mut excerpts = ExcerptTaker::new(stream.sample_rate(), length);
     let (mut chunk, mut frames) = (Vec::new(), 0);
     while (frames < analysed || announced == 0) && stream.next_chunk(&mut chunk)? {
+        analysis_priority();
         let room = 2 * analysed.saturating_sub(frames);
         decimator.push(&chunk[..chunk.len().min(room)]);
         excerpts.push(&chunk[..chunk.len().min(room)]);
