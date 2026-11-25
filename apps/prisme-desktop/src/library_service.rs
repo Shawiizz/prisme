@@ -374,7 +374,8 @@ impl AnalysisListener for EventListener {
 
     fn holds_back(&self) -> bool {
         self.app.try_state::<AppState>().is_some_and(|state| {
-            state.preferences.read(|p| p.library.pause_while_playing) && state.is_playing()
+            state.awaits_analysis()
+                || state.preferences.read(|p| p.library.pause_while_playing) && state.is_playing()
         })
     }
 }

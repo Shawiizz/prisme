@@ -153,6 +153,8 @@ impl Completion {
     pub fn run(self, app: &AppHandle) {
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
+        // the track on the deck first: the library's analysis leaves it the processor
+        let awaited = self.analysis_missing.then(|| state.await_analysis());
         let audio = self.loading.audio().clone();
         let mut feed = self.waveform_missing.then(|| WaveformFeed::new(&audio, WAVEFORM_SLICES_PER_S));
         let (audio, decoded) = self.loading.decode_rest_while(|| {
@@ -199,6 +201,7 @@ impl Completion {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
             }
         }
+        drop(awaited);
         // after the analysis, which a track dropped from the file manager has to go through:
         // not both at once on the processor
         if crate::stems_service::separates_on_load(&state) {

@@ -30,7 +30,7 @@ use prisme_session::JsonFile;
 use prisme_timecode::TimecodeFormat;
 use std::ops::{Deref, DerefMut};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use tracing::warn;
@@ -319,6 +319,16 @@ fn routed(p: &Preferences) -> impl PartialEq {
 /// the library takes the whole window.
 pub type PadsShown = ([DeckPadsDto; MAX_DECKS], bool);
 
+/// The analysis of a track loaded on a deck, awaited while this lives (see
+/// [`AppState::await_analysis`]).
+pub struct AwaitedAnalysis<'a>(&'a AtomicUsize);
+
+impl Drop for AwaitedAnalysis<'_> {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
 pub struct AppState {
     /// Changed by [`AppState::update_preferences`] only, which the interface hears of.
     pub preferences: JsonFile<Preferences>,
@@ -339,6 +349,8 @@ pub struct AppState {
     /// The default output another application held as the audio started (a mixer such as
     /// VoiceMeeter takes the speakers for itself), until the DJ chooses devices.
     pub busy_output: Mutex<Option<String>>,
+    /// The tracks loaded on a deck whose analysis is awaited (see [`AppState::awaits_analysis`]).
+    awaited_analyses: AtomicUsize,
     /// Where the decks were as the audio last stopped to start again: kept for the start
     /// after it, should that one fail or its engine never run.
     carried: Mutex<[Option<Place>; MAX_DECKS]>,
@@ -624,6 +636,7 @@ impl AppState {
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
             busy_output: Mutex::new(None),
+            awaited_analyses: AtomicUsize::new(0),
             carried: Mutex::default(),
             samplers: Mirrored::showing(Samplers::default(), &revisions, Section::Decks, |samplers| {
                 samplers.each_ref().map(|slots| slots.each_ref().map(|s| s.as_ref().map(|s| s.path.clone())))
@@ -753,6 +766,18 @@ impl AppState {
     /// Whether `deck` plays: its track moves, by itself or under a record.
     pub fn deck_plays(&self, deck: usize) -> bool {
         self.deck_status(deck).is_ok_and(|d| plays(&d))
+    }
+
+    /// A track loaded on a deck is to be analysed, until what is returned is dropped: the
+    /// library's analysis waits for it (see [`AppState::awaits_analysis`]).
+    pub fn await_analysis(&self) -> AwaitedAnalysis<'_> {
+        self.awaited_analyses.fetch_add(1, Ordering::SeqCst);
+        AwaitedAnalysis(&self.awaited_analyses)
+    }
+
+    /// Whether a track loaded on a deck is being analysed: the DJ waits for its grid.
+    pub fn awaits_analysis(&self) -> bool {
+        self.awaited_analyses.load(Ordering::SeqCst) > 0
     }
 
     /// Whether a deck plays: its track moves, by itself or under a record.
