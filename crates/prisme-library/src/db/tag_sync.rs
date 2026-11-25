@@ -190,10 +190,7 @@ mod tests {
             db.tags_written(Path::new(&format!("{i}.mp3")), BEFORE, BEFORE).unwrap();
         }
         save(&db, "corrected.mp3", BEFORE, TrackAnalysis::default());
-        let edits = TrackEdits {
-            grid: Some(GridEdit { bpm: 87.5, first_beat_s: 0.1 }),
-            key: Some(Key::new(6, Mode::Minor)),
-        };
+        let edits = TrackEdits { grid: Some(GridEdit::new(87.5, 0.1)), key: Some(Key::new(6, Mode::Minor)) };
         db.save_edits(Path::new("corrected.mp3"), &edits).unwrap();
         db.tags_written(Path::new("corrected.mp3"), BEFORE, BEFORE).unwrap();
         save(&db, "unwritten.mp3", BEFORE, TrackAnalysis::default());

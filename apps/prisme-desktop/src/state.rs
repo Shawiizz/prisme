@@ -135,7 +135,7 @@ impl LoadedTrack {
     }
 
     pub fn analysis(&self) -> TrackAnalysis {
-        self.edits.apply(self.detected)
+        self.edits.apply(self.detected, Some(self.audio.duration_s()))
     }
 
     pub fn grid(&self) -> Option<BeatGrid> {

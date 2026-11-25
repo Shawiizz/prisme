@@ -129,9 +129,7 @@ pub fn change_grid(
         let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
         let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
         edits.grid = match regrid {
-            Regrid::Bpm(bpm) => {
-                Some(with_bpm(track_grid.unwrap_or(GridEdit { bpm, first_beat_s: 0.0 }), bpm)?)
-            }
+            Regrid::Bpm(bpm) => Some(with_bpm(track_grid.unwrap_or(GridEdit::new(bpm, 0.0)), bpm)?),
             Regrid::Scale(factor) => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
             Regrid::Shift(seconds) => Some(grid()?.shifted(seconds)),
             Regrid::BeatAt(position_s) => Some(grid()?.with_beat_at(position_s)),
@@ -181,7 +179,7 @@ fn edit(
         let mut tracks = lock(&state.tracks);
         let track = tracks[deck].as_ref().ok_or(AppError::NoTrack(deck))?;
         let (path, mut edits) = (track.path.clone(), track.edits);
-        change(edits.apply(track.detected).tempo.map(GridEdit::from), &mut edits)?;
+        change(track.analysis().tempo.map(GridEdit::from), &mut edits)?;
         let updated: Vec<_> = tracks
             .iter_mut()
             .enumerate()

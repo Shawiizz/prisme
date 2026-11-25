@@ -151,7 +151,7 @@ fn apply_grid(db: &LibraryDb, path: &Path, grid: Option<ImportedGrid>) -> Result
     if edits.grid.is_some() {
         return Ok(false);
     }
-    edits.grid = Some(GridEdit { bpm: grid.bpm, first_beat_s: grid.bar_s });
+    edits.grid = Some(GridEdit::imported(grid.bpm, grid.bar_s));
     db.save_edits(path, &edits)?;
     Ok(true)
 }

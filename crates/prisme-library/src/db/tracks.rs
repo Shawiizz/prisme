@@ -125,7 +125,7 @@ impl TrackRecord {
 
     /// The analysis with the corrections made by hand.
     pub fn effective_analysis(&self) -> TrackAnalysis {
-        self.edits.apply(self.analysis)
+        self.edits.apply(self.analysis, self.duration_s)
     }
 
     /// The same record with tags read by the current code.
