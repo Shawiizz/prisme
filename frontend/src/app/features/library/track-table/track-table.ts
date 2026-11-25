@@ -34,8 +34,11 @@ import { Popover, popoverAbove, popoverAtPointer } from '../../../shared/popover
 import type { LibraryRow, LibraryView, SortColumn } from '../../../core/models/backend';
 
 const STARS = [1, 2, 3, 4, 5];
-/** Rows asked for beyond those in view, above and below: a quick scroll shows no gap. */
-const OVERSCAN = 12;
+/** Rows asked for beyond those in view, above and below: a quick scroll shows no gap... */
+const OVERSCAN = 30;
+/** ...asked again only once the view comes this near the edge of those held: the rows are
+ * not drawn again at each row scrolled. */
+const REFILL = 10;
 
 /**
  * The tracks being browsed or found, as the backend lists them: only the rows in view are
@@ -60,11 +63,13 @@ export class TrackTable {
   private readonly rowHeight =
     parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--pr-row')) || 29;
   private readonly scrollTop = signal(0);
+  /** The frame that reads the scroll, asked for. */
+  private scrollRead = 0;
   private readonly viewHeight = signal(0);
-  /** The rows the table would show: those in view and some more each way. */
-  private readonly wanted = computed(() => ({
-    first: Math.max(0, Math.floor(this.scrollTop() / this.rowHeight) - OVERSCAN),
-    count: Math.ceil(this.viewHeight() / this.rowHeight) + 2 * OVERSCAN,
+  /** The rows in view. */
+  private readonly inView = computed(() => ({
+    first: Math.floor(this.scrollTop() / this.rowHeight),
+    count: Math.ceil(this.viewHeight() / this.rowHeight) + 1,
   }));
   protected readonly shown = computed(() => {
     const { first, rows } = this.library.window();
@@ -144,12 +149,20 @@ export class TrackTable {
       () => this.trackMenu() !== null,
       () => this.trackMenu.set(null),
     );
-    // the rows in view asked for as the table scrolls or grows, once a frame at most
+    // the rows in view and some more asked for as the table scrolls or grows near the edge of
+    // those held, once a frame at most; the backend sends them again as they change
     let frame = 0;
     effect(() => {
-      const { first, count } = this.wanted();
+      const { first, count } = this.inView();
+      const held = untracked(this.library.window);
+      const end = held.first + held.rows.length;
+      const above = held.first === 0 || first - held.first >= REFILL;
+      const below = end >= untracked(this.library.count) || end - (first + count) >= REFILL;
+      if (held.seq >= 0 && above && below) return;
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => void this.library.viewport(first, count));
+      frame = requestAnimationFrame(
+        () => void this.library.viewport(Math.max(0, first - OVERSCAN), count + 2 * OVERSCAN),
+      );
     });
     // the cursor moved in the list (a key, a controller): its row brought into view
     let before: LibraryView | null = null;
@@ -160,7 +173,10 @@ export class TrackTable {
       if (moved && view?.cursor != null) untracked(() => this.scrollTo(view.cursor!));
     });
     const destroyRef = inject(DestroyRef);
-    destroyRef.onDestroy(() => cancelAnimationFrame(frame));
+    destroyRef.onDestroy(() => {
+      cancelAnimationFrame(frame);
+      cancelAnimationFrame(this.scrollRead);
+    });
     afterNextRender(() => {
       const table = this.table().nativeElement;
       this.viewHeight.set(table.clientHeight);
@@ -170,8 +186,14 @@ export class TrackTable {
     });
   }
 
+  /** The scroll read once a frame, with the frame's own layout: read at each scroll event, it
+   * made the page lay itself out again for it, and the list moved at half the screen's rate. */
   scrolled() {
-    this.scrollTop.set(this.table().nativeElement.scrollTop);
+    if (this.scrollRead) return;
+    this.scrollRead = requestAnimationFrame(() => {
+      this.scrollRead = 0;
+      this.scrollTop.set(this.table().nativeElement.scrollTop);
+    });
   }
 
   /** Scrolls the least that shows the row at `index` whole, under the column headers. */
