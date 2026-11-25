@@ -189,6 +189,16 @@ impl Kick {
         click: 0.6,
         length_s: 0.2,
     };
+    /// A click, then a body swelling for 100 ms: a distorted kick, schranz.
+    pub const SWELLING: Self = Self {
+        from_hz: 120.0,
+        to_hz: 55.0,
+        sweep_s: 0.03,
+        attack_s: 0.1,
+        decay_s: 0.15,
+        click: 0.3,
+        length_s: 0.35,
+    };
     /// A long sub that fades in over 2 ms and rings into the next beat: deep house, 808.
     pub const SUB: Self = Self {
         from_hz: 70.0,

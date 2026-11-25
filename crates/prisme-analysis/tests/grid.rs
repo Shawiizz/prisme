@@ -50,6 +50,18 @@ fn the_grid_is_on_the_start_of_every_kind_of_kick() {
 }
 
 #[test]
+fn the_grid_is_on_the_click_of_a_kick_whose_body_swells_late() {
+    let (bpm, first_beat) = (155.0, 0.11);
+    let mut s = Synth::new(90.0);
+    s.kicks(bpm, first_beat, Kick::SWELLING, 0..0);
+    s.hats(bpm, first_beat, 0.2);
+    let t = tempo_of(&s);
+    assert_eq!(t.bpm, bpm);
+    let off = worst_offset_ms(&t, &s, bpm, first_beat, 0..0);
+    assert!(off < TOLERANCE_MS, "grid off by {off:.2} ms");
+}
+
+#[test]
 fn a_pad_ducked_by_the_kick_does_not_move_the_grid() {
     let (bpm, first_beat) = (124.0, 0.31);
     // chords and a bass line as loud as the kick, dipping under it

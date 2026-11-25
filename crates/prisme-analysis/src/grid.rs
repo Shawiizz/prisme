@@ -68,9 +68,10 @@ const CLICK_BAND_HZ: (f64, f64) = (1_000.0, 5_000.0);
 /// How far from a beat the click of its kick is looked for (beats, before and after it): near
 /// it, short of the sixteenths where hats and rolling bass lines fall...
 const CLICK_NEAR: (f64, f64) = (0.2, 0.2);
-/// ...then, nothing clicking there, further before it, where a distorted kick whose body comes
-/// late clicks.
-const CLICK_FAR: (f64, f64) = (0.3, 0.1);
+/// ...then, nothing clicking there, further: before it, where a distorted kick whose body
+/// comes late clicks; after it, the grid having taken for the beat a note a sixteenth before the
+/// kick.
+const CLICK_FAR: (f64, f64) = (0.3, 0.3);
 /// The click is where its band's envelope, averaged over the kicks, grows most over this
 /// (seconds)...
 const CLICK_RISE_S: f64 = 0.002;
