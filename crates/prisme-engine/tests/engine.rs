@@ -276,10 +276,7 @@ fn a_double_of_a_deck_in_a_loop_loops_with_it() {
     let mut rig = Rig::new();
     let track = sine_track(10.0, 0.6);
     rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(1.1);
     rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
@@ -298,10 +295,7 @@ fn a_stem_muted_on_the_bar_waits_for_it() {
     rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
     rig.send(Command::SetStems { deck: 0, stems: [Some(sine_track(10.0, 0.6)), None, None] });
     // a bar every 2 s
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(0.5);
     let full = rig.run_rms(0.25);
@@ -322,10 +316,7 @@ fn a_stem_muted_on_the_bar_inside_a_shorter_loop_waits_for_the_loop_to_go_round(
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
     rig.send(Command::SetStems { deck: 0, stems: [Some(sine_track(10.0, 0.6)), None, None] });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(0.6);
     // one beat, 0.5 s
@@ -345,10 +336,7 @@ fn a_double_of_a_deck_in_a_roll_plays_on_where_the_roll_comes_back() {
     let mut rig = Rig::new();
     let track = sine_track(10.0, 0.6);
     rig.send(Command::LoadTrack { deck: 0, track: track.clone() });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(1.0);
     rig.send(Command::LoopRoll { deck: 0, beats: Some(0.125) });
@@ -378,10 +366,7 @@ fn a_whole_session_restored_at_once_fits_in_the_queue() {
 fn positions_and_tempos_out_of_range_are_ignored() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: sine_track(10.0, 0.6) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 0.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(0.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: f64::INFINITY });
     rig.send(Command::SetPitch { deck: 0, ratio: f64::NAN });
     rig.send(Command::BeatJump { deck: 0, beats: 4.0 });
@@ -465,10 +450,7 @@ fn a_touched_jog_carries_the_track_like_a_record() {
 fn a_track_scratched_in_a_loop_goes_round_it() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: 10.0 });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
@@ -508,10 +490,7 @@ fn a_track_scratched_in_a_loop_goes_round_it() {
 fn a_track_flung_by_hand_past_the_end_of_its_loop_lands_round_it() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: 10.0 });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });
@@ -538,10 +517,7 @@ fn a_track_flung_by_hand_past_the_end_of_its_loop_lands_round_it() {
 fn a_press_on_the_overview_takes_the_track_out_of_its_loop() {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: 10.0 });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.send(Command::BeatLoop { deck: 0, beats: 1.0 });

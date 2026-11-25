@@ -76,12 +76,12 @@ impl Performing<'_> {
         let Some(looping) = self.stored_loop(deck) else { return Ok(()) };
         let grid = self.state.with_track(deck, |t| t.grid()).ok().flatten();
         let (Some(region), Some(grid)) = (looping.region, grid) else { return Ok(()) };
-        let by = f64::from(beats) * grid.beat_period_s();
+        let moved = |s: f64| grid.time_of(grid.beats_at(s) + f64::from(beats));
         transport::set_loop(
             self.state,
             deck,
-            Some(region.start_s + by),
-            Some(region.end_s + by),
+            Some(moved(region.start_s)),
+            Some(moved(region.end_s)),
             looping.active,
         )
     }

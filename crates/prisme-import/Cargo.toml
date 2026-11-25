@@ -9,6 +9,7 @@ license.workspace = true
 
 [dependencies]
 prisme-library.workspace = true
+prisme-grid.workspace = true
 lofty.workspace = true
 base64.workspace = true
 quick-xml.workspace = true

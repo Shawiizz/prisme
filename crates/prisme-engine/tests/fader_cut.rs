@@ -10,10 +10,7 @@ fn playing() -> Rig {
     let mut rig = Rig::new();
     rig.send(Command::SetLimiter { enabled: false });
     rig.send(Command::LoadTrack { deck: 0, track: constant_track(60.0, 0.5) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: 10.0 });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(0.1);

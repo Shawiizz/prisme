@@ -13,6 +13,7 @@ pub mod m3u;
 pub mod rekordbox;
 pub mod serato;
 
+use prisme_grid::BeatGrid;
 use prisme_library::{Cue, CueSlot, DbError, GridEdit, LibraryDb, HOT_CUES};
 use std::path::{Path, PathBuf};
 
@@ -43,7 +44,8 @@ impl Import {
 pub struct ImportedTrack {
     pub path: PathBuf,
     pub cues: Vec<ImportedCue>,
-    pub grid: Option<ImportedGrid>,
+    /// Its bar 1 on the first beat of a bar.
+    pub grid: Option<BeatGrid>,
     /// 0xRRGGBB
     pub color: Option<u32>,
     /// 1 to 5 stars.
@@ -60,13 +62,6 @@ pub struct ImportedCue {
     /// 0xRRGGBB; 0 for none.
     pub color: u32,
     pub label: String,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ImportedGrid {
-    pub bpm: f64,
-    /// The first beat of a bar.
-    pub bar_s: f64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -97,7 +92,7 @@ pub fn apply(db: &LibraryDb, import: &Import) -> Result<ImportSummary, DbError> 
             continue;
         }
         let cues = apply_cues(db, &track.path, &track.cues)?;
-        let grid = apply_grid(db, &track.path, track.grid)?;
+        let grid = apply_grid(db, &track.path, track.grid.clone())?;
         let marked = apply_marks(db, &track.path, track.color, track.rating)?;
         summary.cues += cues;
         summary.grids += grid as usize;
@@ -155,13 +150,13 @@ fn apply_cues(db: &LibraryDb, path: &Path, cues: &[ImportedCue]) -> Result<usize
     Ok(added)
 }
 
-fn apply_grid(db: &LibraryDb, path: &Path, grid: Option<ImportedGrid>) -> Result<bool, DbError> {
-    let Some(grid) = grid.filter(|g| GridEdit::BPM_RANGE.contains(&g.bpm)) else { return Ok(false) };
+fn apply_grid(db: &LibraryDb, path: &Path, grid: Option<BeatGrid>) -> Result<bool, DbError> {
+    let Some(grid) = grid.filter(|g| GridEdit::BPM_RANGE.contains(&g.mean_bpm())) else { return Ok(false) };
     let mut edits = db.edits(path)?;
     if edits.grid.is_some() {
         return Ok(false);
     }
-    edits.grid = Some(GridEdit::imported(grid.bpm, grid.bar_s));
+    edits.grid = Some(GridEdit::imported(grid));
     db.save_edits(path, &edits)?;
     Ok(true)
 }
@@ -218,7 +213,7 @@ mod tests {
                         cue(None, 0.5, None),
                         cue(None, 0.7, None),
                     ],
-                    grid: Some(ImportedGrid { bpm: 125.0, bar_s: 12.25 }),
+                    grid: Some(BeatGrid::steady(125.0, 12.25, true)),
                     color: Some(0xff0000),
                     rating: Some(5),
                 },
@@ -251,7 +246,7 @@ mod tests {
         );
         assert_eq!(cues[2].color, 0x112233);
         let grid = db.edits(&path).unwrap().grid.unwrap();
-        assert!((grid.bpm, (grid.first_beat_s - 12.25).abs() < 1e-9) == (125.0, true));
+        assert!((grid.grid.bpm(), (grid.grid.first_beat_s() - 12.25).abs() < 1e-9) == (125.0, true));
         assert_eq!(db.marks(&path).unwrap(), prisme_library::TrackMarks { color: Some(0xff0000), rating: 2 });
 
         let again = apply(&db, &import).unwrap();
@@ -268,7 +263,7 @@ mod tests {
             tracks: vec![ImportedTrack {
                 path: path.clone(),
                 cues: vec![cue(Some(0), 1.0, None)],
-                grid: Some(ImportedGrid { bpm: 125.0, bar_s: 12.25 }),
+                grid: Some(BeatGrid::steady(125.0, 12.25, true)),
                 color: None,
                 rating: None,
             }],

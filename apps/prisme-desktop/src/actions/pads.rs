@@ -8,7 +8,7 @@ use prisme_actions::pads::{slice_at, CUT_BEATS};
 use prisme_engine::{BeatGrid, Command, LoopRegion};
 
 /// Where the track on `deck` is (under a loop or a roll, where it would be), its grid, and how
-/// long a beat lasts: none without a track or a grid.
+/// long a beat lasts there: none without a track or a grid.
 struct Place {
     at_s: f64,
     grid: BeatGrid,
@@ -19,7 +19,7 @@ fn place(state: &AppState, deck: usize) -> Option<Place> {
     let grid = state.with_track(deck, |t| t.grid()).ok().flatten()?;
     let status = state.deck_status(deck).ok().filter(|s| s.loaded)?;
     let at_s = status.slip_position_s.unwrap_or(status.position_s);
-    Some(Place { at_s, grid, beat_s: grid.beat_period_s() })
+    Some(Place { at_s, beat_s: grid.beat_period_s_at(at_s), grid })
 }
 
 impl Place {

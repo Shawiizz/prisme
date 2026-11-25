@@ -11,6 +11,7 @@ license.workspace = true
 prisme-timecode.workspace = true
 prisme-media.workspace = true
 prisme-dsp.workspace = true
+prisme-grid.workspace = true
 signalsmith-stretch.workspace = true
 rtrb.workspace = true
 triple_buffer.workspace = true

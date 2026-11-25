@@ -12,6 +12,7 @@
 
 use crate::command::{Command, DeckId, Garbage, RecordSource};
 use crate::deck::Deck;
+use crate::grid::BeatGrid;
 use crate::mixer::{DeckMix, MixMode, Mixer};
 use crate::preview::Preview;
 use crate::recording::{input_pair, Recording};
@@ -265,9 +266,10 @@ impl Engine {
             LoadTrack { deck, track } => {
                 if valid(deck) {
                     let d = &mut self.decks[deck];
-                    d.reset_track_state();
+                    let grid = d.reset_track_state();
                     let stems = d.playhead.take_stems();
                     let old = d.playhead.load(track);
+                    self.discard_grid(grid);
                     for garbage in stems.into_iter().chain([old]).flatten() {
                         self.discard(Garbage::Track(garbage));
                     }
@@ -278,9 +280,10 @@ impl Engine {
             Eject { deck } if valid(deck) => {
                 let d = &mut self.decks[deck];
                 d.set_playing(false);
-                d.reset_track_state();
+                let grid = d.reset_track_state();
                 let stems = d.playhead.take_stems();
                 let old = d.playhead.eject();
+                self.discard_grid(grid);
                 for garbage in stems.into_iter().chain([old]).flatten() {
                     self.discard(Garbage::Track(garbage));
                 }
@@ -348,9 +351,16 @@ impl Engine {
             SetVinylEnabled { deck, enabled } if valid(deck) => self.decks[deck].set_vinyl_enabled(enabled),
             SetVinylMode { deck, mode } if valid(deck) => self.decks[deck].set_vinyl_mode(mode),
             // a grid without a finite tempo would put the beats at infinity
-            SetBeatGrid { deck, grid } if valid(deck) => {
-                self.decks[deck].grid =
-                    grid.filter(|g| g.bpm.is_finite() && g.bpm > 0.0 && g.first_beat_s.is_finite())
+            SetBeatGrid { deck, grid } => {
+                let (kept, refused) = match grid {
+                    Some(grid) if valid(deck) && grid.is_valid() => (Some(grid), None),
+                    grid => (None, grid),
+                };
+                if valid(deck) {
+                    let old = std::mem::replace(&mut self.decks[deck].grid, kept);
+                    self.discard_grid(old);
+                }
+                self.discard_grid(refused);
             }
             SetSyncLocked { deck, locked: true } if valid(deck) => self.decks[deck].engage_sync(true),
             SetSyncLocked { deck, locked: false } if valid(deck) => self.decks[deck].sync.reset(),
@@ -463,6 +473,13 @@ impl Engine {
 
     /// Hands an object back to the control side. If the queue is full (the controller
     /// stopped collecting), it is leaked rather than freed on the audio thread.
+    /// A grid let go: one with anchors freed off the audio thread.
+    fn discard_grid(&mut self, grid: Option<BeatGrid>) {
+        if let Some(grid) = grid.filter(|g| !g.is_steady()) {
+            self.discard(Garbage::Grid(grid));
+        }
+    }
+
     fn discard(&mut self, garbage: Garbage) {
         if let Err(rtrb::PushError::Full(garbage)) = self.garbage.push(garbage) {
             std::mem::forget(garbage);

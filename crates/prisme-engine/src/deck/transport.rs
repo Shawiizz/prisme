@@ -3,6 +3,7 @@
 //! A record in absolute mode decides where the track is, so none of this applies to it.
 
 use super::{Deck, DriveMode};
+use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
 
 #[derive(Default)]
@@ -68,9 +69,10 @@ impl Deck {
         self.set_loop(place.loop_region, place.loop_active);
     }
 
-    /// Forgets everything tied to the previous track.
-    pub(crate) fn reset_track_state(&mut self) {
-        self.grid = None;
+    /// Forgets everything tied to the previous track; its grid given back, to be freed off the
+    /// audio thread.
+    pub(crate) fn reset_track_state(&mut self) -> Option<BeatGrid> {
+        let grid = self.grid.take();
         self.sync.reset();
         self.vinyl.take_back();
         self.transport = Transport { slip_mode: self.transport.slip_mode, ..Transport::default() };
@@ -81,6 +83,7 @@ impl Deck {
         self.jog_hand = None;
         self.bar_mix.reset();
         self.search = Default::default();
+        grid
     }
 
     pub(crate) fn set_loop(&mut self, region: Option<LoopRegion>, active: bool) {
@@ -92,12 +95,12 @@ impl Deck {
     }
 
     pub(crate) fn beat_loop(&mut self, beats: f64, quantize: bool) {
-        let Some(grid) = self.grid else { return };
+        let Some(grid) = &self.grid else { return };
         if !self.controls_position() || beats <= 0.0 {
             return;
         }
         self.transport.loop_region =
-            Some(LoopRegion::of_beats(&grid, self.playhead.position_s(), beats, quantize));
+            Some(LoopRegion::of_beats(grid, self.playhead.position_s(), beats, quantize));
         self.activate_loop(true);
     }
 
@@ -209,19 +212,23 @@ impl Deck {
 
     /// Moves by whole beats; an active loop around the playhead moves along.
     pub(crate) fn beat_jump(&mut self, beats: f64) {
-        let Some(grid) = self.grid else { return };
+        let Some(grid) = &self.grid else { return };
         if !self.controls_position() {
             return;
         }
-        let by_s = beats * grid.beat_period_s();
+        let moved = |s: f64| grid.time_of(grid.beats_at(s) + beats);
         let position = self.playhead.position_s();
-        if let Some(region) =
-            self.transport.loop_region.filter(|r| self.transport.loop_active && r.contains(position))
-        {
-            self.transport.loop_region = Some(region.shifted(by_s));
+        let landing = moved(position);
+        let region = self
+            .transport
+            .loop_region
+            .filter(|r| self.transport.loop_active && r.contains(position))
+            .map(|r| LoopRegion { start_s: moved(r.start_s), end_s: moved(r.end_s) });
+        if let Some(region) = region {
+            self.transport.loop_region = Some(region);
             self.activate_loop(true);
         }
-        self.playhead.seek_s(position + by_s);
+        self.playhead.seek_s(landing);
     }
 
     /// Jumps to `target_s`; while playing with quantize on, keeps the beat phase.
@@ -230,7 +237,7 @@ impl Deck {
             return;
         }
         let position = self.playhead.position_s();
-        let landing = match self.grid {
+        let landing = match &self.grid {
             Some(grid) if quantize && self.is_moving() => grid.phase_preserving_target(position, target_s),
             _ => target_s,
         };
@@ -345,7 +352,7 @@ impl Deck {
     }
 
     fn snapped(&self, position_s: f64, quantize: bool) -> f64 {
-        match self.grid {
+        match &self.grid {
             Some(grid) if quantize => grid.nearest_beat_s(position_s),
             _ => position_s,
         }

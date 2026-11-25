@@ -36,7 +36,7 @@ pub fn audible(peaks: &[u8], slices_per_second: u32) -> Option<Audible> {
 }
 
 /// The track playing, as the mix needs it.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Outgoing {
     pub grid: Option<BeatGrid>,
     /// Its tempo now, the speed of the deck included.
@@ -47,7 +47,7 @@ pub struct Outgoing {
 }
 
 /// The track coming in.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Incoming {
     pub grid: Option<BeatGrid>,
     /// Its main cue, where the DJ wants it to start.
@@ -73,8 +73,8 @@ pub struct MixPlan {
 /// Where the next track starts: its main cue, else where it is heard, on the beat if it has a
 /// grid.
 pub fn start_of(incoming: &Incoming) -> f64 {
-    incoming.cue_s.unwrap_or_else(|| match incoming.grid {
-        Some(grid) => beat_from(&grid, incoming.audible_start_s),
+    incoming.cue_s.unwrap_or_else(|| match &incoming.grid {
+        Some(grid) => beat_from(grid, incoming.audible_start_s),
         None => incoming.audible_start_s,
     })
 }
@@ -85,17 +85,17 @@ pub fn start_of(incoming: &Incoming) -> f64 {
 /// tempo, the fade ending where the track playing goes silent.
 pub fn plan(outgoing: &Outgoing, incoming: &Incoming, fade: FadeLength) -> MixPlan {
     let from_s = start_of(incoming);
-    let matched = match (outgoing.grid, outgoing.bpm, incoming.grid) {
+    let matched = match (&outgoing.grid, outgoing.bpm, &incoming.grid) {
         (Some(out_grid), Some(bpm), Some(in_grid)) => {
-            matched_rate(bpm, in_grid.bpm).map(|rate| (out_grid, bpm, rate))
+            matched_rate(bpm, in_grid.bpm_at(from_s)).map(|rate| (out_grid, bpm, rate))
         }
         _ => None,
     };
     if let Some((grid, bpm, rate)) = matched {
         let beats = f64::from(fade.beats);
-        let latest_s = outgoing.end_s - beats * grid.beat_period_s();
+        let latest_s = grid.time_of(grid.beats_at(outgoing.end_s) - beats);
         return MixPlan {
-            at_s: phrase_before(&grid, latest_s).max(0.0),
+            at_s: phrase_before(grid, latest_s).max(0.0),
             from_s,
             rate,
             synced: true,
@@ -127,7 +127,7 @@ pub fn matched_rate(bpm: f64, own_bpm: f64) -> Option<f64> {
 /// The start of the phrase `position_s` is in.
 fn phrase_before(grid: &BeatGrid, position_s: f64) -> f64 {
     let phrase = (grid.beats_at(position_s) / PHRASE_BEATS).floor() * PHRASE_BEATS;
-    grid.first_beat_s + phrase * grid.beat_period_s()
+    grid.time_of(phrase)
 }
 
 /// The first beat at or after `position_s`, and not before the track.
@@ -135,7 +135,7 @@ fn beat_from(grid: &BeatGrid, position_s: f64) -> f64 {
     const EPSILON: f64 = 1e-6;
     let first = (grid.beats_at(0.0) - EPSILON).ceil();
     let beat = (grid.beats_at(position_s) - EPSILON).ceil().max(first);
-    grid.first_beat_s + beat * grid.beat_period_s()
+    grid.time_of(beat)
 }
 
 #[cfg(test)]
@@ -144,14 +144,14 @@ mod tests {
 
     const FADE: FadeLength = FadeLength { beats: 16, seconds: 10.0 };
     /// 120 BPM: a beat every half second, a phrase every 16 s.
-    const GRID_120: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.25, bars_sure: true };
+    const GRID_120: BeatGrid = BeatGrid::steady(120.0, 0.25, true);
 
     fn near(a: f64, b: f64) -> bool {
         (a - b).abs() < 1e-9
     }
 
     fn outgoing(grid: Option<BeatGrid>, end_s: f64) -> Outgoing {
-        Outgoing { grid, bpm: grid.map(|g| g.bpm), end_s, speed: 1.0 }
+        Outgoing { bpm: grid.as_ref().map(BeatGrid::bpm), grid, end_s, speed: 1.0 }
     }
 
     #[test]
@@ -163,11 +163,8 @@ mod tests {
 
     #[test]
     fn a_synced_mix_starts_on_the_last_phrase_that_holds_the_fade() {
-        let incoming = Incoming {
-            grid: Some(BeatGrid { bpm: 124.0, first_beat_s: 0.1, bars_sure: true }),
-            cue_s: None,
-            audible_start_s: 0.0,
-        };
+        let incoming =
+            Incoming { grid: Some(BeatGrid::steady(124.0, 0.1, true)), cue_s: None, audible_start_s: 0.0 };
         // heard until 200 s: the 16 beats must start by 192 s; phrases start at 0.25 + 16 k
         let plan = plan(&outgoing(Some(GRID_120), 200.0), &incoming, FADE);
         assert!(plan.synced);
@@ -180,13 +177,13 @@ mod tests {
 
     #[test]
     fn the_next_track_starts_on_its_cue_or_on_its_first_beat_heard() {
-        let grid = Some(BeatGrid { bpm: 120.0, first_beat_s: 0.2, bars_sure: true });
-        let at = |cue_s, audible_start_s| start_of(&Incoming { grid, cue_s, audible_start_s });
+        let grid = Some(BeatGrid::steady(120.0, 0.2, true));
+        let at = |cue_s, audible_start_s| start_of(&Incoming { grid: grid.clone(), cue_s, audible_start_s });
         assert!(near(at(Some(33.3), 5.0), 33.3), "the cue of the DJ");
         assert!(near(at(None, 5.0), 5.2), "the beat after the silence");
         assert!(near(at(None, 5.2), 5.2));
         assert!(near(at(None, 0.0), 0.2));
-        let early = BeatGrid { bpm: 120.0, first_beat_s: 0.7, bars_sure: true };
+        let early = BeatGrid::steady(120.0, 0.7, true);
         let start = start_of(&Incoming { grid: Some(early), cue_s: None, audible_start_s: 0.0 });
         assert!(near(start, 0.2), "the grid goes on before its first beat, not before the track");
         let free = Incoming { grid: None, cue_s: None, audible_start_s: 1.5 };
@@ -210,11 +207,8 @@ mod tests {
         assert!(near(matched_rate(87.0, 174.0).unwrap(), 1.0), "double time");
         assert_eq!(matched_rate(174.0, 124.0), None);
         assert_eq!(matched_rate(0.0, 124.0), None);
-        let incoming = Incoming {
-            grid: Some(BeatGrid { bpm: 174.0, first_beat_s: 0.0, bars_sure: true }),
-            cue_s: None,
-            audible_start_s: 0.0,
-        };
+        let incoming =
+            Incoming { grid: Some(BeatGrid::steady(174.0, 0.0, true)), cue_s: None, audible_start_s: 0.0 };
         let plan = plan(&outgoing(Some(GRID_120), 200.0), &incoming, FADE);
         assert!(!plan.synced && plan.rate == 1.0, "plays at its own tempo");
     }

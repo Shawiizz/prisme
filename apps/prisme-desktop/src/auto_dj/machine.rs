@@ -503,7 +503,7 @@ impl Machine {
 fn outgoing(deck: &DeckView) -> Outgoing {
     let track = deck.track.as_ref();
     Outgoing {
-        grid: track.and_then(|t| t.grid),
+        grid: track.and_then(|t| t.grid.clone()),
         bpm: deck.bpm,
         end_s: track.and_then(|t| t.audible).map_or(deck.duration_s, |a| a.end_s.min(deck.duration_s)),
         speed: deck.speed,
@@ -512,7 +512,7 @@ fn outgoing(deck: &DeckView) -> Outgoing {
 
 fn incoming(track: &TrackView) -> Incoming {
     Incoming {
-        grid: track.grid,
+        grid: track.grid.clone(),
         cue_s: track.cue_s,
         audible_start_s: track.audible.map_or(0.0, |a| a.start_s),
     }
@@ -523,7 +523,7 @@ mod tests {
     use super::*;
 
     const FADE: FadeLength = FadeLength { beats: 16, seconds: 10.0 };
-    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
+    const GRID: BeatGrid = BeatGrid::steady(120.0, 0.0, true);
 
     fn path(name: &str) -> PathBuf {
         PathBuf::from(name)
@@ -545,7 +545,7 @@ mod tests {
             position_s,
             duration_s: 210.0,
             speed: if playing { 1.0 } else { 0.0 },
-            bpm: track.as_ref().and_then(|t| t.grid).map(|g| g.bpm),
+            bpm: track.as_ref().and_then(|t| t.grid.as_ref()).map(BeatGrid::bpm),
             leader: playing,
             free: true,
             track,

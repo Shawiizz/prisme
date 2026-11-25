@@ -203,8 +203,7 @@ impl Deck {
 
     /// The start of the next bar after the playhead, by the beat grid.
     fn next_bar_s(&self) -> Option<f64> {
-        let grid = self.grid?;
-        Some(grid.bar_start_s(self.playhead.position_s()) + grid.bar_s())
+        Some(self.grid.as_ref()?.next_bar_s(self.playhead.position_s()))
     }
 
     /// Renders one block from the turntable signal `input`; `target` is given when the
@@ -258,7 +257,9 @@ impl Deck {
         let speed = if ramp { speed * self.motor.factor() } else { speed };
         // the beats over the block, for the cuts: from where it started, at the mean speed
         let beats_per_frame = (moved + speed) / 2.0 / out_rate / 60.0;
-        self.cut.follow(self.grid.map(|g| (g.beats_at(playhead_s), beats_per_frame * g.bpm)));
+        let beats =
+            self.grid.as_ref().map(|g| (g.beats_at(playhead_s), beats_per_frame * g.bpm_at(playhead_s)));
+        self.cut.follow(beats);
         if self.motor.has_stopped() {
             self.playing = false;
             self.motor = Motor::default();
@@ -463,11 +464,12 @@ impl Deck {
     }
 
     pub(crate) fn leader_beat(&self) -> Option<LeaderBeat> {
-        let grid = self.grid?;
+        let grid = self.grid.as_ref()?;
+        let position_s = self.playhead.position_s();
         Some(LeaderBeat {
-            bpm: grid.bpm * self.tempo_rate(),
-            beats: grid.beats_at(self.playhead.position_s()),
-            bars_sure: grid.bars_sure,
+            bpm: grid.bpm_at(position_s) * self.tempo_rate(),
+            beats: grid.beats_at(position_s),
+            bars_sure: grid.bars_sure(),
         })
     }
 
@@ -497,8 +499,7 @@ impl Deck {
     }
 
     pub(crate) fn sync_target(&self, leader: LeaderBeat) -> Option<SyncTarget> {
-        let grid = self.grid?;
-        Some(sync::sync_target(&grid, self.playhead.position_s(), leader))
+        Some(sync::sync_target(self.grid.as_ref()?, self.playhead.position_s(), leader))
     }
 
     /// Locks the deck to the leader, or matches it once: a relative record takes its rate,
@@ -521,10 +522,10 @@ impl Deck {
             && self.playing
             && self.chases_beats()
             && sync::needs_resnap(target.phase_error);
-        if let (Some(grid), true) = (self.grid, self.sync.snap_pending || resnap) {
+        if let (Some(grid), true) = (self.grid.as_ref(), self.sync.snap_pending || resnap) {
             // engaging lays the bars together, a resnap only the beats
             let error = if self.sync.snap_pending { target.bar_error } else { target.phase_error };
-            let position = self.playhead.position_s() + sync::snap_offset_s(&grid, error);
+            let position = sync::snapped_s(grid, self.playhead.position_s(), error);
             self.playhead.seek_round_s(position);
             (target.phase_error, target.bar_error) = (0.0, 0.0);
             if self.sync.locked {
@@ -603,23 +604,25 @@ impl Deck {
     pub(crate) fn frames_to_next_beat(&self, out_rate: f64) -> Option<usize> {
         // slower than this, the next beat is too far to wait for
         const MIN_SPEED: f64 = 0.1;
-        let grid = self.grid?;
+        let grid = self.grid.as_ref()?;
         if self.speed < MIN_SPEED {
             return None;
         }
-        let beats = grid.beats_at(self.playhead.position_s());
-        let to_next = 1.0 - beats.rem_euclid(1.0);
-        Some((to_next * 60.0 / grid.bpm / self.speed * out_rate) as usize)
+        let position_s = self.playhead.position_s();
+        let beats = grid.beats_at(position_s);
+        let next_s = grid.time_of(beats.floor() + 1.0);
+        Some(((next_s - position_s) / self.speed * out_rate) as usize)
     }
 
     /// The beat the effects follow, at the current position.
     pub(crate) fn effect_beat(&self) -> Beat {
         // stopped or crawling, effects keep a usable tempo
         const SLOWEST_RATE: f64 = 0.25;
-        match self.grid {
+        let position_s = self.playhead.position_s();
+        match &self.grid {
             Some(g) => Beat {
-                seconds: (60.0 / (g.bpm * self.tempo_rate().max(SLOWEST_RATE))) as f32,
-                phase: Some(g.beats_at(self.playhead.position_s()).rem_euclid(1.0) as f32),
+                seconds: (g.beat_period_s_at(position_s) / self.tempo_rate().max(SLOWEST_RATE)) as f32,
+                phase: Some(g.beats_at(position_s).rem_euclid(1.0) as f32),
             },
             None => Beat::DEFAULT,
         }
@@ -679,16 +682,16 @@ impl Deck {
             duration_s: self.playhead.duration_s(),
             speed: self.speed,
             rate,
-            bpm: self.grid.map(|g| g.bpm * rate),
-            beat_phase: self.grid.map(|g| g.beats_at(position_s).rem_euclid(1.0)),
+            bpm: self.grid.as_ref().map(|g| g.bpm_at(position_s) * rate),
+            beat_phase: self.grid.as_ref().map(|g| g.beats_at(position_s).rem_euclid(1.0)),
             sync: SyncStatus { locked: self.sync.locked, leader, rate_offset: self.sync.rate_offset },
             looping: LoopStatus {
                 region: self.transport.loop_region,
                 beats: self
                     .transport
                     .loop_region
-                    .zip(self.grid)
-                    .map(|(r, g)| (r.end_s - r.start_s) * g.bpm / 60.0),
+                    .zip(self.grid.as_ref())
+                    .map(|(r, g)| g.beats_at(r.end_s) - g.beats_at(r.start_s)),
                 active: self.transport.loop_active,
                 loop_in_s: self.transport.loop_in_s,
                 rolling: self.transport.rolling,

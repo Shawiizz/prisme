@@ -3,13 +3,13 @@
 //! content.
 
 use super::markers::{parse_beatgrid, parse_markers2, parse_tempo_map, Markers};
-use crate::ImportedGrid;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
 use lofty::config::ParseOptions;
 use lofty::file::{AudioFile, FileType};
 use lofty::id3::v2::{Frame, GeneralEncapsulatedObject, Id3v2Tag};
 use lofty::mp4::{AtomData, AtomIdent};
+use prisme_grid::BeatGrid;
 use std::borrow::Cow;
 use std::fs::File;
 use std::path::Path;
@@ -29,7 +29,7 @@ struct Names {
 #[derive(Debug, Default, PartialEq)]
 pub struct SeratoTags {
     pub markers: Option<Markers>,
-    pub grid: Option<ImportedGrid>,
+    pub grid: Option<BeatGrid>,
 }
 
 /// `None` if the file cannot be read or has no Serato tags.

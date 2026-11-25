@@ -1,0 +1,10 @@
+[package]
+name = "prisme-grid"
+description = "Beat grids: one tempo throughout, or a tempo that changes between beats pinned to instants"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]

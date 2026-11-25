@@ -14,7 +14,7 @@ impl LoopRegion {
     /// may be half a beat behind, the whole of a 1/16 loop with it, never reached.
     pub fn of_beats(grid: &BeatGrid, position_s: f64, beats: f64, quantize: bool) -> Self {
         let start_s = if quantize { grid.nearest_s(position_s, beats.min(1.0)) } else { position_s };
-        Self { start_s, end_s: start_s + beats * grid.beat_period_s() }
+        Self { start_s, end_s: grid.time_of(grid.beats_at(start_s) + beats) }
     }
 
     pub fn length_s(&self) -> f64 {
@@ -44,7 +44,7 @@ impl LoopRegion {
 mod tests {
     use super::*;
 
-    const GRID: BeatGrid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
+    const GRID: BeatGrid = BeatGrid::steady(120.0, 0.0, true);
 
     #[test]
     fn a_quantized_loop_starts_on_the_nearest_beat() {

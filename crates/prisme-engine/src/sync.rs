@@ -73,18 +73,22 @@ impl LeaderClock {
     }
 }
 
+/// What following the leader asks of a deck at `own_position_s` on `own`: the tempo of each at
+/// that instant, a grid whose tempo changes followed beat by beat.
 pub(crate) fn sync_target(own: &BeatGrid, own_position_s: f64, leader: LeaderBeat) -> SyncTarget {
-    let octave = (own.bpm / leader.bpm).log2().round().exp2();
+    let own_bpm = own.bpm_at(own_position_s);
+    let octave = (own_bpm / leader.bpm).log2().round().exp2();
     let beats = own.beats_at(own_position_s) - octave * leader.beats;
     let phase_error = beats - beats.round();
-    let bars = octave == 1.0 && own.bars_sure && leader.bars_sure;
+    let bars = octave == 1.0 && own.bars_sure() && leader.bars_sure;
     let bar = f64::from(BEATS_PER_BAR);
     let bar_error = if bars { beats - bar * (beats / bar).round() } else { phase_error };
-    SyncTarget { rate: octave * leader.bpm / own.bpm, phase_error, bar_error }
+    SyncTarget { rate: octave * leader.bpm / own_bpm, phase_error, bar_error }
 }
 
-pub(crate) fn snap_offset_s(own: &BeatGrid, phase_error: f64) -> f64 {
-    -phase_error * own.beat_period_s()
+/// Where a deck at `position_s` on `own` lands to take `beats_error` off.
+pub(crate) fn snapped_s(own: &BeatGrid, position_s: f64, beats_error: f64) -> f64 {
+    own.time_of(own.beats_at(position_s) - beats_error)
 }
 
 pub(crate) fn phase_correction(phase_error: f64) -> f64 {
@@ -174,34 +178,47 @@ mod tests {
     #[test]
     fn tempos_an_octave_apart_are_matched_by_octave() {
         let leader = LeaderBeat { bpm: 140.0, beats: 10.0, bars_sure: true };
-        let half = BeatGrid { bpm: 70.0, first_beat_s: 0.0, bars_sure: true };
+        let half = BeatGrid::steady(70.0, 0.0, true);
         assert!((sync_target(&half, 0.0, leader).rate - 1.0).abs() < 1e-12);
-        let close = BeatGrid { bpm: 128.0, first_beat_s: 0.0, bars_sure: true };
+        let close = BeatGrid::steady(128.0, 0.0, true);
         assert!((sync_target(&close, 0.0, leader).rate - 140.0 / 128.0).abs() < 1e-12);
     }
 
     #[test]
     fn phase_error_is_the_nearest_beat_difference() {
-        let grid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
+        let grid = BeatGrid::steady(120.0, 0.0, true);
         let leader = LeaderBeat { bpm: 120.0, beats: 7.0, bars_sure: true };
         assert!((sync_target(&grid, 3.1, leader).phase_error - 0.2).abs() < 1e-9);
         assert!((sync_target(&grid, 2.9, leader).phase_error + 0.2).abs() < 1e-9);
-        assert!((snap_offset_s(&grid, 0.2) + 0.1).abs() < 1e-12);
+        assert!((snapped_s(&grid, 3.1, 0.2) - 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn a_deck_whose_tempo_drifts_follows_at_its_tempo_of_the_moment() {
+        use crate::grid::Anchor;
+        // 120 BPM to beat 8 at 4 s, then 96 BPM
+        let anchors = vec![Anchor { beat: 0.0, time_s: 0.0 }, Anchor { beat: 8.0, time_s: 4.0 }];
+        let live = BeatGrid::anchored(anchors, 96.0, true).unwrap();
+        let leader = LeaderBeat { bpm: 124.0, beats: 20.0, bars_sure: true };
+        assert!((sync_target(&live, 2.0, leader).rate - 124.0 / 120.0).abs() < 1e-12);
+        assert!((sync_target(&live, 6.0, leader).rate - 124.0 / 96.0).abs() < 1e-12);
+        // at 6 s the deck is on beat 11.2: 0.8 beat back is 0.5 s at 96 BPM
+        assert!((snapped_s(&live, 6.0, -0.8) - 6.5).abs() < 1e-12);
     }
 
     #[test]
     fn engaging_lays_the_bars_on_the_leaders_when_both_know_them() {
         // the leader on the fourth beat of a bar (beat 7), the deck on the second (beat 5.2)
-        let grid = BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true };
+        let grid = BeatGrid::steady(120.0, 0.0, true);
         let leader = LeaderBeat { bpm: 120.0, beats: 7.0, bars_sure: true };
         let target = sync_target(&grid, 2.6, leader);
         assert!((target.phase_error - 0.2).abs() < 1e-9, "held once locked: the beats");
         assert!((target.bar_error + 1.8).abs() < 1e-9, "snapped on engaging: two beats on, less 0.2");
-        let unsure = BeatGrid { bars_sure: false, ..grid };
+        let unsure = grid.clone().with_bars_sure(false);
         assert!((sync_target(&unsure, 2.6, leader).bar_error - 0.2).abs() < 1e-9, "the beats only");
         let leader_unsure = LeaderBeat { bars_sure: false, ..leader };
         assert!((sync_target(&grid, 2.6, leader_unsure).bar_error - 0.2).abs() < 1e-9);
-        let double = BeatGrid { bpm: 240.0, ..grid };
+        let double = grid.clone().with_bpm(240.0);
         assert_eq!(
             sync_target(&double, 1.3, leader).bar_error,
             sync_target(&double, 1.3, leader).phase_error

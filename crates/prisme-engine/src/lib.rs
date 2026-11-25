@@ -41,7 +41,7 @@ mod vinyl;
 pub use command::{Command, CrossfaderSide, DeckId, Garbage, RecordSource, Rpm, VinylMode};
 pub use deck::JOG_TURN_S;
 pub use engine::{create, Engine, EngineConfig, EngineController};
-pub use grid::{BeatGrid, BEATS_PER_BAR};
+pub use grid::{Anchor, BeatGrid, BEATS_PER_BAR};
 pub use live::{InputChannels, LiveSource};
 pub use looping::LoopRegion;
 pub use mixer::{side_gain, CrossfaderCurve, MixMode, OutputRouting};

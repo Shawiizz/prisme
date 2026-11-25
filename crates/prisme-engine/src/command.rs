@@ -507,6 +507,7 @@ pub enum RecordSource {
 /// Objects the audio thread hands back so that they are freed on the control side.
 pub enum Garbage {
     Track(Arc<TrackAudio>),
+    Grid(BeatGrid),
     Decoder(Box<TimecodeDecoder>),
     Recording(rtrb::Producer<f32>),
 }

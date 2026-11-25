@@ -84,7 +84,7 @@ impl Performing<'_> {
 
     /// Corrects the beat grid of the track on `deck` as `action` given `given` does.
     pub(super) fn edit_grid(&self, deck: usize, action: DeckAction, given: Given) -> AppResult<()> {
-        let bpm = || self.state.with_track(deck, |t| t.grid().map(|g| g.bpm)).ok().flatten();
+        let bpm = || self.state.with_track(deck, |t| t.grid().map(|g| g.mean_bpm())).ok().flatten();
         match grid_change(action, given, bpm) {
             Some(change) => self.change_grid(deck, change),
             None => Ok(()),
@@ -126,14 +126,19 @@ pub fn change_grid(
 ) -> AppResult<()> {
     let Some(regrid) = change.resolved(state, deck)? else { return Ok(()) };
     edit(app, state, library, deck, |track_grid, edits| {
-        let grid = || track_grid.ok_or(AppError::NoBeatGrid(deck));
-        let with_bpm = |g: GridEdit, bpm: f64| g.with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm));
+        let grid = track_grid.ok_or(AppError::NoBeatGrid(deck));
         edits.grid = match regrid {
-            Regrid::Bpm(bpm) => Some(with_bpm(track_grid.unwrap_or(GridEdit::new(bpm, 0.0)), bpm)?),
-            Regrid::Scale(factor) => Some(with_bpm(grid()?, grid()?.bpm * factor)?),
-            Regrid::Shift(seconds) => Some(grid()?.shifted(seconds)),
-            Regrid::BeatAt(position_s) => Some(grid()?.with_beat_at(position_s)),
-            Regrid::BarAt(position_s) => Some(grid()?.with_bar_at(position_s)),
+            Regrid::Bpm(bpm) => {
+                Some(grid.unwrap_or(GridEdit::new(bpm, 0.0)).with_bpm(bpm).ok_or(AppError::InvalidBpm(bpm))?)
+            }
+            Regrid::Scale(factor) => {
+                let grid = grid?;
+                let bpm = grid.grid.mean_bpm() * factor;
+                Some(grid.scaled(factor).ok_or(AppError::InvalidBpm(bpm))?)
+            }
+            Regrid::Shift(seconds) => Some(grid?.shifted(seconds)),
+            Regrid::BeatAt(position_s) => Some(grid?.with_beat_at(position_s)),
+            Regrid::BarAt(position_s) => Some(grid?.with_bar_at(position_s)),
             Regrid::Reset => None,
         };
         Ok(())
@@ -158,7 +163,10 @@ pub fn change_key(
 /// both playing on a grid.
 fn shift_to_other(state: &AppState, deck: usize) -> AppResult<Option<f64>> {
     let status = state.engine_status()?;
-    let Some(bpm) = state.with_track(deck, |t| t.grid().map(|g| g.bpm))? else { return Ok(None) };
+    let position_s = status.decks[deck].position_s;
+    let Some(bpm) = state.with_track(deck, |t| t.grid().map(|g| g.bpm_at(position_s)))? else {
+        return Ok(None);
+    };
     let other = mixed_with(&status, deck);
     Ok(grid_shift_to(&status.decks[deck], &status.decks[other], bpm))
 }
@@ -178,14 +186,14 @@ fn edit(
     let (path, edits, updated) = {
         let mut tracks = lock(&state.tracks);
         let track = tracks[deck].as_ref().ok_or(AppError::NoTrack(deck))?;
-        let (path, mut edits) = (track.path.clone(), track.edits);
-        change(track.analysis().tempo.map(GridEdit::from), &mut edits)?;
+        let (path, mut edits) = (track.path.clone(), track.edits.clone());
+        change(track.grid().as_ref().map(GridEdit::from), &mut edits)?;
         let updated: Vec<_> = tracks
             .iter_mut()
             .enumerate()
             .filter_map(|(on, track)| {
                 let track = track.as_mut().filter(|t| t.path == path)?;
-                track.edits = edits;
+                track.edits = edits.clone();
                 Some((on, track.grid()))
             })
             .collect();

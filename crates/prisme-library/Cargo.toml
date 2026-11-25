@@ -10,6 +10,7 @@ license.workspace = true
 [dependencies]
 prisme-media.workspace = true
 prisme-analysis.workspace = true
+prisme-grid.workspace = true
 rusqlite.workspace = true
 image.workspace = true
 thiserror.workspace = true

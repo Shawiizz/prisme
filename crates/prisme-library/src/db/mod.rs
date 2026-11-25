@@ -175,6 +175,19 @@ const MIGRATIONS: &[&str] = &[
          FROM tracks
          LEFT JOIN track_edits ON track_edits.path = tracks.path
          LEFT JOIN track_marks ON track_marks.path = tracks.path;",
+    // a grid whose tempo changes: its anchors (edits::GridEdit)
+    "ALTER TABLE track_edits ADD COLUMN anchors BLOB;
+     DROP VIEW track_view;
+     CREATE VIEW track_view AS
+         SELECT tracks.*, track_edits.bpm AS edit_bpm, track_edits.first_beat_s AS edit_first_beat_s,
+             track_edits.anchors AS edit_anchors,
+             track_edits.beats_from_analysis AS edit_beats_from_analysis,
+             track_edits.key_tonic AS edit_key_tonic, track_edits.key_minor AS edit_key_minor,
+             track_marks.color AS mark_color, COALESCE(track_marks.rating, 0) AS mark_rating,
+             (SELECT COUNT(*) FROM history_plays WHERE history_plays.path = tracks.path) AS play_count
+         FROM tracks
+         LEFT JOIN track_edits ON track_edits.path = tracks.path
+         LEFT JOIN track_marks ON track_marks.path = tracks.path;",
 ];
 
 pub fn now_ms() -> i64 {

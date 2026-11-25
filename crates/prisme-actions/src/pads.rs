@@ -158,7 +158,7 @@ mod tests {
     #[test]
     fn the_slicer_starts_on_the_bar_the_track_is_in_and_holds_eight_beats() {
         // 120 BPM from 0.1 s: a bar of 2 s
-        let grid = prisme_engine::BeatGrid { bpm: 120.0, first_beat_s: 0.1, bars_sure: true };
+        let grid = prisme_engine::BeatGrid::steady(120.0, 0.1, true);
         assert!((grid.bar_start_s(5.3) - 4.1).abs() < 1e-9);
         assert!((grid.bar_start_s(0.05) + 1.9).abs() < 1e-9, "before the first beat");
         assert_eq!(slice_at(4.1, 4.1, 0.5), Some(0));

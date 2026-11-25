@@ -90,7 +90,7 @@ fn a_deck_playing_by_itself_is_left_as_it_is() {
 
 #[test]
 fn a_record_synced_to_the_leader_leaves_the_deck_at_the_leader_tempo() {
-    let grid = |bpm| Some(BeatGrid { bpm, first_beat_s: 0.0, bars_sure: true });
+    let grid = |bpm| Some(BeatGrid::steady(bpm, 0.0, true));
     for sync in [Command::SyncOnce { deck: 0 }, Command::SetSyncLocked { deck: 0, locked: true }] {
         let mut rig = Rig::new();
         rig.turntable(0, 120.0, 1.0);

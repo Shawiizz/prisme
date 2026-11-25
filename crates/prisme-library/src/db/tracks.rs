@@ -123,6 +123,11 @@ impl TrackRecord {
         self.version.is_current(stamp)
     }
 
+    /// The grid with the corrections made by hand.
+    pub fn beat_grid(&self) -> Option<prisme_grid::BeatGrid> {
+        self.edits.beat_grid(self.analysis.tempo, self.duration_s)
+    }
+
     /// The analysis with the corrections made by hand.
     pub fn effective_analysis(&self) -> TrackAnalysis {
         self.edits.apply(self.analysis, self.duration_s)

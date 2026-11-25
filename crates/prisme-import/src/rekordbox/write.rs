@@ -3,6 +3,7 @@
 
 use super::{location, track_colour_index, RATING_STEP, REKORDBOX_COLOURS};
 use crate::export::{Export, ExportedList, ExportedTrack};
+use prisme_grid::{BeatGrid, BEATS_PER_BAR};
 use prisme_library::{Cue, CueSlot};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::Writer;
@@ -44,6 +45,7 @@ fn write_track<W: Write>(xml: &mut Writer<W>, id: usize, track: &ExportedTrack) 
     let tags = record.map(|r| &r.tags);
     let analysis = record.map(|r| r.effective_analysis());
     let tempo = analysis.and_then(|a| a.tempo);
+    let grid = record.and_then(|r| r.beat_grid());
     let tag = |value: Option<&String>| value.map(|v| text(v)).filter(|v| !v.is_empty());
     let title = tag(tags.and_then(|t| t.title.as_ref()))
         .or_else(|| track.path.file_stem().map(|s| text(&s.to_string_lossy())))
@@ -74,24 +76,33 @@ fn write_track<W: Write>(xml: &mut Writer<W>, id: usize, track: &ExportedTrack) 
     let start =
         element("TRACK", attributes.into_iter().filter_map(|(name, value)| Some((name, value?))).collect());
     let marks = position_marks(&track.cues);
-    if tempo.is_none() && marks.is_empty() {
+    if grid.is_none() && marks.is_empty() {
         return xml.write_event(Event::Empty(start));
     }
     xml.write_event(Event::Start(start))?;
-    if let Some(tempo) = tempo {
-        // Prisme's bars start on the first beat of its grid
-        let grid = vec![
-            ("Inizio", seconds(tempo.first_beat_s)),
-            ("Bpm", format!("{:.2}", tempo.bpm)),
+    for (start_s, bpm, beat) in grid.as_ref().map(tempos).unwrap_or_default() {
+        let tempo = vec![
+            ("Inizio", seconds(start_s)),
+            ("Bpm", format!("{bpm:.2}")),
             ("Metro", "4/4".into()),
-            ("Battito", "1".into()),
+            ("Battito", format!("{}", beat.rem_euclid(f64::from(BEATS_PER_BAR)) as u32 + 1)),
         ];
-        xml.write_event(Event::Empty(element("TEMPO", grid)))?;
+        xml.write_event(Event::Empty(element("TEMPO", tempo)))?;
     }
     for mark in marks {
         xml.write_event(Event::Empty(element("POSITION_MARK", mark)))?;
     }
     xml.write_event(Event::End(BytesEnd::new("TRACK")))
+}
+
+/// A grid as rekordbox's tempos: where each starts, its BPM and the beat it starts on (counted
+/// from bar 1's first). One from bar 1 for a single tempo; one from each anchor of a grid whose
+/// tempo changes, holding to the next.
+fn tempos(grid: &BeatGrid) -> Vec<(f64, f64, f64)> {
+    match grid.anchors() {
+        [] => vec![(grid.first_beat_s(), grid.bpm(), 0.0)],
+        anchors => anchors.iter().map(|a| (a.time_s, grid.bpm_at(a.time_s), a.beat)).collect(),
+    }
 }
 
 /// The main cue first (an import takes the first memory cue for it), then the hot cues.
@@ -235,7 +246,8 @@ mod tests {
     use crate::export::list_path;
     use crate::{apply, join_relative, ImportSummary};
     use prisme_analysis::{Key, KeyEstimate, Mode, Tempo, TrackAnalysis};
-    use prisme_library::{FileStamp, LibraryDb, TrackEntry, TrackMarks, TrackRecord};
+    use prisme_grid::Anchor;
+    use prisme_library::{FileStamp, GridEdit, LibraryDb, TrackEdits, TrackEntry, TrackMarks, TrackRecord};
     use prisme_media::TrackTags;
 
     /// Where the files of the tests are: on a drive on Windows, at the root elsewhere.
@@ -335,6 +347,31 @@ mod tests {
 </DJ_PLAYLISTS>"#;
 
     #[test]
+    fn a_grid_whose_tempo_changes_goes_out_as_a_tempo_from_each_anchor() {
+        let strobe = file("Music/Strobe.mp3");
+        let library = LibraryDb::open_in_memory().unwrap();
+        library.save(&record(&strobe)).unwrap();
+        // bar 1 on beat 2 of the first anchor's bar: 120 BPM, then 96 from beat 9, 100 from 17
+        let anchors = [(1.0, 1.0), (9.0, 5.0), (17.0, 10.0)].map(|(beat, time_s)| Anchor { beat, time_s });
+        let grid = BeatGrid::anchored(anchors.to_vec(), 100.0, true).unwrap();
+        let edits = TrackEdits { grid: Some(GridEdit::imported(grid.clone())), ..TrackEdits::default() };
+        library.save_edits(&strobe, &edits).unwrap();
+        let mut xml = Vec::new();
+        write(&Export::gather(&library, true, Vec::new()).unwrap(), &mut xml).unwrap();
+        let xml = String::from_utf8(xml).unwrap();
+        for tempo in [
+            r#"<TEMPO Inizio="1.000" Bpm="120.00" Metro="4/4" Battito="2"/>"#,
+            r#"<TEMPO Inizio="5.000" Bpm="96.00" Metro="4/4" Battito="2"/>"#,
+            r#"<TEMPO Inizio="10.000" Bpm="100.00" Metro="4/4" Battito="2"/>"#,
+        ] {
+            assert!(xml.contains(tempo), "{tempo} in {xml}");
+        }
+        let back = super::super::parse(&xml).unwrap().tracks.remove(0).grid.unwrap();
+        assert_eq!(back.anchors(), grid.anchors());
+        assert_eq!(back.bpm(), 100.0);
+    }
+
+    #[test]
     fn an_import_of_the_export_brings_back_the_grids_cues_marks_and_lists() {
         let base = std::env::temp_dir().join(format!("prisme-export-{}", std::process::id()));
         let dir = base.join("Café & Co");
@@ -369,7 +406,7 @@ mod tests {
         assert_eq!(imported.marks(&strobe).unwrap(), TrackMarks { color: Some(0xFF5442), rating: 4 });
         let grid = imported.edits(&strobe).unwrap().grid.unwrap();
         assert_eq!(
-            (grid.bpm, (grid.first_beat_s * 1000.0).round()),
+            (grid.grid.bpm(), (grid.grid.first_beat_s() * 1000.0).round()),
             (125.0, 50.0),
             "to the hundredth of a BPM"
         );

@@ -114,6 +114,7 @@ impl LoadedTrack {
     /// What the UI shows of the track on `deck`.
     pub fn info(&self, deck: usize) -> TrackInfoDto {
         let analysis = self.analysis();
+        let grid = self.grid();
         TrackInfoDto {
             deck,
             path: self.path.display().to_string(),
@@ -122,11 +123,11 @@ impl LoadedTrack {
             duration_s: self.audio.duration_s(),
             sample_rate: self.audio.sample_rate(),
             load_id: self.load_id,
-            tempo: analysis.tempo.as_ref().map(TempoDto::from),
+            tempo: grid.as_ref().map(TempoDto::from),
             key: analysis.key.as_ref().map(KeyDto::from),
             grid_edited: self.edits.grid.is_some(),
             key_edited: self.edits.key.is_some(),
-            bars_to_check: analysis.tempo.is_some_and(|t| !t.bars_sure),
+            bars_to_check: grid.is_some_and(|g| !g.bars_sure()),
             cues: self.cue_dtos(),
             key_shift: self.key_shift,
             stems: DeckStemsDto::of(&self.stems),
@@ -139,11 +140,7 @@ impl LoadedTrack {
     }
 
     pub fn grid(&self) -> Option<BeatGrid> {
-        self.analysis().tempo.map(|t| BeatGrid {
-            bpm: t.bpm,
-            first_beat_s: t.first_beat_s,
-            bars_sure: t.bars_sure,
-        })
+        self.edits.beat_grid(self.detected.tempo, Some(self.audio.duration_s()))
     }
 
     /// Commands that put the track, with its beat grid, key shift and stems, on `deck`, at
@@ -1517,10 +1514,7 @@ mod tests {
         let track = Arc::new(TrackAudio::from_interleaved(48_000, vec![0.0; 2 * 48_000 * 60]));
         let loaded = [
             Command::LoadTrack { deck: 0, track },
-            Command::SetBeatGrid {
-                deck: 0,
-                grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-            },
+            Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) },
         ];
         send_all(&mut controller, loaded.into_iter().chain(commands).collect(), RESTORE_WAIT);
         let sent = controller.sent();

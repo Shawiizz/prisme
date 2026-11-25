@@ -660,7 +660,7 @@ mod tests {
         assert_eq!([0.0, 0.48, 0.96].map(tap), [None, None, None]);
         assert_eq!(tap(1.44), Some(125.0));
         assert_eq!(tap(9.0), None, "a pause starts the count again");
-        let bpm = bench.state.with_track(0, |t| t.grid().map(|g| g.bpm)).unwrap();
+        let bpm = bench.state.with_track(0, |t| t.grid().map(|g| g.bpm())).unwrap();
         assert_eq!(bpm, Some(120.0), "for the DJ to apply");
     }
 

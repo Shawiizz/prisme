@@ -13,7 +13,7 @@ fn load(rig: &mut Rig, deck: usize, bpm: f64, first_beat_s: f64) {
 
 fn load_with_bars(rig: &mut Rig, deck: usize, bpm: f64, first_beat_s: f64, bars_sure: bool) {
     rig.send(Command::LoadTrack { deck, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid { deck, grid: Some(BeatGrid { bpm, first_beat_s, bars_sure }) });
+    rig.send(Command::SetBeatGrid { deck, grid: Some(BeatGrid::steady(bpm, first_beat_s, bars_sure)) });
 }
 
 fn play_internal(rig: &mut Rig, deck: usize, position_s: f64) {

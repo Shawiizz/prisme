@@ -969,6 +969,11 @@ export type FxSettings = {
   beats: number;
 };
 
+/**
+ * A beat, counted from bar 1's first, and where it falls.
+ */
+export type GridAnchor = { beat: number; timeS: number };
+
 export type GridChange =
   | { "kind": "bpm"; bpm: number }
   | { "kind": "scale"; factor: number }
@@ -2216,12 +2221,23 @@ export type Target = {
 };
 
 export type Tempo = {
+  /**
+   * Its tempo: the mean of one that changes.
+   */
   bpm: number;
   firstBeatS: number;
   /**
    * The beats of a bar, the first on `first_beat_s`.
    */
   beatsPerBar: number;
+  /**
+   * Where a tempo that changes is pinned, steady between two: none for a steady one.
+   */
+  anchors: Array<GridAnchor>;
+  /**
+   * The tempo past the last anchor.
+   */
+  bpmAfter: number;
 };
 
 /**

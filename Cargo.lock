@@ -4705,12 +4705,17 @@ version = "0.6.0"
 dependencies = [
  "criterion",
  "prisme-dsp",
+ "prisme-grid",
  "prisme-media",
  "prisme-timecode",
  "rtrb",
  "signalsmith-stretch",
  "triple_buffer",
 ]
+
+[[package]]
+name = "prisme-grid"
+version = "0.6.0"
 
 [[package]]
 name = "prisme-import"
@@ -4720,6 +4725,7 @@ dependencies = [
  "lofty",
  "percent-encoding",
  "prisme-analysis",
+ "prisme-grid",
  "prisme-library",
  "prisme-media",
  "quick-xml 0.38.4",
@@ -4734,6 +4740,7 @@ dependencies = [
  "image",
  "libc",
  "prisme-analysis",
+ "prisme-grid",
  "prisme-media",
  "rusqlite",
  "serde",

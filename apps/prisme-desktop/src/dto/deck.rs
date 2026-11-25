@@ -44,15 +44,35 @@ pub fn whole_waveform_bytes(w: &prisme_analysis::Waveform) -> Vec<u8> {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Tempo"))]
 pub struct TempoDto {
+    /// Its tempo: the mean of one that changes.
     pub bpm: f64,
     pub first_beat_s: f64,
     /// The beats of a bar, the first on `first_beat_s`.
     pub beats_per_bar: u32,
+    /// Where a tempo that changes is pinned, steady between two: none for a steady one.
+    pub anchors: Vec<AnchorDto>,
+    /// The tempo past the last anchor.
+    pub bpm_after: f64,
 }
 
-impl From<&prisme_analysis::Tempo> for TempoDto {
-    fn from(t: &prisme_analysis::Tempo) -> Self {
-        Self { bpm: t.bpm, first_beat_s: t.first_beat_s, beats_per_bar: prisme_engine::BEATS_PER_BAR }
+/// A beat, counted from bar 1's first, and where it falls.
+#[derive(Debug, Clone, Copy, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "GridAnchor"))]
+pub struct AnchorDto {
+    pub beat: f64,
+    pub time_s: f64,
+}
+
+impl From<&prisme_engine::BeatGrid> for TempoDto {
+    fn from(grid: &prisme_engine::BeatGrid) -> Self {
+        Self {
+            bpm: grid.mean_bpm(),
+            first_beat_s: grid.first_beat_s(),
+            beats_per_bar: prisme_engine::BEATS_PER_BAR,
+            anchors: grid.anchors().iter().map(|a| AnchorDto { beat: a.beat, time_s: a.time_s }).collect(),
+            bpm_after: grid.bpm(),
+        }
     }
 }
 

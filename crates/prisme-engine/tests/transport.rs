@@ -11,10 +11,7 @@ use std::sync::Arc;
 fn playing_deck(position_s: f64) -> Rig {
     let mut rig = Rig::new();
     rig.send(Command::LoadTrack { deck: 0, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid {
-        deck: 0,
-        grid: Some(BeatGrid { bpm: 120.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 0, grid: Some(BeatGrid::steady(120.0, 0.0, true)) });
     rig.send(Command::Seek { deck: 0, seconds: position_s });
     rig.send(Command::SetPlaying { deck: 0, playing: true });
     rig.run(0.01);
@@ -477,10 +474,7 @@ fn reverse_goes_round_a_loop_and_with_repeat_from_the_start_to_the_end() {
 fn a_reversed_deck_follows_the_leader_tempo_without_chasing_its_beats() {
     let mut rig = playing_deck(20.0);
     rig.send(Command::LoadTrack { deck: 1, track: silent_track(60.0) });
-    rig.send(Command::SetBeatGrid {
-        deck: 1,
-        grid: Some(BeatGrid { bpm: 125.0, first_beat_s: 0.0, bars_sure: true }),
-    });
+    rig.send(Command::SetBeatGrid { deck: 1, grid: Some(BeatGrid::steady(125.0, 0.0, true)) });
     rig.send(Command::SetPlaying { deck: 1, playing: true });
     rig.run(0.1);
     rig.send(Command::SetSyncLocked { deck: 0, locked: true });

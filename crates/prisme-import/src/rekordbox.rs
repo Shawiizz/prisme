@@ -10,10 +10,9 @@ mod write;
 
 pub use write::write;
 
-use crate::{
-    join_relative, Import, ImportedCrate, ImportedCue, ImportedGrid, ImportedTrack, FOLDER_SEPARATOR,
-};
+use crate::{join_relative, Import, ImportedCrate, ImportedCue, ImportedTrack, FOLDER_SEPARATOR};
 use percent_encoding::{utf8_percent_encode, AsciiSet, NON_ALPHANUMERIC};
+use prisme_grid::{Anchor, BeatGrid};
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::Reader;
 use std::collections::HashMap;
@@ -58,7 +57,9 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
     let mut reader = Reader::from_str(xml);
     let mut ids: HashMap<String, PathBuf> = HashMap::new();
     let mut tracks: Vec<ImportedTrack> = Vec::new();
-    let mut tempos = 0;
+    // the tempos of the collection's track being read: where each starts, its BPM, its beat of
+    // the bar
+    let mut tempos: Vec<(f64, f64, f64)> = Vec::new();
     // whether the collection's track being read is imported: the marks of one that is not
     // (a streaming service's) are not the previous one's
     let mut kept = false;
@@ -89,7 +90,7 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
         match element.name().as_ref() {
             b"PLAYLISTS" => in_playlists = true,
             b"TRACK" if !in_playlists => {
-                tempos = 0;
+                tempos.clear();
                 kept = false;
                 let Some(path) = a.get("Location").and_then(|l| location_path(l)) else { continue };
                 if let Some(id) = a.get("TrackID") {
@@ -108,16 +109,13 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
                 });
             }
             b"TEMPO" => {
-                tempos += 1;
-                if let (Some(track), Some(bpm), Some(beat_s)) =
+                if let (Some(track), Some(bpm), Some(start_s)) =
                     (tracks.last_mut().filter(|_| kept), number(&a, "Bpm"), number(&a, "Inizio"))
                 {
-                    // a grid that changes tempo is not a single grid; `Battito` is the beat of
-                    // the bar `Inizio` falls on
                     let beat_of_bar =
                         number(&a, "Battito").filter(|b| (1.0..=4.0).contains(b)).unwrap_or(1.0);
-                    let bar_s = beat_s - (beat_of_bar - 1.0) * 60.0 / bpm;
-                    track.grid = (tempos == 1).then_some(ImportedGrid { bpm, bar_s });
+                    tempos.push((start_s, bpm, beat_of_bar));
+                    track.grid = grid_of(&tempos);
                 }
             }
             b"POSITION_MARK" => {
@@ -156,6 +154,24 @@ pub fn parse(xml: &str) -> Result<Import, RekordboxError> {
         }
     }
     Ok(Import { tracks, crates })
+}
+
+/// The grid of a track's tempos: where each starts, its BPM and its beat of the bar
+/// (`Battito`, 1 to 4), the first in the bar that makes bar 1. Several pin a grid whose tempo
+/// changes (a track played live), each tempo holding the beats to the next.
+fn grid_of(tempos: &[(f64, f64, f64)]) -> Option<BeatGrid> {
+    let &[(start_s, bpm, beat_of_bar), ..] = tempos else { return None };
+    if tempos.len() == 1 {
+        return (bpm > 0.0).then(|| BeatGrid::steady(bpm, start_s - (beat_of_bar - 1.0) * 60.0 / bpm, true));
+    }
+    let mut beat = beat_of_bar - 1.0;
+    let mut anchors = vec![Anchor { beat, time_s: start_s }];
+    for pair in tempos.windows(2) {
+        let ((from_s, bpm, _), (to_s, _, _)) = (pair[0], pair[1]);
+        beat += ((to_s - from_s) * bpm / 60.0).round();
+        anchors.push(Anchor { beat, time_s: to_s });
+    }
+    BeatGrid::anchored(anchors, tempos[tempos.len() - 1].1, true)
 }
 
 /// `Type` 0 is a cue, 4 a loop (with an `End`); `Num` is the hot cue, -1 for a memory cue.
@@ -245,7 +261,7 @@ mod tests {
     </TRACK>
     <TRACK TrackID="12" Name="Live" Location="file://localhost/{ROOT}Sets/live.flac" Rating="0">
       <TEMPO Inizio="0.1" Bpm="120.0" Metro="4/4" Battito="1"/>
-      <TEMPO Inizio="30.0" Bpm="121.5" Metro="4/4" Battito="1"/>
+      <TEMPO Inizio="30.1" Bpm="121.5" Metro="4/4" Battito="1"/>
     </TRACK>
   </COLLECTION>
   <PLAYLISTS>
@@ -266,7 +282,7 @@ mod tests {
         let import = parse(&xml()).unwrap();
         let strobe = &import.tracks[0];
         assert_eq!(strobe.path, file("Users/Me/Music/Strobe (Club).mp3"));
-        assert_eq!(strobe.grid, Some(ImportedGrid { bpm: 128.0, bar_s: 0.05 }));
+        assert_eq!(strobe.grid, Some(BeatGrid::steady(128.0, 0.05, true)));
         assert_eq!((strobe.color, strobe.rating), (Some(0xe86bd6), Some(4)), "rose is Prisme's pink");
         assert_eq!(
             strobe.cues,
@@ -295,7 +311,11 @@ mod tests {
             ]
         );
         let live = &import.tracks[1];
-        assert_eq!((live.grid, live.rating), (None, None), "two tempos: no single grid");
+        assert_eq!(live.rating, None);
+        let live = live.grid.as_ref().expect("two tempos: a grid whose tempo changes");
+        assert_eq!(live.anchors().len(), 2);
+        assert!((live.bpm_at(10.0) - 120.0).abs() < 0.01 && (live.bpm_at(40.0) - 121.5).abs() < 1e-9);
+        assert!((live.first_beat_s() - 0.1).abs() < 1e-9);
     }
 
     #[test]
@@ -312,7 +332,7 @@ mod tests {
         </COLLECTION></DJ_PLAYLISTS>"#;
         let import = parse(&xml.replace("{ROOT}", ROOT)).unwrap();
         let [local] = &import.tracks[..] else { panic!("{:?}", import.tracks) };
-        assert_eq!(local.grid, Some(ImportedGrid { bpm: 124.0, bar_s: 0.1 }));
+        assert_eq!(local.grid, Some(BeatGrid::steady(124.0, 0.1, true)));
         assert_eq!(local.cues.iter().map(|c| c.position_s).collect::<Vec<_>>(), [8.0]);
     }
 

@@ -4,9 +4,10 @@
 //! Markers2 is base64 text whose decoded form is a list of entries, each a name ending
 //! with NUL, a big-endian `u32` length and the entry's bytes.
 
-use crate::{ImportedCue, ImportedGrid};
+use crate::ImportedCue;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use base64::Engine;
+use prisme_grid::{Anchor, BeatGrid};
 
 #[derive(Debug, Default, PartialEq)]
 pub struct Markers {
@@ -74,25 +75,41 @@ fn parse_loop(body: &[u8]) -> Option<ImportedCue> {
     .filter(|c| c.loop_length_s.is_some())
 }
 
-/// The grid of a "Serato BeatGrid" tag: `01 00 | marker count (u32) | markers`, each
-/// marker a position (f32 seconds) and, for the last one, the tempo (f32); the first marker
-/// on bar 1. Only grids with a single tempo are kept.
-pub fn parse_beatgrid(data: &[u8]) -> Option<ImportedGrid> {
+/// The grid of a "Serato BeatGrid" tag: `01 00 | marker count (u32) | markers`, each marker
+/// a position (f32 seconds) then the beats to the next marker (u32), or for the last one the
+/// tempo (f32); the first marker on bar 1. Markers pin a grid whose tempo changes (a track
+/// played live).
+pub fn parse_beatgrid(data: &[u8]) -> Option<BeatGrid> {
     let rest = data.strip_prefix(&[1, 0])?;
-    let count = u32::from_be_bytes(rest.get(..4)?.try_into().ok()?);
-    if count != 1 {
-        return None;
+    let count = u32::from_be_bytes(rest.get(..4)?.try_into().ok()?) as usize;
+    let markers: Vec<[u8; 8]> = rest
+        .get(4..4usize.checked_add(count.checked_mul(8)?)?)?
+        .chunks_exact(8)
+        .map(|m| m.try_into().unwrap_or_default())
+        .collect();
+    let (last, before) = markers.split_last()?;
+    let half = |m: &[u8; 8], at: usize| -> [u8; 4] { m[at..at + 4].try_into().unwrap_or_default() };
+    let position = |m: &[u8; 8]| f64::from(f32::from_be_bytes(half(m, 0)));
+    let bpm = f64::from(f32::from_be_bytes(half(last, 4)));
+    if before.is_empty() {
+        return (bpm > 0.0 && position(last).is_finite())
+            .then(|| BeatGrid::steady(bpm, position(last), true));
     }
-    let marker = rest.get(4..12)?;
-    let position = f32::from_be_bytes(marker[..4].try_into().ok()?) as f64;
-    let bpm = f32::from_be_bytes(marker[4..8].try_into().ok()?) as f64;
-    (bpm > 0.0).then_some(ImportedGrid { bpm, bar_s: position })
+    let mut beat = 0.0;
+    let mut anchors = Vec::with_capacity(markers.len());
+    for marker in before {
+        anchors.push(Anchor { beat, time_s: position(marker) });
+        beat += f64::from(u32::from_be_bytes(half(marker, 4)));
+    }
+    anchors.push(Anchor { beat, time_s: position(last) });
+    BeatGrid::anchored(anchors, bpm, true)
 }
 
 /// The grid of a "Serato Tempo Map" tag, as Serato DJ Pro 3 writes it: `02 00 00 01 | first
 /// beat, on bar 1 (f64 seconds) | marker count (u32) | markers`, each 33 bytes and starting
-/// with its place (u64) and its tempo (f64). Only grids with a single tempo are kept.
-pub fn parse_tempo_map(data: &[u8]) -> Option<ImportedGrid> {
+/// with its place (u64) and its tempo (f64). Only grids with a single tempo are kept: what the
+/// place of a marker after the first counts is not known.
+pub fn parse_tempo_map(data: &[u8]) -> Option<BeatGrid> {
     let rest = data.strip_prefix(&[2, 0])?;
     let bar_s = f64::from_be_bytes(rest.get(2..10)?.try_into().ok()?);
     let count = u32::from_be_bytes(rest.get(10..14)?.try_into().ok()?);
@@ -100,7 +117,7 @@ pub fn parse_tempo_map(data: &[u8]) -> Option<ImportedGrid> {
         return None;
     }
     let bpm = f64::from_be_bytes(rest.get(22..30)?.try_into().ok()?);
-    (bpm > 0.0 && bar_s.is_finite()).then_some(ImportedGrid { bpm, bar_s })
+    (bpm > 0.0 && bar_s.is_finite()).then(|| BeatGrid::steady(bpm, bar_s, true))
 }
 
 fn ms(bytes: &[u8]) -> f64 {
@@ -223,11 +240,28 @@ pub(crate) mod tests {
         data.extend(0.125f32.to_be_bytes());
         data.extend(124.0f32.to_be_bytes());
         data.push(0);
-        assert_eq!(parse_beatgrid(&data), Some(ImportedGrid { bpm: 124.0, bar_s: 0.125 }));
+        assert_eq!(parse_beatgrid(&data), Some(BeatGrid::steady(124.0, 0.125, true)));
+        assert_eq!(parse_beatgrid(&[1, 0, 0, 0, 0, 2]), None, "markers missing");
+    }
 
-        let mut dynamic = vec![1, 0];
-        dynamic.extend(2u32.to_be_bytes());
-        assert_eq!(parse_beatgrid(&dynamic), None);
+    #[test]
+    fn a_grid_whose_tempo_changes() {
+        // 8 beats from 0.5 s to 4.5 s (120 BPM), 8 more to 9.5 s (96 BPM), then 100 BPM
+        let mut data = vec![1, 0];
+        data.extend(3u32.to_be_bytes());
+        for (position, beats) in [(0.5f32, 8u32), (4.5, 8)] {
+            data.extend(position.to_be_bytes());
+            data.extend(beats.to_be_bytes());
+        }
+        data.extend(9.5f32.to_be_bytes());
+        data.extend(100.0f32.to_be_bytes());
+        data.push(0);
+        let grid = parse_beatgrid(&data).unwrap();
+        assert_eq!(grid.anchors().len(), 3);
+        assert!((grid.first_beat_s() - 0.5).abs() < 1e-6);
+        assert!((grid.bpm_at(2.0) - 120.0).abs() < 1e-3);
+        assert!((grid.bpm_at(6.0) - 96.0).abs() < 1e-3);
+        assert!((grid.bpm_at(12.0) - 100.0).abs() < 1e-3);
     }
 
     /// As Serato DJ Pro wrote it for a track at 132 BPM.
@@ -241,7 +275,8 @@ pub(crate) mod tests {
     #[test]
     fn a_single_tempo_map() {
         let grid = parse_tempo_map(&bytes(TEMPO_MAP)).unwrap();
-        assert!((grid.bpm - 132.0).abs() < 0.001 && (grid.bar_s - 0.0608).abs() < 0.0001, "{grid:?}");
+        let (bpm, bar_s) = (grid.bpm(), grid.first_beat_s());
+        assert!((bpm - 132.0).abs() < 0.001 && (bar_s - 0.0608).abs() < 0.0001, "{grid:?}");
         let mut dynamic = bytes(TEMPO_MAP);
         dynamic[15] = 2;
         assert_eq!(parse_tempo_map(&dynamic), None);
