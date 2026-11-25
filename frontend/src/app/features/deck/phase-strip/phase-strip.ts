@@ -1,4 +1,5 @@
 import { Component, DestroyRef, ElementRef, computed, inject, viewChild } from '@angular/core';
+import { beatsAt, timeOf } from '../../../core/beat-grid';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
 import { t } from '../../../core/i18n/i18n';
@@ -126,13 +127,12 @@ export class PhaseStrip {
     const position = this.engine.livePosition(deck);
     if (!tempo || position === null) return;
     const span = ZOOM_SPAN_S * this.rate(deck);
-    const period = 60 / tempo.bpm;
     const from = position - span / 2;
-    const first = Math.ceil((Math.max(from, 0) - tempo.firstBeatS) / period);
-    const last = Math.floor((from + span - tempo.firstBeatS) / period);
+    const first = Math.ceil(beatsAt(tempo, Math.max(from, 0)));
+    const last = Math.floor(beatsAt(tempo, from + span));
     const bar = tempo.beatsPerBar;
     for (let n = first; n <= last; n++) {
-      const x = Math.round(((tempo.firstBeatS + n * period - from) / span) * width);
+      const x = Math.round(((timeOf(tempo, n) - from) / span) * width);
       ctx.fillStyle = ((n % bar) + bar) % bar === 0 ? this.palette.light : this.palette.text2;
       ctx.fillRect(x, top, ratio, bottom - top);
     }

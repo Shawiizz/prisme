@@ -1,5 +1,6 @@
 import { Palette } from '../../../shared/palette';
 import { hexColor } from '../../../shared/track-colors';
+import { beatsAt, bpmAt, timeOf } from '../../../core/beat-grid';
 import type { Cue, LoopStatus, Tempo } from '../../../core/models/backend';
 
 /** A window on the track: `fromS` to `fromS + spanS` across `width` device pixels. */
@@ -75,14 +76,13 @@ export class OverlayPainter {
    * first beat of each bar a thin line in the bar colour, pointed at from both edges, and its
    * number beside the top one. Only along the track, once its length is known. */
   drawBeatGrid(ctx: CanvasRenderingContext2D, tempo: Tempo, durationS: number | null, view: View) {
-    const period = 60 / tempo.bpm;
-    const first = Math.ceil((Math.max(view.fromS, 0) - tempo.firstBeatS) / period);
+    const first = Math.ceil(beatsAt(tempo, Math.max(view.fromS, 0)));
     const toS = Math.min(view.fromS + view.spanS, durationS ?? Infinity);
-    const last = Math.floor((toS - tempo.firstBeatS) / period);
+    const last = Math.floor(beatsAt(tempo, toS));
     if (last < first) return;
     const r = view.ratio;
     const line = Math.max(Math.round(r), 1);
-    const left = (n: number) => Math.round(xOf(tempo.firstBeatS + n * period, view) - line / 2);
+    const left = (n: number) => Math.round(xOf(timeOf(tempo, n), view) - line / 2);
     const h = view.height;
     const tall = Math.min(5 * r, ((1 - HEADROOM) / 2) * h);
     ctx.fillStyle = this.palette.text;
@@ -130,7 +130,8 @@ export class OverlayPainter {
   ) {
     const r = view.ratio;
     const bar = tempo.beatsPerBar;
-    const barPx = (bar * 60 * view.width) / tempo.bpm / view.spanS;
+    const bpm = bpmAt(tempo, view.fromS + view.spanS / 2);
+    const barPx = (bar * 60 * view.width) / bpm / view.spanS;
     const every = NUMBERED_EVERY.find((e) => e * barPx >= NUMBER_ROOM * r);
     if (every === undefined) return;
     ctx.font = `600 ${9 * r}px ${this.palette.mono}`;
