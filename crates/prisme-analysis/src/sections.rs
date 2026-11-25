@@ -66,10 +66,16 @@ pub struct BarOne {
 }
 
 /// Where the sections of the track put bar 1, `bars` the grid with the bar 1 found otherwise:
-/// kept unless they clearly start on another beat of its bars.
-pub fn bar_one(signal: &MonoSignal, bars: Tempo) -> BarOne {
+/// kept unless they clearly start on another beat of its bars. Not a beat an odd number of
+/// beats from `heard_on`, the beat of its bars the network hears bar 1 on, if it does: the
+/// network takes a bar's third beat for its first, not its second or fourth, where a voice or
+/// a live band comes in ahead of the bar.
+pub fn bar_one(signal: &MonoSignal, bars: Tempo, heard_on: Option<usize>) -> BarOne {
     let votes = votes(&Levels::of(signal, bars));
-    let most = (0..BEATS).max_by(|&a, &b| votes[a].total_cmp(&votes[b])).unwrap_or(0);
+    let most = (0..BEATS)
+        .filter(|&beat| heard_on.is_none_or(|heard| (beat + heard) % 2 == 0))
+        .max_by(|&a, &b| votes[a].total_cmp(&votes[b]))
+        .unwrap_or(0);
     let beat = if votes[most] > MOVES * votes[0] { most } else { 0 };
     let others = (0..BEATS).filter(|&b| b != beat).map(|b| votes[b]).fold(0.0, f32::max);
     BarOne { beat, sure: votes[beat] > 0.0 && votes[beat] >= SURE * others }

@@ -137,7 +137,8 @@ fn analyze_signal(
         let music_start_s = first_kick.unwrap_or_else(|| envelopes.first_onset_s());
         let bars = on_bars(fitted, &heard, music_start_s);
         // an intro's first kicks may be hits off the bars: the sections know better
-        let said = sections::bar_one(signal, bars);
+        let heard_on = beat_model::bar_start(&heard, bars.bpm, bars.first_beat_s).map(|beat| beat as usize);
+        let said = sections::bar_one(signal, bars, heard_on);
         let downbeat_s = bars.first_beat_s + said.beat as f64 * bars.beat_period_s();
         Tempo { bars_sure: said.sure, ..first_bar(bars, downbeat_s, music_start_s) }
     });
