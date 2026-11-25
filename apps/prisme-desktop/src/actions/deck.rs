@@ -13,7 +13,7 @@ use prisme_actions::screen::Drive;
 use prisme_actions::sync::{kept_tempo, matching_tempo};
 use prisme_actions::view::{mixed_with, tempo_rate};
 use prisme_control::{DeckAction, StemPart, Target};
-use prisme_engine::Command;
+use prisme_engine::{Command, EngineStatus};
 use tracing::warn;
 
 /// Seconds of track a turn of a jog wheel goes through in a search.
@@ -352,6 +352,17 @@ pub fn match_once(state: &AppState, deck: usize) -> AppResult<()> {
     sync_once(state, deck)
 }
 
+/// The deck SYNC locks that plays on with no leader left to follow, the first of them: the
+/// leader's track ended, or was stopped. Not while another deck plays unlocked: scratched or
+/// held a moment, that one leads again.
+pub fn left_without_leader(status: &EngineStatus) -> Option<usize> {
+    let decks = &status.decks[..status.deck_count];
+    if decks.iter().any(|d| d.sync.leader || d.playing && !d.sync.locked) {
+        return None;
+    }
+    decks.iter().position(|d| d.sync.locked && d.playing)
+}
+
 /// SYNC off. A deck playing by itself keeps the tempo it was locked to: its fader is moved
 /// there first (a locked deck does not follow it), and a controller's picks it up there.
 fn unlock(state: &AppState, deck: usize) -> AppResult<()> {
@@ -458,6 +469,25 @@ mod tests {
     fn turned(deck: usize, action: DeckAction, steps: f32, at_s: f64, jog_scratch: bool) -> Option<Command> {
         let input = Input::of(steps, action != DeckAction::JogTouch, None);
         jog(deck, action, input, at_s, 720.0, jog_scratch)
+    }
+
+    #[test]
+    fn a_locked_deck_playing_on_is_left_without_a_leader_once_no_other_plays() {
+        let deck = |playing: bool, locked: bool, leader: bool| {
+            let sync = prisme_engine::SyncStatus { locked, leader, ..Default::default() };
+            prisme_engine::DeckStatus { loaded: true, playing, sync, ..Default::default() }
+        };
+        let status = |a, b| {
+            let mut status = EngineStatus { deck_count: 2, ..Default::default() };
+            (status.decks[0], status.decks[1]) = (a, b);
+            status
+        };
+        let ended = deck(false, false, false);
+        assert_eq!(left_without_leader(&status(ended, deck(true, true, false))), Some(1));
+        assert_eq!(left_without_leader(&status(deck(true, false, true), deck(true, true, false))), None);
+        let scratched = deck(true, false, false);
+        assert_eq!(left_without_leader(&status(scratched, deck(true, true, false))), None, "it leads again");
+        assert_eq!(left_without_leader(&status(ended, deck(false, true, false))), None, "paused, it waits");
     }
 
     #[test]

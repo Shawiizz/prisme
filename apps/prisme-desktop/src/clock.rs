@@ -7,7 +7,7 @@
 //! (`status_stream`).
 
 use crate::actions::browse::{self, Around, RowsStems};
-use crate::actions::Actions;
+use crate::actions::{deck, Actions};
 use crate::auto_dj::AutoDj;
 use crate::controllers::{Controllers, Levels, METERS_EVERY};
 use crate::dto::StatusDto;
@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
-use tracing::error;
+use tracing::{error, warn};
 
 const TICK: Duration = Duration::from_millis(16);
 
@@ -68,6 +68,10 @@ struct Ranked {
     next_key_lock: bool,
 }
 
+/// How long a deck SYNC locks plays on without a leader before it takes the lead: a leader
+/// stopped a moment and started again leads on.
+const LEADERLESS: Duration = Duration::from_secs(2);
+
 #[derive(Default)]
 struct Clock {
     /// The revisions of what the interface mirrors when last looked at: none, all looked at first.
@@ -83,6 +87,8 @@ struct Clock {
     meters: Meters,
     /// When the controllers' meters were last given their levels.
     metered: Option<Instant>,
+    /// Since when a deck SYNC locks plays on with no leader left.
+    leaderless: Option<Instant>,
     #[cfg(target_os = "android")]
     player: Player,
 }
@@ -132,6 +138,22 @@ fn read_engine(state: &AppState) -> Option<Engine> {
 }
 
 impl Clock {
+    /// A deck SYNC locks, left playing with no leader for [`LEADERLESS`], takes the lead: its
+    /// SYNC goes off as by its key, the tempo it plays kept and its fader free again.
+    fn lead_on(&mut self, state: &AppState, status: &EngineStatus) {
+        let Some(deck) = deck::left_without_leader(status) else {
+            self.leaderless = None;
+            return;
+        };
+        if self.leaderless.get_or_insert_with(Instant::now).elapsed() < LEADERLESS {
+            return;
+        }
+        self.leaderless = None;
+        if let Err(e) = deck::set_sync(state, deck, false) {
+            warn!("deck {} left without a leader not freed: {e}", deck + 1);
+        }
+    }
+
     fn tick(&mut self, app: &AppHandle) {
         let state = app.state::<AppState>();
         let actions = app.state::<Actions>();
@@ -155,6 +177,7 @@ impl Clock {
         prisme_analysis::set_full_speed(
             !status.decks[..status.deck_count].iter().any(prisme_actions::view::plays),
         );
+        piece("leader", || self.lead_on(&state, status));
         let due = self.metered.is_none_or(|at| at.elapsed() >= METERS_EVERY);
         let levels = (due && stream.is_some()).then(|| Levels::of(&view.status));
         if due {
