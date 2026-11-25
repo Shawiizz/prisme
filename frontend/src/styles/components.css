@@ -837,6 +837,13 @@
 .pr-fade-out {
   animation: pr-fade-out var(--pr-out) ease-in forwards;
 }
+/* a dialog fading out as a whole stays over the page: its opacity would shut its backdrop's
+   place in the stack inside it, under the rows the page raises */
+.pr-fade-out:has(> .pr-backdrop) {
+  position: fixed;
+  inset: 0;
+  z-index: var(--pr-z-dialog);
+}
 .pr-rise-in {
   animation: pr-rise-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
