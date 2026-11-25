@@ -65,15 +65,22 @@ const ALIGN_S: (f64, f64) = (0.015, 0.03);
 /// The band of a kick's click, the knock of its attack above its body. Serato DJ Pro's beats
 /// sit at the same distance from it, within 2 ms, on House and distorted kicks alike.
 const CLICK_BAND_HZ: (f64, f64) = (1_000.0, 5_000.0);
-/// How far from a beat the click of its kick is looked for (beats): short of the sixteenths,
-/// where hats and rolling bass lines fall.
-const CLICK_REACH: f64 = 0.2;
+/// How far from a beat the click of its kick is looked for (beats, before and after it): near
+/// it, short of the sixteenths where hats and rolling bass lines fall...
+const CLICK_NEAR: (f64, f64) = (0.2, 0.2);
+/// ...then, nothing clicking there, further before it, where a distorted kick whose body comes
+/// late clicks.
+const CLICK_FAR: (f64, f64) = (0.3, 0.1);
 /// The click is where its band's envelope, averaged over the kicks, grows most over this
 /// (seconds)...
 const CLICK_RISE_S: f64 = 0.002;
-/// ...by as much as the envelope's average at least: else nothing clicks there (the pads of a
-/// breakdown).
+/// ...near the beat, by as much as the envelope's average at least (the pads of a breakdown
+/// grow less)...
 const CLICK_MIN_RISE: f32 = 1.0;
+/// ...further, this many times more than anywhere else in reach (further than
+/// [`CLICK_APART_S`] from it).
+const CLICK_STANDOUT: f32 = 1.5;
+const CLICK_APART_S: f64 = 0.005;
 /// The click's band, around the kicks, carries this share of the wide band's envelope at
 /// least: a sub kick has no click.
 const CLICK_PRESENCE: f32 = 0.005;
@@ -131,8 +138,9 @@ pub fn fit_grid(signal: &MonoSignal, coarse: Tempo) -> Tempo {
 pub fn on_click(signal: &MonoSignal, grid: Tempo) -> Tempo {
     let period = grid.beat_period_s();
     let rate = signal.sample_rate;
-    let reach_s = CLICK_REACH * period;
-    let around_s = reach_s + 2.0 * CLICK_RISE_S;
+    let around_s = [CLICK_NEAR.0, CLICK_NEAR.1, CLICK_FAR.0, CLICK_FAR.1].into_iter().fold(0.0, f64::max)
+        * period
+        + 2.0 * CLICK_RISE_S;
     let first = grid.first_beat_s.rem_euclid(period);
     let beats = ((signal.duration_s() - first) / period).ceil().max(0.0) as usize;
     let mut windows = BeatWindows::new(rate, (around_s, around_s));
@@ -156,13 +164,28 @@ pub fn on_click(signal: &MonoSignal, grid: Tempo) -> Tempo {
     let picture = average(&kicks, &vec![0.0; kicks.len()]);
     let samples = |s: f64| (s * rate).round() as usize;
     let mid = samples(around_s);
-    let (click, rise) =
-        steepest(&picture, mid - samples(reach_s)..mid + samples(reach_s), samples(CLICK_RISE_S));
+    let reach = |(before, after): (f64, f64)| mid - samples(before * period)..mid + samples(after * period);
+    let span = samples(CLICK_RISE_S);
+    let moved =
+        |click: usize| Tempo { first_beat_s: grid.first_beat_s + (click as f64 - mid as f64) / rate, ..grid };
     // the picture's average is 1: each kick weighs the same whatever its loudness
-    if rise < CLICK_MIN_RISE {
-        return grid;
+    let (click, rise) = steepest(&picture, reach(CLICK_NEAR), span);
+    if rise >= CLICK_MIN_RISE {
+        return moved(click);
     }
-    Tempo { first_beat_s: grid.first_beat_s + (click as f64 - mid as f64) / rate, ..grid }
+    let far = reach(CLICK_FAR);
+    let (click, rise) = steepest(&picture, far.clone(), span);
+    let apart = samples(CLICK_APART_S);
+    let elsewhere = [far.start..click.saturating_sub(apart), click + apart..far.end]
+        .into_iter()
+        .filter(|r| r.end > r.start)
+        .map(|r| steepest(&picture, r, span).1)
+        .fold(0.0, f32::max);
+    if rise >= CLICK_STANDOUT * elsewhere {
+        moved(click)
+    } else {
+        grid
+    }
 }
 
 /// The attacks of the kicks near the beats of a grid that is on the kicks, even those up to
