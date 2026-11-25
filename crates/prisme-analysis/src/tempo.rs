@@ -39,8 +39,8 @@ pub struct Tempo {
     pub first_beat_s: f64,
     /// 0 (no clear pulse) to 1 (a single dominant pulse).
     pub confidence: f32,
-    /// Whether bar 1 is where the kick, each time it comes back after an absence, says the bars
-    /// start: else they are to be checked by ear.
+    /// Whether the track's sections clearly start on bar 1's beat of the bars
+    /// ([`crate::sections`]): else the bars are to be checked by ear.
     pub bars_sure: bool,
 }
 

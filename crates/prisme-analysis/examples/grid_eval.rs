@@ -6,7 +6,8 @@
 //! of every kick is found near the beats of its grid. For that grid and for the grids of
 //! each `grids.tsv` (lines `path<TAB>bpm<TAB>first_beat_s`, from another version or another
 //! program), prints the offset of the grid from the attacks: per track, its median and 90th
-//! percentile, and over all the kicks. `--dump` prints the grids found, in the same format.
+//! percentile, and over all the kicks. `--dump` prints the grids found, in the same format,
+//! and whether their bars are sure (1 or 0).
 //! Tracks are analysed on every core at once, or one at a time with `--serial` (for the
 //! analysis times); at full speed, as while no deck plays, or with `--background` as while one
 //! does.
@@ -65,7 +66,8 @@ fn main() {
 
     if dump {
         for t in &tracks {
-            println!("{}\t{:.6}\t{:.6}", t.path, t.tempo.bpm, t.tempo.first_beat_s);
+            let sure = u8::from(t.tempo.bars_sure);
+            println!("{}\t{:.6}\t{:.6}\t{sure}", t.path, t.tempo.bpm, t.tempo.first_beat_s);
         }
         return;
     }

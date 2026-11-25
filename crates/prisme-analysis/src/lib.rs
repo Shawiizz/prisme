@@ -3,7 +3,8 @@
 //! * [`waveform`]: peak and low / mid / high energy per time slice, for drawing
 //!   colored waveforms; [`envelope`]: the height and colour drawn of each slice.
 //! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`], on the beats and
-//!   the bars a small neural network hears ([`beat_model`]).
+//!   the bars a small neural network hears ([`beat_model`]), bar 1 where the track's sections
+//!   start ([`sections`]).
 //! * [`key`]: musical key, with its Camelot code.
 //! * [`loudness`]: loudness (LUFS), to play tracks at the same level.
 //! * [`stem_activity`]: where each part of a separated track plays.
@@ -19,6 +20,7 @@ pub mod key;
 pub mod loudness;
 pub mod onset;
 mod priority;
+pub mod sections;
 pub mod stem_activity;
 pub mod tempo;
 pub mod waveform;
@@ -37,7 +39,7 @@ use std::path::Path;
 
 /// Version of the tempo / key algorithms. Stored results from an older version are
 /// recomputed: bump it whenever a change can alter them.
-pub const ANALYSIS_VERSION: u32 = 6;
+pub const ANALYSIS_VERSION: u32 = 7;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalysisOptions {
@@ -130,10 +132,14 @@ fn analyze_signal(
         }
         // the first kick, else the first sound: an intro's first notes or a riser before the
         // first bar may come a beat or two early
-        let kicks = grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s);
-        let first_kick = kicks.first().map(|a| a.time_s);
-        let bars = on_bars(fitted, &heard, first_kick.unwrap_or_else(|| envelopes.first_onset_s()));
-        Tempo { bars_sure: kick_comebacks_agree(&kicks, fitted, bars), ..bars }
+        let first_kick =
+            grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).first().map(|a| a.time_s);
+        let music_start_s = first_kick.unwrap_or_else(|| envelopes.first_onset_s());
+        let bars = on_bars(fitted, &heard, music_start_s);
+        // an intro's first kicks may be hits off the bars: the sections know better
+        let said = sections::bar_one(signal, bars);
+        let downbeat_s = bars.first_beat_s + said.beat as f64 * bars.beat_period_s();
+        Tempo { bars_sure: said.sure, ..first_bar(bars, downbeat_s, music_start_s) }
     });
     TrackAnalysis { tempo, key: key::estimate_key(signal) }
 }
@@ -160,28 +166,6 @@ fn heard_beats(onsets: Tempo, heard: &[beat_model::Heard]) -> Option<f64> {
     (beat_model::beat_score(heard, onsets.bpm, phase_s) >= HEARD_BETTER * around).then_some(phase_s)
 }
 
-/// Beats without a kick after which the kick coming back starts a section.
-const ABSENCE_BEATS: usize = 8;
-
-/// Whether the kick, each time it comes back after an absence (the start of the track one),
-/// most often comes back on bar 1's beat of the bar: `kicks`, found on `grid`, `bars` the grid
-/// with its bar 1. A track without kicks has nothing to say so.
-fn kick_comebacks_agree(kicks: &[grid::Attack], grid: Tempo, bars: Tempo) -> bool {
-    let period = grid.beat_period_s();
-    // the attacks are numbered from the grid's first beat at or after the start
-    let first = grid.first_beat_s.rem_euclid(period);
-    let offset = ((first - bars.first_beat_s) / period).round() as i64;
-    let mut comebacks = [0usize; 4];
-    let mut last: Option<usize> = None;
-    for kick in kicks {
-        if last.is_none_or(|l| kick.beat >= l + ABSENCE_BEATS) {
-            comebacks[(kick.beat as i64 + offset).rem_euclid(4) as usize] += 1;
-        }
-        last = Some(kick.beat);
-    }
-    comebacks.iter().max().is_some_and(|&most| most > 0 && comebacks[0] == most)
-}
-
 /// The kicks a grid sits on.
 fn kicks(signal: &dsp::MonoSignal, grid: &Tempo) -> usize {
     grid::kick_attacks(signal, grid.bpm, grid.first_beat_s).len()
@@ -193,10 +177,16 @@ fn kicks(signal: &dsp::MonoSignal, grid: &Tempo) -> usize {
 /// believed: it mistakes a bar's third beat for its first, sure of it all the same.
 fn on_bars(grid: Tempo, heard: &[beat_model::Heard], music_start_s: f64) -> Tempo {
     let period = grid.beat_period_s();
-    let bar = f64::from(BEATS_PER_BAR) * period;
     let start = grid.first_beat_s + ((music_start_s - grid.first_beat_s) / period).round() * period;
     let shift = beat_model::bar_start(heard, grid.bpm, start).filter(|&k| k % 2 == 1).unwrap_or(0);
-    let downbeat = start + f64::from(shift) * period;
-    let bars = ((music_start_s - period / 2.0 - downbeat) / bar).ceil();
-    Tempo { first_beat_s: downbeat + bars * bar, ..grid }
+    first_bar(grid, start + f64::from(shift) * period, music_start_s)
+}
+
+/// The grid's first beat on the first bar where the music starts, give or take half a beat,
+/// a bar starting at `downbeat_s`.
+fn first_bar(grid: Tempo, downbeat_s: f64, music_start_s: f64) -> Tempo {
+    let period = grid.beat_period_s();
+    let bar = f64::from(BEATS_PER_BAR) * period;
+    let bars = ((music_start_s - period / 2.0 - downbeat_s) / bar).ceil();
+    Tempo { first_beat_s: downbeat_s + bars * bar, ..grid }
 }
