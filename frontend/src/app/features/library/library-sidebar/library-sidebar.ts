@@ -31,8 +31,9 @@ type FolderAction = 'show' | 'rescan' | 'remove';
 
 const FOLDED_KEY = 'prisme.sidebar.folded';
 
-/** The sections whose height the DJ sets. */
+/** The sections with a line above them to drag: it parts them from the section over it. */
 type Sized = 'crates' | 'history';
+const SECTIONS: Foldable[] = ['folders', 'crates', 'history'];
 const HEIGHTS_KEY = 'prisme.sidebar.heights';
 /** A section keeps its header and a row. */
 const LEAST_HEIGHT = 64;
@@ -101,8 +102,12 @@ export class LibrarySidebar {
   /** Item whose delete button was clicked once: a second click deletes it. */
   private readonly armed = signal<{ kind: Deletable; id: number } | null>(null);
   private readonly folded = signal<Foldable[]>(savedFolded());
-  /** The heights the DJ gave the sections (px); a section without one takes its own. */
-  protected readonly heights = signal<Partial<Record<Sized, number>>>(savedSize(HEIGHTS_KEY) ?? {});
+  /** The heights the sections had as the DJ last dragged a line between them (px): they share
+   * the column in those proportions. A section without one takes what its rows need, and its
+   * share of the room left. */
+  protected readonly heights = signal<Partial<Record<Foldable, number>>>(
+    savedSize(HEIGHTS_KEY) ?? {},
+  );
   private readonly host: HTMLElement = inject(ElementRef).nativeElement;
   /** Where dragged tracks would go: a crate or the prepare list. */
   protected readonly dropTarget = signal<DropTarget | null>(null);
@@ -131,37 +136,32 @@ export class LibrarySidebar {
     });
   }
 
-  /** Drags the line above `section`: it grows as the line goes up, as tall as its rows or into
-   * the room left free at the bottom of the column. */
+  /** Drags the line above `section`: it takes from the open section over it what it grows by,
+   * and gives it back as the line goes down, the other sections as they are. */
   resize(event: PointerEvent, section: Sized) {
-    const bounds = (element: Element) => element.getBoundingClientRect();
-    const element = (event.currentTarget as HTMLElement).parentElement!;
-    const from = bounds(element).height;
-    const list = element.querySelector('.list')!;
-    const whole = from - list.clientHeight + list.scrollHeight;
-    const last = this.host.querySelector(':scope > section:last-of-type')!;
-    const most = Math.max(
-      whole,
-      from + Math.max(bounds(this.host).bottom - bounds(last).bottom, 0),
-    );
+    const open = SECTIONS.filter((s) => !this.isFolded(s));
+    const over = open[open.indexOf(section) - 1];
+    if (over === undefined) return;
+    const height = (s: Foldable) =>
+      this.host.querySelector(`:scope > section.${s}`)!.getBoundingClientRect().height;
+    const from = Object.fromEntries(open.map((s) => [s, height(s)])) as Record<Foldable, number>;
+    const both = from[over] + from[section];
     dragSize(
       event,
-      from,
+      from[section],
       'y',
       (wanted) => {
-        this.heights.update((h) => ({
-          ...h,
-          [section]: Math.round(Math.min(Math.max(wanted, LEAST_HEIGHT), most)),
-        }));
+        const tall = Math.round(Math.min(Math.max(wanted, LEAST_HEIGHT), both - LEAST_HEIGHT));
+        this.heights.update((h) => ({ ...h, ...from, [section]: tall, [over]: both - tall }));
         saveSize(HEIGHTS_KEY, this.heights());
       },
       -1,
     );
   }
 
-  /** The section back to its own height. */
-  unsize(section: Sized) {
-    this.heights.update(({ [section]: _, ...others }) => others);
+  /** The sections back to the heights they take by themselves. */
+  unsize() {
+    this.heights.set({});
     saveSize(HEIGHTS_KEY, this.heights());
   }
 

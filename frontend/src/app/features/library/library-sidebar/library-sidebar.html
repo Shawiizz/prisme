@@ -42,6 +42,8 @@
 <section
   class="folders"
   [class.folded]="isFolded('folders')"
+  [class.sized]="heights().folders !== undefined && !isFolded('folders')"
+  [style.--height]="heights().folders"
   [attr.data-file-drop]="fileDrop({ kind: 'folders' })"
 >
   <header>
@@ -144,14 +146,14 @@
   class="crates"
   [class.folded]="isFolded('crates')"
   [class.sized]="heights().crates !== undefined && !isFolded('crates')"
-  [style.--height.px]="heights().crates"
+  [style.--height]="heights().crates"
 >
   @if (!PHONE) {
     <div
       class="pr-resize pr-resize--y"
-      [title]="'Drag to share the height; double-click for the height it takes by itself' | t"
+      [title]="'Drag to share the height; double-click for the heights they take by themselves' | t"
       (pointerdown)="resize($event, 'crates')"
-      (dblclick)="unsize('crates')"
+      (dblclick)="unsize()"
     ></div>
   }
   <header>
@@ -263,14 +265,14 @@
   class="history"
   [class.folded]="isFolded('history')"
   [class.sized]="heights().history !== undefined && !isFolded('history')"
-  [style.--height.px]="heights().history"
+  [style.--height]="heights().history"
 >
   @if (!PHONE) {
     <div
       class="pr-resize pr-resize--y"
-      [title]="'Drag to share the height; double-click for the height it takes by itself' | t"
+      [title]="'Drag to share the height; double-click for the heights they take by themselves' | t"
       (pointerdown)="resize($event, 'history')"
-      (dblclick)="unsize('history')"
+      (dblclick)="unsize()"
     ></div>
   }
   <header>
@@ -338,6 +340,8 @@
   ></div>
   <div
     class="pr-popover folder-menu"
+    animate.enter="pr-pop-in"
+    animate.leave="pr-pop-out"
     role="menu"
     [style.left.px]="menu.left"
     [style.right.px]="menu.right"
@@ -360,5 +364,9 @@
 }
 
 @if (smartDialog(); as d) {
-  <app-smart-crate-dialog [crate]="d.crate" (closed)="smartDialog.set(null)" />
+  <app-smart-crate-dialog
+    animate.leave="pr-fade-out"
+    [crate]="d.crate"
+    (closed)="smartDialog.set(null)"
+  />
 }

@@ -2,8 +2,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  // each section as tall as its rows; the whole column scrolls when they do not all fit
-  overflow-y: auto;
+  // the sections share the column, each scrolling its own rows
+  overflow: hidden;
   border-right: 1px solid var(--pr-line);
 }
 section {
@@ -72,22 +72,36 @@ section {
     text-transform: none;
   }
 }
+// as tall as its rows where they all fit, the room left shared out, the folders and the crates
+// first; where they do not, each gives way as its rows are many, down to its header and a row
 .folders,
 .crates,
 .history {
-  flex: none;
-}
-.crates,
-.history {
-  // the header and a row at least
+  flex: var(--share) 1 auto;
+  min-height: 64px;
   .list {
-    min-height: 28px;
+    flex: 1;
+    min-height: 0;
   }
 }
-// as tall as the DJ dragged it, its rows scrolling inside
+.folders,
+.crates {
+  --share: 3;
+}
+.history {
+  --share: 1;
+}
+// in the proportions the DJ dragged the lines to
+.folders.sized,
 .crates.sized,
 .history.sized {
-  flex: 0 0 var(--height);
+  flex: var(--height) 1 0;
+}
+.folders.folded,
+.crates.folded,
+.history.folded {
+  flex: none;
+  min-height: 0;
 }
 section {
   position: relative;
@@ -346,8 +360,10 @@ section > .pr-resize {
   color: var(--pr-text-3);
 }
 
-// on a phone: lines the height of a finger, the lists as tall as they need
+// on a phone: lines the height of a finger, the lists as tall as they need, the whole column
+// scrolling
 :host-context(.phone) {
+  overflow-y: auto;
   .item {
     height: 44px;
     font-size: 14px;
@@ -360,6 +376,12 @@ section > .pr-resize {
     display: grid;
     width: 44px;
     height: 44px;
+  }
+  .folders,
+  .crates,
+  .history {
+    flex: none;
+    min-height: 0;
   }
   .crates,
   .history {
