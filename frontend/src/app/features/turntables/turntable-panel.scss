@@ -131,6 +131,7 @@ h3 {
 @container (max-width: 480px) {
   .panel {
     grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--pr-space-5);
   }
   .signal-view {
     width: auto;
