@@ -20,18 +20,15 @@ export class ImportService {
     return open({ directory: true, title: t('The _Serato_ folder') });
   }
 
-  async importSerato(seratoDir: string | null): Promise<ImportSummary> {
-    return this.finish(await invoke<ImportSummary>('import_serato', { seratoDir }));
+  /** From Serato; its beat grids too with `grids`, else Prisme's own stay. */
+  importSerato(seratoDir: string | null, grids: boolean): Promise<ImportSummary> {
+    return invoke<ImportSummary>('import_serato', { seratoDir, grids });
   }
 
-  /** Asks for a rekordbox XML export and imports it; `null` if cancelled. */
-  async importRekordbox(): Promise<ImportSummary | null> {
+  /** Asks for a rekordbox XML export and imports it, as `importSerato`; `null` if cancelled. */
+  async importRekordbox(grids: boolean): Promise<ImportSummary | null> {
     const path = await open({ filters: [{ name: 'rekordbox XML', extensions: ['xml'] }] });
     if (!path) return null;
-    return this.finish(await invoke<ImportSummary>('import_rekordbox', { path }));
-  }
-
-  private async finish(summary: ImportSummary): Promise<ImportSummary> {
-    return summary;
+    return invoke<ImportSummary>('import_rekordbox', { path, grids });
   }
 }

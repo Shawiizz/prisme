@@ -18,6 +18,18 @@ p {
 .note {
   color: var(--pr-text-3);
 }
+.grids {
+  align-items: start;
+  // the box level with the first line of the text
+  > input {
+    margin-top: 2px;
+  }
+  .hint {
+    display: block;
+    color: var(--pr-text-3);
+    line-height: 1.5;
+  }
+}
 section {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

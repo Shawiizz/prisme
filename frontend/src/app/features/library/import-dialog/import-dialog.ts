@@ -21,6 +21,8 @@ export class ImportDialog {
   protected readonly seratoFolder = signal<string | null>(null);
   /** On a phone, whose own picker gives no path, the folder chosen in Prisme's. */
   protected readonly pickingOnPhone = signal(false);
+  /** Whether the beat grids are imported too; else Prisme's own stay. */
+  protected readonly grids = signal(false);
   protected readonly busy = signal(false);
   protected readonly summary = signal<ImportSummary | null>(null);
   protected readonly error = signal<string | null>(null);
@@ -48,11 +50,11 @@ export class ImportDialog {
   }
 
   importSerato() {
-    return this.run(() => this.imports.importSerato(this.seratoFolder()));
+    return this.run(() => this.imports.importSerato(this.seratoFolder(), this.grids()));
   }
 
   importRekordbox() {
-    return this.run(() => this.imports.importRekordbox());
+    return this.run(() => this.imports.importRekordbox(this.grids()));
   }
 
   private async run(action: () => Promise<ImportSummary | null>) {

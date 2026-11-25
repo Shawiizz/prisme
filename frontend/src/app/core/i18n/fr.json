@@ -245,6 +245,8 @@
   "{n} unreadable": "{n} illisibles",
   "Crates, cues and grids from Serato or rekordbox": "Crates, cues et grilles depuis Serato ou rekordbox",
   "Import": "Importer",
+  "Import the beat grids too": "Importer aussi les grilles rythmiques",
+  "Otherwise Prisme keeps the grids of its own analysis. Tick it if you set your grids by hand in Serato or rekordbox.": "Sinon Prisme garde les grilles de sa propre analyse. À cocher si vous avez réglé vos grilles à la main dans Serato ou rekordbox.",
   "Analyse new and changed files": "Analyser les fichiers nouveaux et modifiés",
   "Rescan": "Réanalyser",
   "Library up to date": "Bibliothèque à jour",

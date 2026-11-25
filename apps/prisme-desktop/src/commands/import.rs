@@ -22,16 +22,17 @@ pub fn serato_folder(library: State<'_, Arc<LibraryService>>) -> Option<String> 
         .map(|dir| dir.display().to_string())
 }
 
-/// Crates of `serato_dir` (if given), and the Serato cues, loops, colours and grids of
-/// the files of the music folders and of those crates.
+/// Crates of `serato_dir` (if given), and the Serato cues, loops, colours and (with `grids`)
+/// grids of the files of the music folders and of those crates.
 #[tauri::command]
 pub async fn import_serato(
     library: State<'_, Arc<LibraryService>>,
     serato_dir: Option<String>,
+    grids: bool,
 ) -> AppResult<ImportSummaryDto> {
     let library = library.inner().clone();
     let roots = library.roots();
-    run(library, move || {
+    run(library, grids, move || {
         let files: Vec<PathBuf> = prisme_library::scan_folders(&roots, &AtomicBool::new(false))
             .files
             .into_iter()
@@ -42,23 +43,27 @@ pub async fn import_serato(
     .await
 }
 
-/// The collection and playlists of a rekordbox XML export.
+/// The collection and playlists of a rekordbox XML export, its beat grids with `grids`.
 #[tauri::command]
 pub async fn import_rekordbox(
     library: State<'_, Arc<LibraryService>>,
     path: FilePath,
+    grids: bool,
 ) -> AppResult<ImportSummaryDto> {
     let library = library.inner().clone();
-    run(library, move || Ok(rekordbox::read(picked::open(path)?)?)).await
+    run(library, grids, move || Ok(rekordbox::read(picked::open(path)?)?)).await
 }
 
-/// Reads off the main thread (tags of the whole library), then merges.
+/// Reads off the main thread (tags of the whole library), then merges: the beat grids too with
+/// `grids`, else the tracks keep those of Prisme's analysis.
 async fn run(
     library: Arc<LibraryService>,
+    grids: bool,
     read: impl FnOnce() -> AppResult<Import> + Send + 'static,
 ) -> AppResult<ImportSummaryDto> {
     blocking(move || {
         let import = read()?;
+        let import = if grids { import } else { import.without_grids() };
         let summary = prisme_import::apply(&library.db, &import)?;
         for track in &import.tracks {
             library.announce(&track.path);

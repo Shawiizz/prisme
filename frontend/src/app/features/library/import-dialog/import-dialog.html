@@ -18,6 +18,21 @@
             | t
         }}
       </p>
+      <label class="pr-check grids">
+        <input
+          type="checkbox"
+          [checked]="grids()"
+          [disabled]="busy()"
+          (change)="grids.set($any($event.target).checked)"
+        />
+        <span>
+          {{ 'Import the beat grids too' | t }}
+          <span class="hint">{{
+            'Otherwise Prisme keeps the grids of its own analysis. Tick it if you set your grids by hand in Serato or rekordbox.'
+              | t
+          }}</span>
+        </span>
+      </label>
 
       <section>
         <h3>Serato DJ</h3>

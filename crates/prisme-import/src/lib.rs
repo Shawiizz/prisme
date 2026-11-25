@@ -29,6 +29,16 @@ pub struct Import {
     pub crates: Vec<ImportedCrate>,
 }
 
+impl Import {
+    /// The import without its beat grids: the tracks keep those of Prisme's analysis.
+    pub fn without_grids(mut self) -> Self {
+        for track in &mut self.tracks {
+            track.grid = None;
+        }
+        self
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImportedTrack {
     pub path: PathBuf,
@@ -248,6 +258,25 @@ mod tests {
         assert_eq!((again.cues, again.grids, again.tracks), (0, 0, 0), "nothing changes the second time");
         assert_eq!(db.crates().unwrap().len(), 1);
         assert_eq!(db.crate_tracks(db.crates().unwrap()[0].id).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn an_import_without_its_grids_leaves_the_tracks_theirs() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let path = temp_file("b.mp3");
+        let import = Import {
+            tracks: vec![ImportedTrack {
+                path: path.clone(),
+                cues: vec![cue(Some(0), 1.0, None)],
+                grid: Some(ImportedGrid { bpm: 125.0, bar_s: 12.25 }),
+                color: None,
+                rating: None,
+            }],
+            crates: vec![],
+        };
+        let summary = apply(&db, &import.without_grids()).unwrap();
+        assert_eq!((summary.cues, summary.grids), (1, 0));
+        assert_eq!(db.edits(&path).unwrap().grid, None);
     }
 
     #[test]
