@@ -68,7 +68,8 @@ interface Drag {
  * nudges the track as the edge of a jog (not while SYNC locks it); held still a moment and then
  * slid, it moves the track like a record. A press on the overview jumps there and moves the track like a record at
  * once: the deck plays through the hand's motion, as a record scratched (the engine jumps after
- * a hand too fast to play, as along the overview of a whole track).
+ * a hand too fast to play, as along the overview of a whole track). Not on a deck playing in
+ * SYNC: a slip of the hand there would throw it out of its mix.
  */
 @Component({
   selector: 'app-deck-waveform',
@@ -167,8 +168,11 @@ export class DeckWaveform {
 
   press(event: PointerEvent, view: Drag['view']) {
     if (!this.track() || event.button !== 0 || this.drag) return;
+    const status = this.engine.deckStatus(this.deck());
+    // playing in SYNC, it stays in its mix
+    if (view === 'overview' && status?.playing && status.sync.state === 'locked') return;
     // a record holding the deck in place keeps the track where it is: the backend says so
-    if (!this.engine.deckStatus(this.deck())?.canMove) {
+    if (!status?.canMove) {
       const at =
         view === 'overview' ? this.overviewTime(event) : this.engine.livePosition(this.deck());
       this.engine.seek(this.deck(), at ?? 0);

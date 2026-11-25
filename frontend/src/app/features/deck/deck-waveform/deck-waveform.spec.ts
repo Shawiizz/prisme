@@ -75,6 +75,31 @@ describe('DeckWaveform', () => {
     expect(hands.every((h) => h.startsWith('0 seek'))).toBe(true);
   });
 
+  it('jumps where the overview is pressed, but not on a deck playing in SYNC', async () => {
+    Element.prototype.setPointerCapture = () => undefined;
+    const { fixture, hands } = await shown();
+    const engine = TestBed.inject(EngineService);
+    const overview = (fixture.nativeElement as HTMLElement).querySelector('.overview')!;
+    const press = () => {
+      overview.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, button: 0 }));
+      overview.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1 }));
+    };
+    const deck = (playing: boolean, state: string) =>
+      engine.status.set({
+        decks: [0, 1].map(() => ({ canMove: true, playing, sync: { state } })),
+      } as unknown as EngineStatus);
+    deck(true, 'locked');
+    press();
+    expect(hands).toEqual([]);
+    deck(false, 'locked');
+    press();
+    expect(hands.length).toBeGreaterThan(0);
+    hands.length = 0;
+    deck(true, 'off');
+    press();
+    expect(hands.length).toBeGreaterThan(0);
+  });
+
   it('slides the edge of the jog, but not on a deck SYNC locks to the leader', async () => {
     Element.prototype.setPointerCapture = () => undefined;
     const { fixture } = await shown();
