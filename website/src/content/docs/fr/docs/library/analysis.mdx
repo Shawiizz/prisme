@@ -32,6 +32,16 @@ et poser la grille sur les contretemps. La mesure 1 est la première mesure où 
 commence, un morceau fait pour être mixé commençant sur le premier temps d’une mesure, sauf si
 le réseau entend clairement les mesures commencer sur un autre temps.
 
+Les premiers kicks d’une intro peuvent être des coups hors des mesures, et le réseau prend
+souvent le troisième temps d’une mesure pour le premier. Prisme regarde donc aussi où
+commencent les sections du morceau : là où le kick revient, où une basse entre. Il compare
+chaque temps au même temps une et deux mesures avant et après, ce qui annule le motif à
+l’intérieur de la mesure et ne laisse que les changements ; chaque début de section vote
+ensuite pour son temps de la mesure, le kick et la basse pesant le plus. La mesure 1 s’y déplace
+quand les sections le disent clairement, de deux temps, ou d’un seul si le réseau n’entend pas
+de mesures : une voix ou un groupe entre souvent un temps avant la mesure, et c’est alors le
+réseau qu’il faut croire.
+
 Le tempo n’est arrondi à un BPM entier (les morceaux produits dans un DAW en ont généralement
 un) que si ce BPM entier garde la grille à moins de 2 ms des kicks jusqu’à la fin du morceau ;
 sinon il reste tel que mesuré, au centième de BPM près ou mieux : un morceau à 123,95 BPM ne
@@ -112,8 +122,8 @@ Une bonne méthode pour corriger une grille décalée :
 4. Si les mesures commencent sur le mauvais temps (les numéros tombent un ou deux temps à côté
    des changements de phrase), mettez en pause sur le premier kick d’une mesure et cliquez sur
    **Mesure ici**. Un point orange près du BPM, dans la bibliothèque et sur le deck, signale les
-   morceaux dont l’analyse n’est pas sûre des mesures : le kick ne revient pas sur la mesure 1
-   après ses coupures.
+   morceaux dont l’analyse n’est pas sûre des mesures : leurs sections ne commencent pas clairement
+   sur un même temps de la mesure.
 
 </Steps>
 

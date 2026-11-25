@@ -29,6 +29,15 @@ onsets alone can take a bass line playing between the kicks for the beat, and pu
 the off-beats. Bar 1 is the first bar where the music starts, as a track made to be mixed starts
 on a bar's first beat, unless the network clearly hears the bars start on another beat.
 
+An intro's first kicks may be hits off the bars, and the network often takes a bar's third beat
+for its first. So Prisme also looks at where the track's sections start: where the kick comes
+back, where a bass line comes in. It compares each beat with the same beat one and two bars
+before and after, which cancels the pattern inside the bar and leaves the changes; each section
+start then votes for its beat of the bar, the kick and the bass weighing most. Bar 1 moves there
+when the sections clearly say so, by two beats, or by one if the network hears no bars: a voice
+or a live band often comes in a beat ahead of the bar, and there the network is the one to
+believe.
+
 The tempo is rounded to a whole BPM (tracks made in a DAW usually have one) only if the whole
 BPM keeps the grid within 2 ms of the kicks to the end of the track; otherwise it stays as
 measured, to a hundredth of a BPM or better: a track at 123.95 BPM is not shown as 124. The grid
@@ -101,8 +110,8 @@ A good way to fix a grid that is off:
 
 4. If the bars start on the wrong beat (the numbers fall a beat or two away from where the phrases
    change), pause on the first kick of a bar and click **Bar here**. An orange dot by the BPM, in
-   the library and on the deck, marks the tracks whose bars the analysis is unsure of: the kick
-   does not come back on bar 1 after its breaks.
+   the library and on the deck, marks the tracks whose bars the analysis is unsure of: their
+   sections do not clearly start on one beat of the bar.
 
 </Steps>
 
