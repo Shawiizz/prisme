@@ -70,6 +70,9 @@
               <h3 class="pr-label">{{ pageLabel('audio') }}</h3>
             }
             @if (draft(); as d) {
+              @if (!search.found()) {
+                <h4 class="pr-label category">{{ 'Sound card' | t }}</h4>
+              }
               <div class="pr-card">
                 <app-setting-row id="audio.driver">
                   <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
@@ -124,6 +127,11 @@
                     </select>
                   }
                 </app-setting-row>
+              </div>
+              @if (!search.found()) {
+                <h4 class="pr-label category">{{ 'Latency' | t }}</h4>
+              }
+              <div class="pr-card">
                 <app-setting-row id="audio.buffer">
                   <select
                     class="pr-select"
@@ -270,6 +278,9 @@
             @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('mixing') }}</h3>
             }
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Outputs' | t }}</h4>
+            }
             <div class="pr-card">
               <app-setting-row id="mixing.mode">
                 <select
@@ -332,6 +343,11 @@
                   </select>
                 </app-setting-row>
               }
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Inputs' | t }}</h4>
+            }
+            <div class="pr-card">
               @let mic = mixer.mic();
               <app-setting-row id="mixing.mic" [help]="micHelp()">
                 <select
@@ -383,6 +399,11 @@
                   }
                 </div>
               </app-setting-row>
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Mix' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="mixing.curve">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   <button
@@ -421,6 +442,9 @@
             @if (search.found()) {
               <h3 class="pr-label">DJ</h3>
             }
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Tempo and SYNC' | t }}</h4>
+            }
             <div class="pr-card">
               <app-setting-row id="dj.sync">
                 <select
@@ -457,6 +481,11 @@
                   <span></span>
                 </button>
               </app-setting-row>
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Decks' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="dj.decks">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   @for (count of choices().deckCounts; track count) {
@@ -503,6 +532,11 @@
                   <span></span>
                 </button>
               </app-setting-row>
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Safeguards' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="dj.protectPlaying">
                 <button
                   class="pr-switch"
@@ -535,6 +569,9 @@
           <section class="pr-group">
             @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('library') }}</h3>
+            }
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Files' | t }}</h4>
             }
             <div class="pr-card">
               @if (!PHONE) {
@@ -576,6 +613,11 @@
                   </button>
                 </app-setting-row>
               }
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Analysis' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="library.pauseWhilePlaying">
                 <button
                   class="pr-switch"
@@ -587,6 +629,11 @@
                   <span></span>
                 </button>
               </app-setting-row>
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Stems' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="library.stemsFast">
                 <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
                   <button
@@ -726,6 +773,9 @@
           <section class="pr-group">
             @if (search.found()) {
               <h3 class="pr-label">{{ pageLabel('about') }}</h3>
+            }
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Version and updates' | t }}</h4>
             }
             <div class="pr-card">
               <app-setting-row id="about.version">
@@ -875,6 +925,11 @@
                   }
                 </app-setting-row>
               }
+            </div>
+            @if (!search.found()) {
+              <h4 class="pr-label category">{{ 'Diagnostics' | t }}</h4>
+            }
+            <div class="pr-card">
               <app-setting-row id="about.diagnostics">
                 <button class="pr-btn" (click)="saveDiagnostics()">
                   {{

@@ -1,49 +1,75 @@
+// what the needle reads on the left, the settings beside it in two groups; stacked where the
+// room is short
+:host {
+  display: block;
+  container-type: inline-size;
+}
 .panel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--pr-space-4) var(--pr-space-6);
+  align-items: start;
+}
+header {
+  grid-column: 1 / -1;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--pr-space-4);
+  justify-content: space-between;
+  gap: var(--pr-space-3);
 }
 h3 {
   display: flex;
   align-items: center;
   gap: 10px;
-  align-self: stretch;
   margin: 0;
   font: 600 var(--pr-size-track) / 1.2 var(--pr-font);
 }
+.signal {
+  color: var(--pr-text);
+  .pr-sig {
+    border: 2px solid var(--pr-text-3);
+  }
+  &.ok .pr-sig {
+    border: none;
+    background: var(--pr-ok);
+  }
+  &.bounce .pr-sig {
+    border-color: var(--pr-warn);
+  }
+  &.none {
+    color: var(--pr-text-3);
+  }
+}
+.signal-view {
+  display: grid;
+  gap: var(--pr-space-3);
+  width: 148px;
+  justify-items: center;
+}
 .scope {
-  width: 220px;
-  height: 220px;
+  width: 120px;
+  height: 120px;
   background: var(--pr-void);
   border: 1px solid var(--pr-line);
   border-radius: 50%;
 }
 .readings {
-  align-self: stretch;
+  justify-self: stretch;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--pr-space-3) var(--pr-space-4);
+  gap: 6px;
   > div {
-    display: grid;
-    gap: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--pr-space-3);
+    min-height: 18px;
   }
   .value {
-    font-size: 15px;
     font-weight: 500;
   }
-  .ok {
-    color: var(--pr-ok);
-  }
-  .bounce {
-    color: var(--pr-warn);
-  }
-  .none {
-    color: var(--pr-text-3);
-  }
   .bar {
+    flex: 1;
     height: 2px;
-    margin-top: 8px;
     background: var(--pr-line-2);
     div {
       height: 100%;
@@ -51,34 +77,69 @@ h3 {
     }
   }
 }
-.crossed {
-  align-self: stretch;
+.group {
   display: grid;
-  gap: var(--pr-space-2);
-  justify-items: start;
-  padding: var(--pr-space-3);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+  h4 {
+    margin: 0 0 4px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--pr-line);
+  }
+}
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pr-space-3);
+  min-height: 32px;
+  color: var(--pr-text-2);
+  > span:first-child {
+    flex: none;
+  }
+  .pr-select {
+    flex: 0 1 240px;
+    min-width: 0;
+  }
+  .pr-input {
+    width: 88px;
+  }
+  .shared {
+    color: var(--pr-text-3);
+  }
+}
+.crossed {
+  margin: 0;
+  padding: var(--pr-space-2) var(--pr-space-3);
   border: 1px solid var(--pr-warn);
   border-radius: var(--pr-radius);
   font-size: var(--pr-size-small);
+  line-height: 1.45;
   color: var(--pr-warn);
 }
-.controls {
-  align-self: stretch;
-  display: grid;
-  gap: var(--pr-space-3);
-  .line {
-    display: flex;
+// short of room for the three side by side: the settings under what the needle reads
+@container (max-width: 640px) {
+  .panel {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .group:last-child {
+    grid-column: 2;
+  }
+}
+@container (max-width: 480px) {
+  .panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .signal-view {
+    width: auto;
+    grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
-    justify-content: space-between;
+    justify-items: stretch;
   }
-  .pr-check {
-    color: var(--pr-text-2);
-  }
-  .pr-input {
-    width: 100px;
-  }
-  .shared {
-    color: var(--pr-text-2);
+  .group:last-child {
+    grid-column: 1;
   }
 }
 // on a phone, for a finger
@@ -90,5 +151,8 @@ h3 {
   .pr-seg > button {
     height: 38px;
     min-width: 44px;
+  }
+  .line {
+    min-height: 46px;
   }
 }

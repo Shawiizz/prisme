@@ -1,51 +1,43 @@
 <div class="panel">
-  <h3>
-    <span class="pr-tile">{{ letter() }}</span>
-    {{ 'Turntable {deck}' | t: { deck: letter() } }}
-  </h3>
+  <header>
+    <h3>
+      <span class="pr-tile">{{ letter() }}</span>
+      {{ 'Turntable {deck}' | t: { deck: letter() } }}
+    </h3>
+    <span class="pr-chip signal" [class]="vinyl()?.signal ?? 'none'">
+      <span class="pr-sig"></span>
+      {{ signalText() }}
+    </span>
+  </header>
 
-  <canvas #scope class="scope" [width]="size" [height]="size"></canvas>
-
-  <div class="readings">
-    <div>
-      <span class="pr-label">{{ 'Signal' | t }}</span>
-      <span class="value" [class]="vinyl()?.signal ?? 'none'">{{ signalText() }}</span>
-    </div>
-    <div>
-      <span class="pr-label">{{ 'Level' | t }}</span>
-      <div class="bar"><div [style.width.%]="levelPercent()"></div></div>
-    </div>
-    <div>
-      <span class="pr-label">{{ 'Speed' | t }}</span>
-      <span class="value pr-num">{{ speed() }}</span>
-    </div>
-    <div>
-      <span class="pr-label">{{ 'Record' | t }}</span>
-      <span class="value pr-num">{{ position() }}</span>
+  <div class="signal-view">
+    <canvas #scope class="scope" [width]="size" [height]="size"></canvas>
+    <div class="readings">
+      <div>
+        <span class="pr-label">{{ 'Level' | t }}</span>
+        <div class="bar"><div [style.width.%]="levelPercent()"></div></div>
+      </div>
+      <div>
+        <span class="pr-label">{{ 'Speed' | t }}</span>
+        <span class="value pr-num">{{ speed() }}</span>
+      </div>
+      <div>
+        <span class="pr-label">{{ 'Record' | t }}</span>
+        <span class="value pr-num">{{ position() }}</span>
+      </div>
     </div>
   </div>
 
-  @if (vinyl()?.crossed) {
-    <div class="crossed">
-      <span>{{
-        'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.'
-          | t
-      }}</span>
-      <button class="pr-btn pr-btn--sm" (click)="setSwap(!settings().swapChannels)">
-        {{ 'Swap left / right' | t }}
-      </button>
-    </div>
-  }
-
-  <div class="controls">
+  <section class="group">
+    <h4 class="pr-label">{{ 'The record' | t }}</h4>
     @if (layeredOn() !== null) {
       <div class="line">
-        <span class="pr-label">{{ 'Timecode' | t }}</span>
+        <span>{{ 'Timecode' | t }}</span>
         <span class="shared">{{ 'That of turntable {deck}' | t: { deck: layeredLetter() } }}</span>
       </div>
     } @else {
-      <label class="pr-field">
-        <span class="pr-label">{{ 'Timecode' | t }}</span>
+      <label class="line">
+        <span>{{ 'Timecode' | t }}</span>
         <select
           class="pr-select"
           (change)="setRecord($any($event.target).value)"
@@ -69,7 +61,7 @@
       @if (current(); as record) {
         @if (record.sides.length > 1) {
           <div class="line">
-            <span class="pr-label">{{ 'Side' | t }}</span>
+            <span>{{ 'Side' | t }}</span>
             <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Side' | t">
               @for (side of record.sides; track side.id) {
                 <button
@@ -86,15 +78,53 @@
       }
     }
     <div class="line">
-      <label class="pr-check">
-        <input
-          type="checkbox"
-          [checked]="settings().vinylEnabled"
-          (change)="setEnabled($any($event.target).checked)"
-        />
-        {{ 'Vinyl control' | t }}
-      </label>
-      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Vinyl control' | t">
+      <span>{{ 'Record speed' | t }}</span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Record speed' | t">
+        <button role="radio" [attr.aria-checked]="settings().rpm === '33'" (click)="setRpm('33')">
+          33
+        </button>
+        <button
+          role="radio"
+          [attr.aria-checked]="settings().rpm === '45'"
+          (click)="setRpm('45')"
+          [title]="'The track spreads over more of the record: about 7 minutes a side' | t"
+        >
+          45
+        </button>
+      </div>
+    </div>
+    <label class="line">
+      <span>{{ 'Lead-in (s)' | t }}</span>
+      <input
+        class="pr-input"
+        type="number"
+        min="0"
+        step="0.5"
+        [value]="settings().leadInS ?? ''"
+        [placeholder]="recordLeadIn()"
+        (change)="setLeadIn($event)"
+        [title]="'Where the track starts on the record' | t"
+      />
+    </label>
+  </section>
+
+  <section class="group">
+    <h4 class="pr-label">{{ 'Driving the deck' | t }}</h4>
+    <div class="line">
+      <span>{{ 'Vinyl control' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="settings().vinylEnabled"
+        [attr.aria-label]="'Vinyl control' | t"
+        (click)="setEnabled(!settings().vinylEnabled)"
+      >
+        <span></span>
+      </button>
+    </div>
+    <div class="line">
+      <span>{{ 'Mode' | t }}</span>
+      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Mode' | t">
         <button
           role="radio"
           [attr.aria-checked]="settings().vinylMode === 'relative'"
@@ -114,41 +144,24 @@
       </div>
     </div>
     <div class="line">
-      <span class="pr-label">{{ 'Record speed' | t }}</span>
-      <div class="pr-seg" role="radiogroup" [attr.aria-label]="'Record speed' | t">
-        <button role="radio" [attr.aria-checked]="settings().rpm === '33'" (click)="setRpm('33')">
-          33
-        </button>
-        <button
-          role="radio"
-          [attr.aria-checked]="settings().rpm === '45'"
-          (click)="setRpm('45')"
-          [title]="'The track spreads over more of the record: about 7 minutes a side' | t"
-        >
-          45
-        </button>
-      </div>
+      <span>{{ 'Swap left / right' | t }}</span>
+      <button
+        class="pr-switch"
+        role="switch"
+        [attr.aria-checked]="settings().swapChannels"
+        [attr.aria-label]="'Swap left / right' | t"
+        (click)="setSwap(!settings().swapChannels)"
+      >
+        <span></span>
+      </button>
     </div>
-    <label class="pr-field">
-      <span class="pr-label">{{ 'Lead-in (s)' | t }}</span>
-      <input
-        class="pr-input"
-        type="number"
-        min="0"
-        step="0.5"
-        [value]="settings().leadInS ?? ''"
-        [placeholder]="recordLeadIn()"
-        (change)="setLeadIn($event)"
-        [title]="'Where the track starts on the record' | t"
-      />
-    </label>
-    <label class="pr-check">
-      <input
-        type="checkbox"
-        [checked]="settings().swapChannels"
-        (change)="setSwap($any($event.target).checked)"
-      />
-      {{ 'Swap left / right' | t }}
-    </label>
-  </div>
+    @if (vinyl()?.crossed) {
+      <p class="crossed">
+        {{
+          'The record has been playing backwards for a while: if the platter turns forwards, the left and right cables are crossed.'
+            | t
+        }}
+      </p>
+    }
+  </section>
 </div>

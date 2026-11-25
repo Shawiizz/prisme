@@ -116,11 +116,28 @@
   width: 320px;
   max-width: 100%;
 }
+// the settings of a page by kind, each kind named over its card
+.category {
+  margin: var(--pr-space-3) 0 0;
+  &:first-child {
+    margin-top: 0;
+  }
+}
+// a card none of whose settings the search finds
+.pr-card:not(:has(> :not([hidden]))) {
+  display: none;
+}
+// one turntable under the other, each the whole width
 .turntables {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--pr-space-5);
-  padding: var(--pr-space-5);
+  grid-template-columns: minmax(0, 1fr);
+  padding: 0 var(--pr-space-5);
+  app-turntable-panel {
+    padding: var(--pr-space-4) 0;
+    & + app-turntable-panel {
+      border-top: 1px solid var(--pr-line);
+    }
+  }
 }
 .loading {
   margin: 0;
