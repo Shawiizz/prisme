@@ -125,19 +125,16 @@ fn analyze_signal(
 ) -> TrackAnalysis {
     let envelopes = onset::onset_envelopes(signal);
     let tempo = tempo::estimate_tempo(&envelopes, options.min_bpm).map(|onsets| {
-        // every other excerpt first, the others if the bars are not clear in them
-        let (first, then): (Vec<&Excerpt>, Vec<&Excerpt>) = if excerpts.len() > 1 {
-            (excerpts.iter().skip(1).step_by(2).collect(), excerpts.iter().step_by(2).collect())
-        } else {
-            (excerpts.iter().collect(), Vec::new())
-        };
+        let (first, then) = where_the_kick_plays(excerpts, &envelopes);
         let mut heard = beat_model::hear(&first, options.network_threads);
         let fitted = grid::fit_grid(signal, onsets);
+        let on_onsets = grid::on_click(signal, fitted);
         let fitted = heard_beats(onsets, &heard)
             .map(|phase_s| grid::fit_grid(signal, Tempo { first_beat_s: phase_s, ..onsets }))
             .filter(|heard| kicks(signal, heard) as f64 >= KICKS_KEPT * kicks(signal, &fitted) as f64)
-            .unwrap_or(fitted);
-        let fitted = grid::on_click(signal, fitted);
+            .map(|heard| grid::on_click(signal, heard))
+            .filter(|heard| another_pulse(heard, &on_onsets))
+            .unwrap_or(on_onsets);
         if beat_model::bar_start(&heard, fitted.bpm, fitted.first_beat_s).is_none() {
             heard.extend(beat_model::hear(&then, options.network_threads));
         }
@@ -156,14 +153,45 @@ fn analyze_signal(
     TrackAnalysis { tempo, key: key::estimate_key(signal) }
 }
 
+/// Excerpts the network hears first: one tells where the beats are, the bars take three...
+const HEARD_FIRST: usize = 3;
+/// ...and as many more if they are not clear in them.
+const HEARD_THEN: usize = 3;
+
+/// The excerpts the network hears, first and then: those where the bass strikes most, where the
+/// kick plays, not a breakdown or an intro that has nothing to tell of the beat.
+fn where_the_kick_plays<'a>(
+    excerpts: &'a [Excerpt],
+    envelopes: &onset::OnsetEnvelopes,
+) -> (Vec<&'a Excerpt>, Vec<&'a Excerpt>) {
+    let mut most: Vec<(f32, &Excerpt)> =
+        excerpts.iter().map(|e| (envelopes.low_between(e.start_s, e.end_s()), e)).collect();
+    most.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let mut most = most.into_iter().map(|(_, excerpt)| excerpt);
+    let first = most.by_ref().take(HEARD_FIRST).collect();
+    (first, most.take(HEARD_THEN).collect())
+}
+
 /// The onsets' grid is moved onto the beats the network hears where it hears beats there this
-/// many times more surely than around the onsets' (within [`AROUND_ONSETS`] of a beat).
+/// many times more surely than around the onsets' (within [`AROUND_ONSETS`] of a beat)...
 const HEARD_BETTER: f32 = 2.0;
 const AROUND_ONSETS: f64 = 0.15;
 /// ...and where that grid sits on this share of the kicks the onsets' grid sits on, at least:
 /// a kick without an attack (a sub) may go unheard by the network, not by the signal. Not
 /// more: the notes of a bass line on the off-beats pass for kicks on the onsets' grid.
 const KICKS_KEPT: f64 = 0.5;
+
+/// ...and where the two, each put on its kicks, are this far apart (beats): nearer, they are
+/// one pulse, which the network hears a little late (the swell of a kick without an attack)
+/// and the signal places better.
+const ANOTHER_PULSE: f64 = 0.25;
+
+/// Whether two grids of a tempo are on different pulses, not one placed a little apart.
+fn another_pulse(grid: &Tempo, other: &Tempo) -> bool {
+    let period = grid.beat_period_s();
+    let apart = (grid.first_beat_s - other.first_beat_s).rem_euclid(period);
+    apart.min(period - apart) > ANOTHER_PULSE * period
+}
 
 /// Where the network hears the beats of the onsets' grid, if it hears none around them: the
 /// onsets of a bass line on the off-beats outweighed the kicks'.
@@ -201,4 +229,23 @@ fn first_bar(grid: Tempo, downbeat_s: f64, music_start_s: f64) -> Tempo {
     let bar = f64::from(BEATS_PER_BAR) * period;
     let bars = ((music_start_s - period / 2.0 - downbeat_s) / bar).ceil();
     Tempo { first_beat_s: downbeat_s + bars * bar, ..grid }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_network_hears_the_excerpts_where_the_kick_plays() {
+        // ten frames a second; the bass strikes from 100 s to 200 s
+        let low = (0..3000).map(|frame| if (1000..2000).contains(&frame) { 1.0 } else { 0.0 }).collect();
+        let envelopes = onset::OnsetEnvelopes { full: vec![0.0; 3000], low, frame_rate: 10.0, start_s: 0.0 };
+        let excerpts: Vec<Excerpt> = (0..10)
+            .map(|i| Excerpt { start_s: 30.0 * f64::from(i), sample_rate: 10, samples: vec![0.0; 150] })
+            .collect();
+        let (first, then) = where_the_kick_plays(&excerpts, &envelopes);
+        let starts = |excerpts: &[&Excerpt]| excerpts.iter().map(|e| e.start_s).collect::<Vec<_>>();
+        assert_eq!(starts(&first), [120.0, 150.0, 180.0]);
+        assert_eq!(starts(&then)[0], 90.0, "the one it plays in part of");
+    }
 }

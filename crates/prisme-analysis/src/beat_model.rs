@@ -19,9 +19,9 @@ const FRAME_RATE: f64 = 50.0;
 /// the beats and the bars of real tracks as well, six times sooner (its work grows much faster
 /// than the length heard).
 pub const EXCERPT_S: f64 = 15.0;
-/// Excerpts taken, spread over the track: every other one heard first, the others where the
-/// bars are not clear in them.
-const EXCERPTS: usize = 6;
+/// Excerpts taken, spread over the track, at most: the network hears those where the kick
+/// plays most (see [`crate::analyze`]), not a breakdown that happens to be there.
+const EXCERPTS: usize = 12;
 /// Where the beats are looked for on a grid, in steps of this (seconds).
 const PHASE_STEP_S: f64 = 0.002;
 /// A grid on which the network hears beats less than this, on average, holds none it hears.
@@ -38,12 +38,22 @@ pub struct Excerpt {
     pub samples: Vec<f32>,
 }
 
+impl Excerpt {
+    pub fn end_s(&self) -> f64 {
+        self.start_s + self.samples.len() as f64 / f64::from(self.sample_rate)
+    }
+}
+
 /// Where the excerpts are taken in a track of `duration_s` seconds, if known: evenly through
-/// the track, past its intro and before its outro; one excerpt in a short track.
+/// the track, past its intro and before its outro, as many as fit side by side; one excerpt in
+/// a short track.
 pub fn excerpt_starts(duration_s: Option<f64>) -> Vec<f64> {
     match duration_s {
         Some(d) if d <= 3.0 * EXCERPT_S => vec![0.0],
-        Some(d) => (1..=EXCERPTS).map(|i| d * i as f64 / (EXCERPTS + 1) as f64 - EXCERPT_S / 2.0).collect(),
+        Some(d) => {
+            let count = EXCERPTS.min((d / EXCERPT_S) as usize - 1);
+            (1..=count).map(|i| d * i as f64 / (count + 1) as f64 - EXCERPT_S / 2.0).collect()
+        }
         // a stream that does not tell its length: its first minutes, past a short intro
         None => (0..EXCERPTS).map(|i| EXCERPT_S * (1.0 + i as f64)).collect(),
     }
@@ -302,16 +312,18 @@ mod tests {
     #[test]
     fn the_excerpts_are_taken_where_they_are_asked() {
         assert_eq!(excerpt_starts(Some(2.0 * EXCERPT_S)), vec![0.0]);
+        assert_eq!(excerpt_starts(Some(4.0 * EXCERPT_S)).len(), 3, "as many as fit side by side");
         let starts = excerpt_starts(Some(420.0));
-        assert_eq!(starts.len(), 6);
-        assert_eq!((starts[0], starts[5]), (60.0 - EXCERPT_S / 2.0, 360.0 - EXCERPT_S / 2.0));
+        assert_eq!(starts.len(), EXCERPTS);
+        let apart = 420.0 / (EXCERPTS + 1) as f64;
+        assert_eq!((starts[0], starts[1]), (apart - EXCERPT_S / 2.0, 2.0 * apart - EXCERPT_S / 2.0));
         let mut taker = ExcerptTaker::new(100, Some(420.0));
         let second: Vec<f32> = (0..200).map(|i| (i / 2) as f32).collect();
         for _ in 0..420 {
             taker.push(&second);
         }
         let excerpts = taker.finish();
-        assert_eq!(excerpts.len(), 6);
+        assert_eq!(excerpts.len(), EXCERPTS);
         assert_eq!(excerpts[0].samples.len(), (EXCERPT_S * 100.0) as usize);
         let frame = (starts[1] * 100.0) as usize % 100;
         assert_eq!(excerpts[1].samples[0], frame as f32, "that frame of its second");

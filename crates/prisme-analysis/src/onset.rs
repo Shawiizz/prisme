@@ -42,6 +42,13 @@ impl OnsetEnvelopes {
         self.start_s + i / self.frame_rate
     }
 
+    /// How much the bass strikes between two instants (seconds): the mean of its onsets there.
+    pub fn low_between(&self, from_s: f64, to_s: f64) -> f32 {
+        let frame = |s: f64| (((s - self.start_s) * self.frame_rate).max(0.0) as usize).min(self.low.len());
+        let low = &self.low[frame(from_s)..frame(to_s).max(frame(from_s))];
+        low.iter().sum::<f32>() / low.len().max(1) as f32
+    }
+
     /// When the music starts: its first onset of some strength (seconds).
     pub fn first_onset_s(&self) -> f64 {
         let mut sorted = self.full.clone();
