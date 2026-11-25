@@ -75,6 +75,31 @@ describe('DeckWaveform', () => {
     expect(hands.every((h) => h.startsWith('0 seek'))).toBe(true);
   });
 
+  it('slides the edge of the jog, but not on a deck SYNC locks to the leader', async () => {
+    Element.prototype.setPointerCapture = () => undefined;
+    const { fixture } = await shown();
+    const engine = TestBed.inject(EngineService);
+    const jog = vi.spyOn(engine, 'jog').mockImplementation(async () => true);
+    const zoom = (fixture.nativeElement as HTMLElement).querySelector('.zoom')!;
+    const slide = () => {
+      zoom.dispatchEvent(
+        new PointerEvent('pointerdown', { pointerId: 1, button: 0, clientX: 100 }),
+      );
+      zoom.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 140 }));
+      zoom.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, clientX: 140 }));
+    };
+    const synced = (state: string) =>
+      engine.status.set({
+        decks: [0, 1].map(() => ({ canMove: true, sync: { state } })),
+      } as unknown as EngineStatus);
+    synced('locked');
+    slide();
+    expect(jog).not.toHaveBeenCalled();
+    synced('off');
+    slide();
+    expect(jog).toHaveBeenCalled();
+  });
+
   it('takes the hand off the record when it goes, a press still held', async () => {
     const { fixture, hands } = await pressed();
     fixture.destroy();

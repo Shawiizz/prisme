@@ -65,8 +65,8 @@ interface Drag {
  * Scrolling waveform around the playhead plus an overview of the whole track. Drawn on
  * every animation frame from the extrapolated position, outside change detection.
  * On the scrolling view only a slide acts, never a press that stays still: slid at once, it
- * nudges the track as the edge of a jog; held still a moment and then slid, it moves the track
- * like a record. A press on the overview jumps there and moves the track like a record at
+ * nudges the track as the edge of a jog (not while SYNC locks it); held still a moment and then
+ * slid, it moves the track like a record. A press on the overview jumps there and moves the track like a record at
  * once: the deck plays through the hand's motion, as a record scratched (the engine jumps after
  * a hand too fast to play, as along the overview of a whole track).
  */
@@ -211,6 +211,9 @@ export class DeckWaveform {
       this.stopHolding();
       drag.touch = 'edge';
     }
+    // locked to the leader, a nudge would only be pulled back into phase
+    if (drag.touch === 'edge' && this.engine.deckStatus(this.deck())?.sync.state === 'locked')
+      return;
     if (drag.touch === 'edge') {
       this.turnEdge(drag, event);
       return;
