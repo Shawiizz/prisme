@@ -1,5 +1,6 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { EngineService } from './engine.service';
 import { ExportService, ListRef } from './export.service';
@@ -108,12 +109,19 @@ export class LibraryService {
   });
   /** The folder being browsed, if any. */
   readonly currentFolder = computed(() => this.view()?.folder ?? null, { equal: same });
+  /** The folders whose folders or tracks changed on the disk, as last told. */
+  readonly changedFolders = signal<readonly string[]>([]);
 
   constructor() {
     effect(() => {
       const view = this.engine.controls()?.library;
       if (view) untracked(() => this.take(view));
     });
+  }
+
+  /** Listens for the folders that change on the disk. */
+  async init(): Promise<void> {
+    await listen<string[]>('folders-changed', ({ payload }) => this.changedFolders.set(payload));
   }
 
   /** The crate `id`, if there is one. */

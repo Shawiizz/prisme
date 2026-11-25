@@ -28,7 +28,8 @@ function savedExpanded(): string[] {
 }
 
 /**
- * The music folders as trees: a folder opens on the folders in it, listed each time it opens.
+ * The music folders as trees: a folder opens on the folders in it, listed each time it opens
+ * and again when they change on the disk.
  * The folders on the way to the one browsed open with it; those opened stay open from one
  * start to the next. To be made where `inject` works.
  */
@@ -63,6 +64,12 @@ export class FolderTree {
       if (!folder?.root) return;
       const way = stepsFrom(folder.root, folder.path).slice(0, -1);
       untracked(() => this.expand(way.map((step) => step.path)));
+    });
+    effect(() => {
+      const changed = this.library.changedFolders();
+      untracked(() =>
+        changed.filter((path) => this.children().has(path)).forEach((path) => this.list(path)),
+      );
     });
     // opened last time, or on the way: listed once shown
     effect(() => {

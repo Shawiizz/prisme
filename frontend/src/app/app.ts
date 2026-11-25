@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { PreviewService } from './core/services/preview.service';
+import { LibraryService } from './core/services/library.service';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckLane } from './features/deck/deck-lane/deck-lane';
 import { PhaseStrip } from './features/deck/phase-strip/phase-strip';
@@ -60,6 +61,7 @@ const WHOLE_LANES_PX = 420;
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
   private readonly preview = inject(PreviewService);
+  private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
   /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
@@ -100,6 +102,7 @@ export class App implements OnInit {
       await this.engine.connect();
       await Promise.all([
         this.preview.init(),
+        this.library.init(),
         this.settings.init(),
         this.keyboard.start(),
         this.controllers.start(),

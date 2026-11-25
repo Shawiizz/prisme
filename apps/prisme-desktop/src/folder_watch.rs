@@ -1,5 +1,6 @@
-//! Watches the music folders. When audio files appear, change or go, the new and changed
-//! ones are analysed and the folder shown, if it is one of those changed, is listed again.
+//! Watches the music folders. When audio files or folders appear, change or go, the new and
+//! changed files are analysed, the folder shown, if it is one of those changed, is listed again,
+//! and the interface is told which changed (`folders-changed`), for its tree of folders.
 //! A file whose change the library already knows of (tags Prisme wrote) is left alone.
 
 use crate::library_service::LibraryService;
@@ -11,11 +12,14 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::Arc;
 use std::time::Duration;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// Changes are handled once the folder has been quiet this long: copying an album is a
 /// burst of events.
 const SETTLE: Duration = Duration::from_millis(1500);
+
+/// Tells the interface the folders whose listing changed.
+pub const FOLDERS_CHANGED_EVENT: &str = "folders-changed";
 
 /// Watches while it is alive.
 pub struct FolderWatch {
@@ -47,6 +51,8 @@ impl FolderWatch {
                     library.start();
                     let folders: Vec<PathBuf> = folders.into_iter().collect();
                     crate::actions::browse::files_changed(&app.state::<AppState>(), &library.db, &folders);
+                    let paths: Vec<String> = folders.iter().map(|f| f.display().to_string()).collect();
+                    let _ = app.emit(FOLDERS_CHANGED_EVENT, paths);
                 }
             })
             .expect("cannot start the folder watch thread");
