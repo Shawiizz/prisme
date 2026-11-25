@@ -93,10 +93,6 @@
   align-items: center;
   gap: 6px;
   white-space: nowrap;
-  .pr-chip {
-    height: 16px;
-    padding: 0 5px;
-  }
 }
 .value {
   font-size: 14px;
@@ -115,7 +111,9 @@
   border: 1px solid var(--pr-text-3);
   border-radius: var(--pr-radius-sm);
 }
-.key-lock {
+// the key and the badge beside it: one height, one lettering
+.key-lock,
+.line .pr-chip {
   height: 22px;
   padding: 0 7px;
   font: 600 var(--pr-size-label) / 1 var(--pr-font);
