@@ -293,6 +293,8 @@
   ></div>
   <app-track-menu
     class="pr-popover popover"
+    animate.enter="pr-pop-in"
+    animate.leave="pr-pop-out"
     [style.left.px]="menu.left"
     [style.right.px]="menu.right"
     [style.top.px]="menu.top"
@@ -311,6 +313,8 @@
   ></div>
   <div
     class="pr-popover popover columns"
+    animate.enter="pr-pop-in"
+    animate.leave="pr-pop-out"
     [style.left.px]="menu.left"
     [style.right.px]="menu.right"
     [style.top.px]="menu.top"
@@ -331,6 +335,8 @@
   <div class="pr-veil" (dismiss)="palette.set(null)"></div>
   <div
     class="pr-popover popover palette"
+    animate.enter="pr-pop-in"
+    animate.leave="pr-pop-out"
     [style.left.px]="p.left"
     [style.right.px]="p.right"
     [style.top.px]="p.top"

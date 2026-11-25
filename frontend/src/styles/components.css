@@ -830,7 +830,8 @@
 }
 /* every closing takes --pr-out: a block that closes waits for the last of its parts, and a
    part done sooner, its class taken off, would show again until then */
-.pr-fade-in {
+.pr-fade-in,
+.pr-backdrop {
   animation: pr-fade-in 180ms ease-out;
 }
 .pr-fade-out {
@@ -842,7 +843,8 @@
 .pr-rise-out {
   animation: pr-rise-out var(--pr-out) ease-in forwards;
 }
-.pr-pop-in {
+.pr-pop-in,
+.pr-dialog {
   animation: pr-pop-in 160ms ease-out;
 }
 .pr-pop-out {
@@ -856,6 +858,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .pr-fade-in,
+  .pr-backdrop,
+  .pr-dialog,
   .pr-fade-out,
   .pr-rise-in,
   .pr-rise-out,

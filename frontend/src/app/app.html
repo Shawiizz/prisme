@@ -41,13 +41,13 @@
   <!-- loaded when first opened -->
   @if (!PHONE && navigation.settings()) {
     @defer (on immediate) {
-      <app-settings-dialog />
+      <app-settings-dialog animate.leave="pr-fade-out" />
     }
   }
 
   @if (!PHONE && navigation.palette()) {
     @defer (on immediate) {
-      <app-command-palette />
+      <app-command-palette animate.leave="pr-fade-out" />
     }
   }
 

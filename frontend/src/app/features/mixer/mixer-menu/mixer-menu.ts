@@ -21,7 +21,11 @@ import { MixerControls } from '../mixer-controls/mixer-controls';
     </button>
     @if (open()) {
       <div class="pr-veil" (dismiss)="open.set(false)"></div>
-      <app-mixer-controls class="menu pr-popover" />
+      <app-mixer-controls
+        class="menu pr-popover"
+        animate.enter="pr-pop-in"
+        animate.leave="pr-pop-out"
+      />
     }
   `,
   styles: `

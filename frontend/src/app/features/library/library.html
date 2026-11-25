@@ -160,8 +160,8 @@
 </section>
 
 @if (importOpen()) {
-  <app-import-dialog (closed)="importOpen.set(false)" />
+  <app-import-dialog animate.leave="pr-fade-out" (closed)="importOpen.set(false)" />
 }
 @if (exportOpen()) {
-  <app-export-dialog (closed)="exportOpen.set(false)" />
+  <app-export-dialog animate.leave="pr-fade-out" (closed)="exportOpen.set(false)" />
 }

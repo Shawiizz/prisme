@@ -52,6 +52,8 @@ const MENU_GAP_PX = 6;
       ></div>
       <app-deck-options
         class="menu pr-popover"
+        animate.enter="pr-pop-in"
+        animate.leave="pr-pop-out"
         [style.left.px]="at.left"
         [style.right.px]="at.right"
         [style.top.px]="at.top"
