@@ -690,6 +690,17 @@ mod faders {
     }
 
     #[test]
+    fn the_software_mixer_s_knobs_turn_on_a_card_too_small_for_the_external_mixer_chosen() {
+        let bench = Bench::new();
+        bench.state.update_preferences(|p| p.mixer.mode = crate::dto::MixModeDto::External);
+        set(&bench, "deck1.trim", 0.9);
+        assert_eq!(lock(&bench.state.decks)[0].strip.trim, 1.0, "the external mixer's");
+        lock(&bench.state.session).as_mut().unwrap().info.output_channels = 2;
+        set(&bench, "deck1.trim", 0.9);
+        assert!(lock(&bench.state.decks)[0].strip.trim > 1.0, "the software mixer's, in its place");
+    }
+
+    #[test]
     fn an_eq_band_given_its_silent_end_stands_where_it_was_left() {
         let bench = Bench::new();
         set(&bench, "deck1.eq.low", 0.01);

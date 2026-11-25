@@ -3,7 +3,7 @@
 //! session's lock. A move of a control reads only the part it needs ([`Sees`]).
 
 use super::Performing;
-use crate::dto::{CrossfaderCurveDto, FxDto, MixModeDto};
+use crate::dto::{CrossfaderCurveDto, FxDto};
 use crate::preferences::{MixerPreferences, VinylSync};
 use crate::sampler::LoadedSample;
 use crate::state::{live_preferences, lock, AppState, DeckSettings, LiveSwitches, LoadedTrack};
@@ -48,7 +48,7 @@ pub fn view_with(
     let settings = state.decks_laid_out(layout);
     let tracks = lock(&state.tracks).each_ref().map(|t| t.as_ref().map(track_view));
     let samples = lock(&state.samplers).each_ref().map(loaded);
-    let mixer = mixer_view(&mixer, *lock(&state.live), *lock(&state.crossfader));
+    let mixer = mixer_view(&mixer, state.software_mixer(), *lock(&state.live), *lock(&state.crossfader));
     let preview_opening = lock(&state.preview).opening.is_some();
     let decks = std::array::from_fn(|d| deck_view(d, &settings[d], ranges[d], samples[d], tracks[d]));
     View {
@@ -89,7 +89,12 @@ impl Sees for Performing<'_> {
 
     fn mixer(&self) -> MixerView {
         let mixer = self.state.preferences.read(|p| p.mixer);
-        mixer_view(&mixer, *lock(&self.state.live), *lock(&self.state.crossfader))
+        mixer_view(
+            &mixer,
+            self.state.software_mixer(),
+            *lock(&self.state.live),
+            *lock(&self.state.crossfader),
+        )
     }
 
     fn faders(&self) -> Faders {
@@ -141,13 +146,18 @@ fn deck_view(
     }
 }
 
-fn mixer_view(mixer: &MixerPreferences, switches: [LiveSwitches; 2], crossfader: f32) -> MixerView {
+fn mixer_view(
+    mixer: &MixerPreferences,
+    internal: bool,
+    switches: [LiveSwitches; 2],
+    crossfader: f32,
+) -> MixerView {
     let live = |source: LiveSource| {
         let on = switches[source as usize];
         Live { level: live_preferences(mixer, source).level, on: on.on, cue: on.cue }
     };
     MixerView {
-        internal: mixer.mode == MixModeDto::Internal,
+        internal,
         crossfader,
         cue_mix: mixer.cue_mix,
         split_cue: mixer.split_cue,

@@ -976,6 +976,15 @@ impl AppState {
         info.is_some_and(|info| self.routing(&info).mode == MixMode::Internal)
     }
 
+    /// Whether the mixing is the software mixer's: on the running device (one too small for an
+    /// external mixer has it whatever was chosen), else as chosen.
+    pub fn software_mixer(&self) -> bool {
+        match self.running_info() {
+            Some(info) => self.routing(&info).mode == MixMode::Internal,
+            None => self.preferences.read(|p| p.mixer.mode) == MixModeDto::Internal,
+        }
+    }
+
     /// The routing for the running device (see [`routing_for`]).
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
         routing_for(self.preferences.read(|p| p.mixer), info)
