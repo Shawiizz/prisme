@@ -7,7 +7,7 @@
 
 use beat_this::{BeatThis, Model, Tensor};
 use rten_tensor::Layout;
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -15,8 +15,10 @@ static MEL_MODEL: &[u8] = include_bytes!("../models/mel_spectrogram.onnx");
 static BEAT_MODEL: &[u8] = include_bytes!("../models/beat_this_small.onnx");
 /// The network's frames a second.
 const FRAME_RATE: f64 = 50.0;
-/// Seconds of each excerpt heard: the length the network was trained on.
-pub const EXCERPT_S: f64 = 30.0;
+/// Seconds of each excerpt heard: half the length the network was trained on, where it hears
+/// the beats and the bars of real tracks as well, six times sooner (its work grows much faster
+/// than the length heard).
+pub const EXCERPT_S: f64 = 15.0;
 /// Excerpts taken, spread over the track: every other one heard first, the others where the
 /// bars are not clear in them.
 const EXCERPTS: usize = 6;
@@ -117,16 +119,29 @@ impl Heard {
 }
 
 thread_local! {
-    /// The thread each analysing thread's network runs on, one: the network's small operations
-    /// gain little from more, and tracks analysed side by side use the cores better.
-    static THREAD: Arc<rten::ThreadPool> = Arc::new(rten::ThreadPool::with_num_threads(1));
+    /// The threads each analysing thread's network runs on, and how many [`hear`] asks for: one
+    /// for the tracks of a library, analysed side by side, which uses the cores better; a few
+    /// for a track the DJ waits for.
+    static THREADS: RefCell<Option<(usize, Arc<rten::ThreadPool>)>> = const { RefCell::new(None) };
+    static THREADS_ASKED: Cell<usize> = const { Cell::new(1) };
 }
 
 /// The analysing thread's own, at the priority the analysis runs at now: the background while a
 /// deck plays, that of ordinary work otherwise (see [`crate::set_full_speed`]).
 fn threads() -> Arc<rten::ThreadPool> {
-    let pool = THREAD.with(Arc::clone);
-    pool.run(crate::analysis_priority);
+    let asked = THREADS_ASKED.get();
+    let pool = THREADS.with(|kept| {
+        let mut kept = kept.borrow_mut();
+        match kept.as_ref() {
+            Some((count, pool)) if *count == asked => pool.clone(),
+            _ => {
+                let pool = Arc::new(rten::ThreadPool::with_num_threads(asked));
+                *kept = Some((asked, pool.clone()));
+                pool
+            }
+        }
+    });
+    pool.run(|| rayon::broadcast(|_| crate::analysis_priority()));
     pool
 }
 
@@ -135,8 +150,9 @@ thread_local! {
     static NETWORK: RefCell<Option<BeatThis<Graph>>> = const { RefCell::new(None) };
 }
 
-/// What the network hears of `excerpts`: nothing if it cannot run.
-pub fn hear(excerpts: &[&Excerpt]) -> Vec<Heard> {
+/// What the network hears of `excerpts`, run on `threads` threads: nothing if it cannot run.
+pub fn hear(excerpts: &[&Excerpt], threads: usize) -> Vec<Heard> {
+    THREADS_ASKED.set(threads.max(1));
     NETWORK.with(|network| {
         let mut network = network.borrow_mut();
         if network.is_none() {
@@ -285,10 +301,10 @@ mod tests {
 
     #[test]
     fn the_excerpts_are_taken_where_they_are_asked() {
-        assert_eq!(excerpt_starts(Some(60.0)), vec![0.0]);
+        assert_eq!(excerpt_starts(Some(2.0 * EXCERPT_S)), vec![0.0]);
         let starts = excerpt_starts(Some(420.0));
         assert_eq!(starts.len(), 6);
-        assert_eq!((starts[0], starts[5]), (45.0, 345.0));
+        assert_eq!((starts[0], starts[5]), (60.0 - EXCERPT_S / 2.0, 360.0 - EXCERPT_S / 2.0));
         let mut taker = ExcerptTaker::new(100, Some(420.0));
         let second: Vec<f32> = (0..200).map(|i| (i / 2) as f32).collect();
         for _ in 0..420 {
@@ -296,8 +312,9 @@ mod tests {
         }
         let excerpts = taker.finish();
         assert_eq!(excerpts.len(), 6);
-        assert_eq!(excerpts[0].samples.len(), 3000);
-        assert_eq!(excerpts[1].samples[0], 0.0, "the first frame of its second");
+        assert_eq!(excerpts[0].samples.len(), (EXCERPT_S * 100.0) as usize);
+        let frame = (starts[1] * 100.0) as usize % 100;
+        assert_eq!(excerpts[1].samples[0], frame as f32, "that frame of its second");
     }
 
     #[test]
@@ -319,7 +336,7 @@ mod tests {
                 (0.9 * kick + 0.3 * clap + 0.12 * hat) as f32
             })
             .collect();
-        let heard = hear(&[&Excerpt { start_s: 0.0, sample_rate: rate, samples }]);
+        let heard = hear(&[&Excerpt { start_s: 0.0, sample_rate: rate, samples }], 1);
         assert_eq!(heard.len(), 1);
         let phase = beat_phase(&heard, 125.0).expect("beats heard");
         let off = (phase / period).rem_euclid(1.0);

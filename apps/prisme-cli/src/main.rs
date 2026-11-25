@@ -228,9 +228,11 @@ fn main() -> Result<()> {
                 .with_context(|| format!("unknown timecode format {format}"))?;
             timecode::run(&file, format, swap, every_ms)
         }
-        Cmd::Analyze { paths, min_bpm, csv } => {
-            analyze::run(&paths, prisme_analysis::AnalysisOptions { min_bpm }, csv.as_deref())
-        }
+        Cmd::Analyze { paths, min_bpm, csv } => analyze::run(
+            &paths,
+            prisme_analysis::AnalysisOptions { min_bpm, ..Default::default() },
+            csv.as_deref(),
+        ),
     }
 }
 

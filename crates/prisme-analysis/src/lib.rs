@@ -45,12 +45,21 @@ pub const ANALYSIS_VERSION: u32 = 7;
 pub struct AnalysisOptions {
     /// The BPM is reported in `[min_bpm, 2 * min_bpm)`.
     pub min_bpm: f64,
+    /// The threads the neural network runs on: one for the tracks of a library, analysed side
+    /// by side; [`awaited_threads`] for a track the DJ waits for.
+    pub network_threads: usize,
 }
 
 impl Default for AnalysisOptions {
     fn default() -> Self {
-        Self { min_bpm: DEFAULT_MIN_BPM }
+        Self { min_bpm: DEFAULT_MIN_BPM, network_threads: 1 }
     }
+}
+
+/// The threads the neural network runs on for a track analysed alone, the DJ waiting for it:
+/// half the cores, four at most (more gain it little).
+pub fn awaited_threads() -> usize {
+    std::thread::available_parallelism().map_or(1, |cores| (cores.get() / 2).clamp(1, 4))
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -122,7 +131,7 @@ fn analyze_signal(
         } else {
             (excerpts.iter().collect(), Vec::new())
         };
-        let mut heard = beat_model::hear(&first);
+        let mut heard = beat_model::hear(&first, options.network_threads);
         let fitted = grid::fit_grid(signal, onsets);
         let fitted = heard_beats(onsets, &heard)
             .map(|phase_s| grid::fit_grid(signal, Tempo { first_beat_s: phase_s, ..onsets }))
@@ -130,7 +139,7 @@ fn analyze_signal(
             .unwrap_or(fitted);
         let fitted = grid::on_click(signal, fitted);
         if beat_model::bar_start(&heard, fitted.bpm, fitted.first_beat_s).is_none() {
-            heard.extend(beat_model::hear(&then));
+            heard.extend(beat_model::hear(&then, options.network_threads));
         }
         // the first kick, else the first sound: an intro's first notes or a riser before the
         // first bar may come a beat or two early

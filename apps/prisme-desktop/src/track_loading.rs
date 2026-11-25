@@ -186,7 +186,9 @@ impl Completion {
             let _ = state.send_if_running(Command::SetLevel { deck, gain });
         }
         if self.analysis_missing {
-            let analysis = prisme_analysis::analyze(&audio, &AnalysisOptions::default());
+            let options =
+                AnalysisOptions { network_threads: prisme_analysis::awaited_threads(), ..Default::default() };
+            let analysis = prisme_analysis::analyze(&audio, &options);
             let metadata = prisme_library::read_metadata(&self.path);
             if let Some(stamp) = stamp {
                 let analyzed =

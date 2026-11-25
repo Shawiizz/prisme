@@ -6,7 +6,9 @@ use common::Synth;
 use prisme_analysis::{analyze, AnalysisOptions, Tempo};
 
 fn tempo_of(synth: &Synth, min_bpm: f64) -> Tempo {
-    analyze(&synth.track(), &AnalysisOptions { min_bpm }).tempo.expect("a tempo")
+    analyze(&synth.track(), &AnalysisOptions { min_bpm, ..AnalysisOptions::default() })
+        .tempo
+        .expect("a tempo")
 }
 
 /// Distance between two grid phases (seconds), modulo the beat period.
