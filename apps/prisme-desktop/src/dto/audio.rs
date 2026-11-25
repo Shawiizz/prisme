@@ -324,13 +324,15 @@ pub struct CardAskedDto {
 impl AudioStateDto {
     pub fn of(state: &AppState) -> Self {
         let settings = state.preferences.read(|p| p.audio.clone());
+        let busy = lock(&state.busy_output).clone();
         let info = lock(&state.session).as_ref().map(|s| {
-            let missing = (!s.settings.same_devices(&settings))
+            // a default output held by another application is there, not missing
+            let missing = (busy.is_none() && !s.settings.same_devices(&settings))
                 .then(|| settings.output_device.clone().unwrap_or_default());
             AudioInfo { missing, ..s.info.clone() }.into()
         });
         let asked = usb_asks::asked().map(|a| CardAskedDto { card: a.card, refused: a.refused });
-        Self { settings, info, asked, busy: lock(&state.busy_output).clone() }
+        Self { settings, info, asked, busy }
     }
 }
 

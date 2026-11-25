@@ -910,6 +910,7 @@
   "Sound card not found": "Carte son introuvable",
   "The sound card chosen is missing: the sound plays on {device} until it is back": "La carte son choisie est absente : le son passe par {device} jusqu’à son retour",
   "{device} busy": "{device} occupé",
+  "{busy} is held by another application (an audio mixer such as VoiceMeeter): the sound plays on {device}": "{busy} est pris par une autre application (un mixeur audio comme VoiceMeeter) : le son sort sur {device}",
   "{device} is held by another application (an audio mixer such as VoiceMeeter): choose another output in the settings": "{device} est pris par une autre application (un mixeur audio comme VoiceMeeter) : choisissez une autre sortie dans les réglages",
   "Set {date}": "Set {date}",
   "Export as a playlist (M3U)": "Exporter en playlist (M3U)",

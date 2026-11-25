@@ -32,6 +32,17 @@
                 : ('Sound card not found' | t)
             }}</span>
           </span>
+        } @else if (engine.told().audio.busy; as busy) {
+          <span
+            class="pr-chip pr-chip--warn device"
+            [title]="
+              '{busy} is held by another application (an audio mixer such as VoiceMeeter): the sound plays on {device}'
+                | t: { busy: busy, device: info.device }
+            "
+          >
+            <span class="pr-sig pr-sig--weak"></span>
+            <span class="pr-chip__text">{{ '{device} busy' | t: { device: busy } }}</span>
+          </span>
         } @else {
           <span class="pr-chip device" [title]="info.device">
             <span class="pr-sig pr-sig--ok"></span>
