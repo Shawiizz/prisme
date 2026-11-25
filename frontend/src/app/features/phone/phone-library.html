@@ -203,7 +203,7 @@
   </div>
 }
 @if (importing()) {
-  <app-import-dialog (closed)="importing.set(false)" />
+  <app-import-dialog animate.leave="pr-fade-out" (closed)="importing.set(false)" />
 }
 @if (pickingFolder()) {
   <app-phone-folder-picker (closed)="pickingFolder.set(false)" />

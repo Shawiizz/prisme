@@ -860,6 +860,7 @@
   .pr-fade-in,
   .pr-backdrop,
   .pr-dialog,
+  .phone .pr-dialog,
   .pr-fade-out,
   .pr-rise-in,
   .pr-rise-out,
@@ -929,11 +930,15 @@
 .phone .pr-backdrop {
   place-items: end stretch;
 }
-.phone .pr-dialog {
+/* over the width a dialog gives itself for a desktop */
+.phone .pr-dialog.pr-dialog {
   width: 100%;
+}
+.phone .pr-dialog {
   max-height: 92%;
   border-width: 1px 0 0;
   border-radius: 12px 12px 0 0;
+  animation: pr-rise-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .phone .pr-dialog__head,
 .phone .pr-dialog__body {
