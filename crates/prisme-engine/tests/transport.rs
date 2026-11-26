@@ -237,11 +237,23 @@ fn beat_jumps_move_by_whole_beats_and_take_the_loop_along() {
 }
 
 #[test]
-fn a_quantized_jump_keeps_the_beat_phase() {
+fn a_cue_played_with_quantize_starts_on_the_next_beat_each_time() {
+    // 120 BPM from 0: at 10.11 s, the next beat is at 10.5 s
     let mut rig = playing_deck(10.1);
     rig.send(Command::Jump { deck: 0, seconds: 30.0 });
+    rig.run(0.2);
+    assert_close(rig.deck(0).position_s, 10.31, 0.01);
+    rig.run(0.3);
+    assert_close(rig.deck(0).position_s, 30.11, 0.01);
+
+    // played again: from its start again, on the next beat
+    rig.send(Command::Jump { deck: 0, seconds: 30.0 });
+    rig.run(0.4);
+    assert_close(rig.deck(0).position_s, 30.01, 0.01);
+    // just after a beat: at once
+    rig.send(Command::Jump { deck: 0, seconds: 30.0 });
     rig.run(0.01);
-    assert_close(rig.deck(0).position_s, 30.12, 0.01);
+    assert_close(rig.deck(0).position_s, 30.02, 0.01);
 
     rig.send(Command::SetQuantize { enabled: false });
     rig.send(Command::Jump { deck: 0, seconds: 30.0 });

@@ -2,7 +2,7 @@
 //!
 //! A record in absolute mode decides where the track is, so none of this applies to it.
 
-use super::{Deck, DriveMode};
+use super::{Deck, DriveMode, QueuedJump};
 use crate::grid::BeatGrid;
 use crate::looping::LoopRegion;
 
@@ -48,6 +48,9 @@ pub(crate) struct Place {
     loop_active: bool,
 }
 
+/// A cue played this soon after a beat starts at once, as late as the beat was.
+const JUST_PLAYED_S: f64 = 0.03;
+
 impl Deck {
     /// Its place; during a roll or a censor, the one it comes back to, out of the roll's loop.
     pub(crate) fn place(&self) -> Place {
@@ -79,6 +82,7 @@ impl Deck {
         self.playhead.set_loop(None);
         self.jog = Default::default();
         self.push = Default::default();
+        self.queued_jump = None;
         self.motor = Default::default();
         self.hand = None;
         self.jog_hand = None;
@@ -233,16 +237,26 @@ impl Deck {
     }
 
     /// Jumps to `target_s`; while playing with quantize on, keeps the beat phase.
+    /// The track to `target_s` (a cue); playing on a grid with quantize on, the cue starts on a
+    /// beat, as Serato plays it: on the next beat, or at once a beat just played, each press
+    /// starting it again.
     pub(crate) fn jump(&mut self, target_s: f64, quantize: bool) {
         if !self.controls_position() {
             return;
         }
+        self.queued_jump = None;
         let position = self.playhead.position_s();
-        let landing = match &self.grid {
-            Some(grid) if quantize && self.is_moving() => grid.phase_preserving_target(position, target_s),
-            _ => target_s,
+        let Some(grid) = self.grid.as_ref().filter(|_| quantize && self.is_moving()) else {
+            self.playhead.seek_s(target_s);
+            return;
         };
-        self.playhead.seek_s(landing);
+        let beat = grid.beats_at(position).floor();
+        let since = position - grid.time_of(beat);
+        if since <= JUST_PLAYED_S {
+            self.playhead.seek_s(target_s + since);
+        } else {
+            self.queued_jump = Some(QueuedJump { target_s, beat_s: grid.time_of(beat + 1.0) });
+        }
     }
 
     pub(crate) fn set_slip(&mut self, enabled: bool) {

@@ -55,6 +55,13 @@ const MOTION_FADE_S: f32 = 0.005;
 /// The crossfade between the track and the input passed through (s).
 const THROUGH_FADE_S: f32 = 0.01;
 
+/// A cue played with quantize on: the track goes to `target_s` as it reaches the beat at `beat_s`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct QueuedJump {
+    pub(crate) target_s: f64,
+    pub(crate) beat_s: f64,
+}
+
 pub(crate) struct Deck {
     pub(crate) playhead: Playhead,
     pub(crate) playing: bool,
@@ -63,6 +70,8 @@ pub(crate) struct Deck {
     pub(crate) bend: f64,
     /// Pushed faster or held back by a key, more and more while it is held.
     pub(crate) push: push::Push,
+    /// A cue played with quantize on, waiting for the next beat: where it goes, and that beat.
+    pub(crate) queued_jump: Option<QueuedJump>,
     pub(crate) vinyl: VinylControl,
     pub(crate) volume: f32,
     pub(crate) side: CrossfaderSide,
@@ -113,6 +122,7 @@ impl Deck {
             pitch: 1.0,
             bend: 0.0,
             push: push::Push::default(),
+            queued_jump: None,
             vinyl: VinylControl::new(decoder, sample_rate),
             volume: 1.0,
             side: CrossfaderSide::Center,
@@ -243,6 +253,7 @@ impl Deck {
         self.push.step(seconds);
         let ramp = by_motor && !self.motor.is_steady();
         let moved = if ramp { speed * self.motor.factor() } else { speed };
+        self.jump_on_the_beat(seconds * moved);
         if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * moved.max(0.0), self.next_bar_s()) {
             self.playhead.set_stem_mix(mix);
         }
@@ -662,6 +673,20 @@ impl Deck {
     }
 
     /// Whether the track advances at its tempo (gestures aside).
+    /// The cue waiting for the next beat played, if the beat comes within the `ahead_s` of track
+    /// the block plays: the beat lands on the cue as the block reaches it. Stopped, turned
+    /// back, or taken elsewhere meanwhile, the cue is let go.
+    fn jump_on_the_beat(&mut self, ahead_s: f64) {
+        let Some(jump) = self.queued_jump else { return };
+        let to_beat = jump.beat_s - self.playhead.position_s();
+        if !self.is_moving() || ahead_s <= 0.0 || to_beat < -ahead_s {
+            self.queued_jump = None;
+        } else if to_beat <= ahead_s {
+            self.playhead.seek_s(jump.target_s - to_beat);
+            self.queued_jump = None;
+        }
+    }
+
     fn is_moving(&self) -> bool {
         match self.drive_mode() {
             DriveMode::Internal => self.playing,
