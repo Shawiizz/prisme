@@ -3,7 +3,9 @@
   class="table"
   [style.--track-columns]="template()"
   [style.--track-columns-narrow]="narrowTemplate()"
+  [class.drawing]="marquee() !== null"
   (scroll)="scrolled()"
+  (pointerdown)="startMarquee($event)"
   (dragover)="listDragOver($event, null)"
   (drop)="listDrop($event, null)"
 >
@@ -253,6 +255,15 @@
   <div [style.height.px]="shown().after"></div>
   @if (library.count() === 0) {
     <div class="none">{{ emptyMessage() }}</div>
+  }
+  @if (marquee(); as m) {
+    <div
+      class="marquee"
+      [style.left.px]="m.x0 < m.x1 ? m.x0 : m.x1"
+      [style.top.px]="m.y0 < m.y1 ? m.y0 : m.y1"
+      [style.width.px]="m.x0 < m.x1 ? m.x1 - m.x0 : m.x0 - m.x1"
+      [style.height.px]="m.y0 < m.y1 ? m.y1 - m.y0 : m.y0 - m.y1"
+    ></div>
   }
 </div>
 

@@ -863,6 +863,11 @@ pub fn mix_reference(view: &View, reference: usize, path: Option<&Path>) -> MixR
 /// Picks the row of the track at `path` (played at `played_at_ms` in a set) as `pick` says. A
 /// right click or a drag on a row gone from the list meanwhile picks nothing, the selection let
 /// go: the menu or the drop acts on no other track.
+/// The rows shown from `from` to `to` picked: a frame drawn over them.
+pub fn select_span(state: &AppState, from: usize, to: usize) {
+    state.browse(|l| l.browser.select_span(from, to));
+}
+
 pub fn select(state: &AppState, path: &str, played_at_ms: Option<i64>, pick: Pick) {
     state.browse(|l| match l.browser.find(path, played_at_ms) {
         Some(entry) => l.browser.select(entry, pick),

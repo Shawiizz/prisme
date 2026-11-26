@@ -52,6 +52,21 @@ impl Browser {
         self.changed();
     }
 
+    /// The rows shown from `from` to `to` picked, as a frame drawn over them takes them: the
+    /// cursor on `to`, a Shift click going on from `from`. Held to the rows there are.
+    pub fn select_span(&mut self, from: usize, to: usize) {
+        let Some(last) = self.shown.len().checked_sub(1) else { return };
+        let (from, to) = (from.min(last), to.min(last));
+        let rows = self.rows();
+        let entry = |at: usize| rows[self.shown[at] as usize];
+        let picked = (from.min(to)..=from.max(to)).map(entry).collect();
+        let (anchor, cursor) = (entry(from), entry(to));
+        self.picked = picked;
+        self.anchor = Some(anchor);
+        self.set_cursor(Some(cursor));
+        self.changed();
+    }
+
     /// Every row shown picked.
     pub fn select_all(&mut self) {
         let rows = self.rows();

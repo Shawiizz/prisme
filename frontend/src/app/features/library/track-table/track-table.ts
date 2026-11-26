@@ -39,6 +39,17 @@ const OVERSCAN = 30;
 /** ...asked again only once the view comes this near the edge of those held: the rows are
  * not drawn again at each row scrolled. */
 const REFILL = 10;
+/** How far past an edge of the list the pointer drawing a frame scrolls it each frame, for
+ * each px past it. */
+const SCROLL_RATE = 0.3;
+
+/** A frame drawn over the rows, in the list's content (px): where it started and the pointer. */
+interface Marquee {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 
 /**
  * The tracks being browsed or found, as the backend lists them: only the rows in view are
@@ -116,6 +127,9 @@ export class TrackTable {
   protected readonly palette = signal<(Popover & { path: string }) | null>(null);
   /** The actions on the selection, opened on one of their panels. */
   protected readonly trackMenu = signal<(Popover & { panel: TrackMenuPanel }) | null>(null);
+  protected readonly marquee = signal<Marquee | null>(null);
+  /** The frame drawn let go. */
+  private endMarquee = () => {};
   /** Row a dragged track would be put before (`null`: the end of the list). */
   protected readonly insertBefore = signal<string | null>(null);
 
@@ -176,6 +190,7 @@ export class TrackTable {
     destroyRef.onDestroy(() => {
       cancelAnimationFrame(frame);
       cancelAnimationFrame(this.scrollRead);
+      this.endMarquee();
     });
     afterNextRender(() => {
       const table = this.table().nativeElement;
@@ -261,6 +276,68 @@ export class TrackTable {
   click(event: MouseEvent, row: LibraryRow) {
     const pick = event.shiftKey ? 'range' : event.ctrlKey || event.metaKey ? 'toggle' : 'only';
     this.library.select(row, pick);
+  }
+
+  /** A press in the empty space under the rows draws a frame, as on the desktop: the rows it
+   * covers are picked as it grows, the list scrolling when it goes past an edge. */
+  startMarquee(event: PointerEvent) {
+    const table = this.table().nativeElement;
+    const box = table.getBoundingClientRect();
+    const count = this.library.count();
+    const head = table.querySelector<HTMLElement>('.head')?.offsetHeight ?? 0;
+    const inContent = (x: number, y: number) => ({
+      x: Math.min(Math.max(x - box.left, 0), table.clientWidth),
+      y: Math.min(Math.max(y - box.top, head) + table.scrollTop, table.scrollHeight),
+    });
+    const start = inContent(event.clientX, event.clientY);
+    const under = start.y >= head + count * this.rowHeight;
+    if (
+      event.button !== 0 ||
+      count === 0 ||
+      !under ||
+      event.clientX >= box.left + table.clientWidth
+    )
+      return;
+    event.preventDefault();
+    this.endMarquee();
+    table.setPointerCapture(event.pointerId);
+    let pointer = { x: event.clientX, y: event.clientY };
+    let picked = '';
+    let frame = 0;
+    const follow = () => {
+      const past =
+        pointer.y < box.top + head
+          ? pointer.y - box.top - head
+          : Math.max(0, pointer.y - box.bottom);
+      if (past) table.scrollTop += past * SCROLL_RATE;
+      const end = inContent(pointer.x, pointer.y);
+      this.marquee.set({ x0: start.x, y0: start.y, x1: end.x, y1: end.y });
+      // the rows the frame covers, the one nearest where it started first
+      const row = (y: number) => Math.min(Math.floor((y - head) / this.rowHeight), count - 1);
+      const [from, to] = [row(start.y), row(end.y)];
+      const span = end.y < head + count * this.rowHeight ? `${from}:${to}` : '';
+      if (span !== picked) {
+        picked = span;
+        void (span ? this.library.selectSpan(from, to) : this.library.clearSelection());
+      }
+      frame = requestAnimationFrame(follow);
+    };
+    const gesture = new AbortController();
+    table.addEventListener(
+      'pointermove',
+      (move) => (pointer = { x: move.clientX, y: move.clientY }),
+      { signal: gesture.signal },
+    );
+    for (const end of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+      table.addEventListener(end, () => this.endMarquee(), { signal: gesture.signal });
+    }
+    this.endMarquee = () => {
+      gesture.abort();
+      cancelAnimationFrame(frame);
+      this.marquee.set(null);
+      this.endMarquee = () => {};
+    };
+    follow();
   }
 
   /** Right click: the actions on the selection, or on this track alone if it is not in it. */

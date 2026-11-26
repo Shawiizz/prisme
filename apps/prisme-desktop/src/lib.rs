@@ -438,6 +438,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::library::library_open,
         commands::library::library_scope,
         commands::library::library_select,
+        commands::library::library_select_span,
         commands::library::library_sort,
         commands::library::library_up,
         commands::library::library_viewport,

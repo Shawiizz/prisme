@@ -7,9 +7,21 @@
 // screen's rate (at half of it before, on a 144 Hz screen)
 .table {
   container: tracks / inline-size;
+  position: relative;
   height: 100%;
   overflow-y: auto;
   will-change: transform;
+  &.drawing {
+    user-select: none;
+  }
+}
+// a frame drawn from the empty space under the rows
+.marquee {
+  position: absolute;
+  z-index: var(--pr-z-sticky);
+  pointer-events: none;
+  background: var(--pr-light-veil);
+  border: 1px solid var(--pr-light);
 }
 .head,
 .row {

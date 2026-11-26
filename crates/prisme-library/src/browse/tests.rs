@@ -106,6 +106,25 @@ fn a_list_with_an_order_of_its_own_opens_in_it_and_numbers_its_rows() {
 }
 
 #[test]
+fn a_frame_drawn_over_rows_picks_them_and_a_shift_click_goes_on_from_where_it_started() {
+    let mut browser = folder();
+    browser.select_span(3, 1);
+    let picked = |browser: &Browser| {
+        let mut paths = browser.selected_paths();
+        paths.sort();
+        paths.iter().map(|p| p.trim_start_matches("C:/Music/").to_owned()).collect::<Vec<_>>()
+    };
+    // Alone (b), Café Noir (c), e, Strobe (a)
+    assert_eq!(picked(&browser), ["a.mp3", "c.mp3", "e.mp3"]);
+    assert_eq!(browser.cursor_index(), Some(1));
+    let alone = browser.find("C:/Music/b.mp3", None).unwrap();
+    browser.select(alone, Pick::Range);
+    assert_eq!(picked(&browser), ["a.mp3", "b.mp3", "c.mp3", "e.mp3"], "from the row it started on");
+    browser.select_span(9, 9);
+    assert_eq!(picked(&browser), ["a.mp3"], "held to the last row");
+}
+
+#[test]
 fn a_crate_filled_by_hand_opens_in_its_own_order_and_is_reordered_in_it() {
     let mut browser = folder();
     let rules = SmartRules { match_all: true, rules: vec![] };

@@ -174,6 +174,12 @@ export class LibraryService {
     return this.attempt(() => this.engine.ordered('library_select', { path, playedAtMs, pick }));
   }
 
+  /** Picks the rows listed from `from` to `to` (their places in the list), a frame drawn over
+   * them: the cursor on `to`. */
+  selectSpan(from: number, to: number) {
+    return this.attempt(() => this.engine.ordered('library_select_span', { from, to }));
+  }
+
   clearSelection() {
     return this.engine.perform('library.clearSelection', 1);
   }

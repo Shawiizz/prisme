@@ -123,6 +123,16 @@ pub async fn library_select(
     .await
 }
 
+/// Picks the rows shown from `from` to `to`, a frame drawn over them: the cursor on `to`.
+#[tauri::command]
+pub async fn library_select_span(app: AppHandle, from: usize, to: usize, order: Order) -> AppResult<()> {
+    in_turn(app, order, move |state, _| {
+        browse::select_span(state, from, to);
+        Ok(())
+    })
+    .await
+}
+
 /// Compares the tracks with deck `deck`: the keys that mix with it, the pitch to its tempo.
 #[tauri::command]
 pub async fn library_compare_with(app: AppHandle, deck: usize, order: Order) -> AppResult<()> {
