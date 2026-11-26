@@ -28,6 +28,7 @@ import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
 import { RecordingService } from './core/services/recording.service';
 import { FileDropService } from './core/services/file-drop.service';
+import { StageZoomService } from './core/services/stage-zoom.service';
 import { SoundCardNoticesService } from './core/services/sound-card-notices.service';
 import { NoticeView } from './shared/notice/notice';
 import { ModelsDialog } from './features/stems/models-dialog';
@@ -69,6 +70,7 @@ export class App implements OnInit {
   private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
   private readonly soundCardNotices = inject(SoundCardNoticesService);
+  private readonly stageZoom = inject(StageZoomService);
   /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
@@ -107,7 +109,7 @@ export class App implements OnInit {
       // the decks' own window: their keys, the rest is the main window's
       await Promise.all(
         DECKS_WINDOW
-          ? [this.keyboard.start()]
+          ? [this.keyboard.start(), this.stageZoom.start()]
           : [
               this.preview.init(),
               this.library.init(),

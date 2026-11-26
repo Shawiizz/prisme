@@ -36,6 +36,7 @@ const METER_SEGMENTS = 24;
   `,
   styles: `
     :host {
+      container: channel / size;
       display: flex;
       align-items: stretch;
       gap: 6px;
@@ -71,6 +72,19 @@ const METER_SEGMENTS = 24;
     }
     app-fader {
       height: auto;
+    }
+    // a tall lane (the decks on a screen of their own): knobs as large as the room lets them
+    @container channel (min-height: 230px) {
+      .strip {
+        grid-template-columns: repeat(3, 54px);
+        gap: 14px 2px;
+        --knob-size: 38px;
+        --knob-label-width: 50px;
+      }
+      app-cue-button {
+        width: 36px;
+        height: 36px;
+      }
     }
   `,
   host: { class: 'pr-panel', '[class.compact]': 'compact()' },

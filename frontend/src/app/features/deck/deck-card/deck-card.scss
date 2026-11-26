@@ -8,7 +8,7 @@
 
 // clipped: while the lanes change height, what does not fit yet stays inside
 .card {
-  container: deck-card / inline-size;
+  container: deck-card / size;
   height: 100%;
   overflow: clip;
   display: grid;
@@ -197,5 +197,46 @@
   }
   .pr-readout__value {
     font-size: var(--pr-size-value);
+  }
+}
+
+// a tall lane (the decks on a screen of their own): the figures read from afar, the room
+// under the title theirs; the time remaining over the tempo and the key
+@container deck-card (min-height: 230px) and (min-width: 300px) {
+  .cover {
+    width: 42px;
+    height: 42px;
+  }
+  .meta .title {
+    font-size: 17px;
+  }
+  .meta .artist {
+    font-size: 13px;
+  }
+  .readouts {
+    grid-template-columns: auto;
+    grid-template-rows: repeat(6, auto);
+    row-gap: 3px;
+  }
+  .readouts > .pr-readout {
+    margin-bottom: 14px;
+  }
+  .analysis {
+    column-gap: 34px;
+  }
+  .readouts > .pr-readout .pr-readout__value {
+    font-size: min(64px, 16cqi);
+  }
+  .pr-readout__value--mid {
+    font-size: min(34px, 8.6cqi);
+  }
+  .pr-readout__sub,
+  .pr-label {
+    font-size: 12.5px;
+  }
+  .pr-key--lg {
+    min-width: 72px;
+    height: 42px;
+    font-size: 22px;
   }
 }
