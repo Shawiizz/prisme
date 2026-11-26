@@ -293,6 +293,25 @@
                   <option value="internal">{{ 'Software mixer' | t }}</option>
                 </select>
               </app-setting-row>
+              <app-setting-row
+                id="mixing.allInOne"
+                [help]="
+                  mixer.allInOne()
+                    ? ('{controller} has no mixer of its own: its faders and crossfader are messages, and its sound card plays what Prisme mixes.'
+                      | t: { controller: mixer.allInOne() })
+                    : null
+                "
+              >
+                <button
+                  class="pr-switch"
+                  role="switch"
+                  [attr.aria-checked]="mixer.allInOneMixes()"
+                  settingControl
+                  (click)="set('allInOneMixes', !mixer.allInOneMixes())"
+                >
+                  <span></span>
+                </button>
+              </app-setting-row>
               @let chosen = mixer.headphones();
               <app-setting-row id="mixing.headphones" [help]="headphonesHelp()">
                 <select

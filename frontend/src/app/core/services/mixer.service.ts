@@ -60,6 +60,10 @@ export class MixerService {
   /** External mode asked for, but the device has too few outputs (it needs this many): the
    * software mixer runs. */
   readonly fallback = computed(() => this.routed().fallback);
+  /** The controller with no mixer of its own whose sound card runs: Prisme mixes for it,
+   * unless the DJ chose otherwise (`allInOneMixes`). */
+  readonly allInOne = computed(() => this.routed().allInOne);
+  readonly allInOneMixes = computed(() => this.routed().allInOneMixes);
   /** The routing as the backend tells it: first outputs of the decks, the pairs the
    * headphones and the booth can take and where they are heard. */
   readonly routing = computed<

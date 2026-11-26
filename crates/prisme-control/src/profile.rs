@@ -435,6 +435,19 @@ impl Profile {
             .max()
     }
 
+    /// Whether the model has no mixer of its own: its channel faders or its crossfader are
+    /// messages for the software to mix by (a DDJ-SB2's), not the sound card's own mix.
+    pub fn mixes_in_software(&self) -> bool {
+        self.controls.iter().any(|c| {
+            let target = c.target.as_str();
+            target == "mixer.crossfader"
+                || target
+                    .strip_prefix("deck")
+                    .and_then(|rest| rest.split_once('.'))
+                    .is_some_and(|(deck, action)| action == "volume" && deck.parse::<u8>().is_ok())
+        })
+    }
+
     /// The mappings of this model on `device`: its controls, and its mode keys.
     pub fn mappings<'p>(&'p self, device: &'p str) -> impl Iterator<Item = Mapping> + 'p {
         let controls = self.controls.iter().map(move |c| Mapping::new(device, c.clone()));
@@ -568,6 +581,22 @@ mod tests {
             }"#,
         )
         .unwrap()
+    }
+
+    #[test]
+    fn a_model_whose_faders_are_messages_mixes_in_software() {
+        let profile = |target: &str| Profile {
+            controls: vec![serde_json::from_value(serde_json::json!({
+                "control": {"kind": "controlChange", "channel": 0, "number": 19},
+                "target": target,
+            }))
+            .unwrap()],
+            ..serde_json::from_value(serde_json::json!({"name": "X", "controls": []})).unwrap()
+        };
+        assert!(profile("deck2.volume").mixes_in_software());
+        assert!(profile("mixer.crossfader").mixes_in_software());
+        assert!(!profile("deck1.play").mixes_in_software());
+        assert!(!profile("deck1.sampler.volume").mixes_in_software());
     }
 
     #[test]

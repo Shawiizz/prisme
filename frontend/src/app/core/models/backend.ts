@@ -244,7 +244,10 @@ export type CardAsked = { card: string; refused: boolean };
 /**
  * A sound card just plugged in, offered to the DJ with the settings that use it.
  */
-export type CardOffer = { name: string; settings: AudioSettings };
+export type CardOffer = {
+  name: string;
+  settings: AudioSettings;
+};
 
 /**
  * A channel of the software mixer, before its fader. Gains are linear.
@@ -1854,6 +1857,12 @@ export type RoutingState = {
    */
   fallback: number | null;
   /**
+   * The controller whose sound card runs, with no mixer of its own: Prisme mixes for it
+   * (unless the DJ chose otherwise, `all_in_one_mixes`).
+   */
+  allInOne: string | null;
+  allInOneMixes: boolean;
+  /**
    * The first output each deck in use plays on to an external mixer (0-based).
    */
   deckOutputs: Array<number>;
@@ -1969,6 +1978,7 @@ export type Setting =
   | { "setting": "language"; "value": string | null }
   | { "setting": "phoneTouch"; "value": boolean | null }
   | { "setting": "startFullscreen"; "value": boolean }
+  | { "setting": "allInOneMixes"; "value": boolean }
   | { "setting": "automaticUpdates"; "value": boolean };
 
 /**

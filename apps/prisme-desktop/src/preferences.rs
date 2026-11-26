@@ -307,6 +307,9 @@ impl Default for AutoDjPreferences {
 #[serde(default, rename_all = "camelCase")]
 pub struct MixerPreferences {
     pub mode: MixModeDto,
+    /// On the sound card of a controller with no mixer of its own (a DDJ-SB2), Prisme mixes,
+    /// whatever `mode` says.
+    pub all_in_one_mixes: bool,
     pub headphones: HeadphonesOutputDto,
     /// Headphones: 0 = cued decks only, 1 = master only.
     pub cue_mix: f32,
@@ -354,6 +357,7 @@ impl Default for MixerPreferences {
             // a phone mixes itself: the controller plugged into it only sends what its
             // faders and knobs do
             mode: if cfg!(mobile) { MixModeDto::Internal } else { MixModeDto::External },
+            all_in_one_mixes: true,
             headphones: HeadphonesOutputDto::Auto,
             cue_mix: 0.0,
             split_cue: false,

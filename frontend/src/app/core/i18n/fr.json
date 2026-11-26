@@ -1044,5 +1044,8 @@
   "Exit full screen": "Quitter le plein écran",
   "Language, screens and window of Prisme.": "Langue, écrans et fenêtre de Prisme.",
   "Slower and slower while held, then backwards": "De plus en plus lent tant que maintenu, puis en arrière",
-  "Faster and faster while held": "De plus en plus vite tant que maintenu"
+  "Faster and faster while held": "De plus en plus vite tant que maintenu",
+  "{controller} has no mixer of its own: its faders and crossfader are messages, and its sound card plays what Prisme mixes.": "{controller} n'a pas de table de mixage à lui : ses faders et son crossfader sont des messages, et sa carte son joue ce que Prisme mixe.",
+  "Mix for an all-in-one controller": "Mixer pour un contrôleur tout-en-un",
+  "On the sound card of a controller with no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above.": "Sur la carte son d'un contrôleur sans table de mixage à lui (une DDJ-SB2, une Inpulse), Prisme mixe quel que soit le mode ci-dessus."
 }

@@ -5,7 +5,7 @@ use super::{base_port_name, ControllerSetup, Controllers, KeyWays, Models, Shown
 use crate::controller_profiles;
 use crate::dto::{ControllerDto, ControllersDto, OfferedProfileDto};
 use crate::error::{AppError, AppResult};
-use crate::state::{lock, AppState};
+use crate::state::{lock, AllInOne, AppState, Section};
 use prisme_control::hid::{self, Field};
 use prisme_control::{
     Control, Encoding, Mapping, Mappings, Profile, ProfileControl, Reader, JOG_STEPS_PER_TURN,
@@ -138,6 +138,28 @@ impl Controllers {
             learning: lock(&self.learning).as_ref().map(|l| l.target.clone()),
         };
         state.controllers.set(shown);
+        self.find_all_in_one(state);
+    }
+
+    /// The controllers plugged in with no mixer of their own, kept where the routing reads them:
+    /// one plugged in or out moves the mix to Prisme or back.
+    fn find_all_in_one(&self, state: &AppState) {
+        let library = controller_profiles::current();
+        let setup = self.setup();
+        let found: Vec<AllInOne> = lock(&self.plugged)
+            .iter()
+            .filter_map(|name| library.chosen(name, setup.profiles.get(name).map(String::as_str)))
+            .filter_map(|known| AllInOne::of(&known.profile))
+            .collect();
+        let changed = *lock(&state.all_in_one) != found;
+        if !changed {
+            return;
+        }
+        *lock(&state.all_in_one) = found;
+        state.moved(Section::Routing);
+        if let Err(e) = crate::actions::mixer::route(state) {
+            warn!("the mix not moved for the controllers plugged in: {e}");
+        }
     }
 
     /// The controllers plugged in when last looked for, and those in use that are not.

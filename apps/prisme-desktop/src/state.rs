@@ -308,8 +308,47 @@ pub struct LiveSwitches {
 
 /// What the routing reads of the preferences (see `RoutingStateDto::of`).
 fn routed(p: &Preferences) -> impl PartialEq {
-    let MixerPreferences { mode, headphones, booth, mic, aux, .. } = p.mixer;
-    (mode, headphones, booth, mic.input, aux.input, p.dj.decks())
+    let MixerPreferences { mode, all_in_one_mixes, headphones, booth, mic, aux, .. } = p.mixer;
+    (mode, all_in_one_mixes, headphones, booth, mic.input, aux.input, p.dj.decks())
+}
+
+/// A controller plugged in with no mixer of its own (a DDJ-SB2): its model, and the names its
+/// sound card may hold, in lower case letters and digits alone (`ddjsb2`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct AllInOne {
+    pub model: String,
+    pub names: Vec<String>,
+}
+
+impl AllInOne {
+    pub fn new(model: &str, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
+        let names = names.into_iter().map(|n| letters(n.as_ref())).filter(|n| n.len() >= 4).collect();
+        Self { model: model.to_owned(), names }
+    }
+
+    /// The controller of `profile`, if it has no mixer of its own; its card is named as its
+    /// ports, or as the model, its maker's name aside at times.
+    pub fn of(profile: &prisme_control::Profile) -> Option<Self> {
+        let unbranded = profile.name.split_once(' ').map(|(_, rest)| rest);
+        let names = profile.ports.iter().map(String::as_str).chain(unbranded);
+        profile.mixes_in_software().then(|| Self::new(&profile.name, names))
+    }
+
+    /// How closely the sound card `device` is this controller's: the length of its longest
+    /// name the card's holds.
+    pub fn fit(&self, device: &str) -> Option<usize> {
+        let device = letters(device);
+        self.names.iter().filter(|name| device.contains(name.as_str())).map(String::len).max()
+    }
+
+    #[cfg(test)]
+    fn owns(&self, device: &str) -> bool {
+        self.fit(device).is_some()
+    }
+}
+
+fn letters(name: &str) -> String {
+    name.chars().filter(char::is_ascii_alphanumeric).map(|c| c.to_ascii_lowercase()).collect()
 }
 
 /// What the interface is shown of the pads: each deck's slots of its effect chain, and whether
@@ -346,6 +385,9 @@ pub struct AppState {
     /// The default output another application held as the audio started (a mixer such as
     /// VoiceMeeter takes the speakers for itself), until the DJ chooses devices.
     pub busy_output: Mutex<Option<String>>,
+    /// The controllers plugged in whose mixer is in messages, and the names their sound card
+    /// may go by (see [`AppState::all_in_one_on`]).
+    pub all_in_one: Mutex<Vec<AllInOne>>,
     /// The tracks loaded on a deck whose analysis is awaited (see [`AppState::awaits_analysis`]).
     awaited_analyses: AtomicUsize,
     /// Where the decks were as the audio last stopped to start again: kept for the start
@@ -633,6 +675,7 @@ impl AppState {
             recorded: Mirrored::new(None, &revisions, Section::Mixer),
             audio_start: Mutex::new(()),
             busy_output: Mutex::new(None),
+            all_in_one: Mutex::default(),
             awaited_analyses: AtomicUsize::new(0),
             carried: Mutex::default(),
             samplers: Mirrored::showing(Samplers::default(), &revisions, Section::Decks, |samplers| {
@@ -984,7 +1027,18 @@ impl AppState {
 
     /// The routing for the running device (see [`routing_for`]).
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
-        routing_for(self.preferences.read(|p| p.mixer), info)
+        routing_for(self.preferences.read(|p| p.mixer), info, self.all_in_one_on(&info.device).is_some())
+    }
+
+    /// The model of the controller plugged in whose sound card `device` is, if it has no mixer
+    /// of its own: Prisme mixes for it (a DDJ-SB2's faders are messages).
+    pub fn all_in_one_on(&self, device: &str) -> Option<String> {
+        let plugged = lock(&self.all_in_one);
+        plugged
+            .iter()
+            .filter_map(|c| Some((c.fit(device)?, c)))
+            .max_by_key(|&(fit, _)| fit)
+            .map(|(_, c)| c.model.clone())
     }
 
     /// The first output the preview is heard on: the headphones, on the running device, if
@@ -1301,10 +1355,11 @@ pub const EXTERNAL_MIXER_OUTPUTS: usize = 4;
 /// pairs (four decks share them if there are no more, see `deck_pair`), its headphones a pair
 /// of their own for the preview, after the decks' on an ASIO interface by default; else the
 /// software mixer is used, its headphones and booth where the DJ wants them.
-fn routing_for(mixer: MixerPreferences, info: &AudioInfo) -> OutputRouting {
+fn routing_for(mixer: MixerPreferences, info: &AudioInfo, all_in_one: bool) -> OutputRouting {
     let outputs = info.output_channels;
     let deck_outputs = std::array::from_fn(|deck| Some(2 * deck_pair(deck, info.decks, outputs)));
-    if mixer.mode != MixModeDto::External || outputs < EXTERNAL_MIXER_OUTPUTS {
+    let mixes_itself = all_in_one && mixer.all_in_one_mixes;
+    if mixer.mode != MixModeDto::External || outputs < EXTERNAL_MIXER_OUTPUTS || mixes_itself {
         let headphones = headphones_output(mixer.headphones, info.backend, outputs);
         let booth = booth_output(mixer.booth, headphones, outputs);
         return OutputRouting {
@@ -1386,6 +1441,28 @@ mod tests {
     }
 
     #[test]
+    fn on_the_card_of_a_controller_with_no_mixer_of_its_own_prisme_mixes() {
+        let sb2 = AllInOne::new("Pioneer DDJ-SB2", ["DDJ-SB2", "DDJ-SB2"]);
+        assert!(sb2.owns("Haut-parleurs (PIONEER DDJ-SB2)") && sb2.owns("Pioneer DDJ-SB2 ASIO"));
+        assert!(!sb2.owns("Speakers (DDJ-SB3)") && !sb2.owns("Realtek(R) Audio"));
+        let info = AudioInfo {
+            backend: BackendDto::Wasapi,
+            device: "PIONEER DDJ-SB2".into(),
+            sample_rate: 44_100,
+            output_channels: 4,
+            input_channels: 0,
+            decks: 2,
+            simulated: false,
+            missing: None,
+        };
+        let external = MixerPreferences { mode: MixModeDto::External, ..Default::default() };
+        assert_eq!(routing_for(external, &info, false).mode, MixMode::External, "a DJ interface");
+        assert_eq!(routing_for(external, &info, true).mode, MixMode::Internal);
+        let as_chosen = MixerPreferences { all_in_one_mixes: false, ..external };
+        assert_eq!(routing_for(as_chosen, &info, true).mode, MixMode::External, "the DJ's choice");
+    }
+
+    #[test]
     fn with_an_external_mixer_the_headphones_take_a_pair_no_deck_uses() {
         use BackendDto::{Asio, Wasapi};
         use HeadphonesOutputDto::{Auto, Pair};
@@ -1401,7 +1478,7 @@ mod tests {
                 simulated: false,
                 missing: None,
             };
-            let routing = routing_for(mixer, &info);
+            let routing = routing_for(mixer, &info, false);
             assert_eq!(routing.mode, MixMode::External);
             routing.headphones
         };

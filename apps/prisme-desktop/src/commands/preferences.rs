@@ -46,6 +46,8 @@ pub enum Setting {
     PhoneTouch(Option<bool>),
     /// The main window full screen at the next start.
     StartFullscreen(bool),
+    /// Prisme mixes on the sound card of a controller with no mixer of its own.
+    AllInOneMixes(bool),
     /// New versions downloaded and put in place by themselves (a computer's).
     AutomaticUpdates(bool),
 }
@@ -58,6 +60,8 @@ enum Then {
     Levels,
     /// Another number of decks: another engine.
     Decks,
+    /// The decks heard elsewhere: the routing follows.
+    Route,
     /// The tempos and keys of other programs are to be written over.
     Retag,
     WriteTags,
@@ -120,6 +124,10 @@ impl Setting {
             }
             Setting::PhoneTouch(touch) => p.ui.phone_touch = touch,
             Setting::StartFullscreen(on) => p.ui.start_fullscreen = on,
+            Setting::AllInOneMixes(on) => {
+                p.mixer.all_in_one_mixes = on;
+                return Ok(Then::Route);
+            }
             Setting::AutomaticUpdates(on) => {
                 p.updates.automatic = on;
                 return Ok(if on { Then::LookForUpdate } else { Then::Nothing });
@@ -154,6 +162,7 @@ pub async fn set_preference(app: AppHandle, setting: Setting) -> AppResult<()> {
                 app.state::<TagWriter>().wake();
             }
             Then::WriteTags => app.state::<TagWriter>().wake(),
+            Then::Route => crate::actions::mixer::route(&state)?,
             Then::Rechoose => app.state::<StemsService>().rechosen(),
             Then::LookForUpdate => {
                 #[cfg(desktop)]

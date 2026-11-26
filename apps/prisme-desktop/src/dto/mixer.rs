@@ -251,6 +251,10 @@ pub struct RoutingStateDto {
     pub internal: bool,
     /// An external mixer chosen, the device too small for it: the outputs it needs.
     pub fallback: Option<usize>,
+    /// The controller whose sound card runs, with no mixer of its own: Prisme mixes for it
+    /// (unless the DJ chose otherwise, `all_in_one_mixes`).
+    pub all_in_one: Option<String>,
+    pub all_in_one_mixes: bool,
     /// The first output each deck in use plays on to an external mixer (0-based).
     pub deck_outputs: Vec<usize>,
     pub headphones: HeadphonesOutputDto,
@@ -298,14 +302,18 @@ impl RoutingStateDto {
         };
         let outputs = info.as_ref().map_or(0, |info| info.output_channels);
         let internal = routing.map_or(mixer.mode, |r| r.mode.into()) == MixModeDto::Internal;
+        let all_in_one = info.as_ref().and_then(|info| state.all_in_one_on(&info.device));
+        let mixes_for_it = all_in_one.is_some() && mixer.all_in_one_mixes;
         let headphones_in_use = routing.and_then(|r| r.headphones);
         let booth_in_use = routing.and_then(|r| r.booth);
         let laid_out = info.as_ref().map_or(decks_in_use, |info| info.decks);
         Self {
             mode: mixer.mode,
             internal,
-            fallback: (mixer.mode == MixModeDto::External && internal && info.is_some())
+            fallback: (mixer.mode == MixModeDto::External && internal && info.is_some() && !mixes_for_it)
                 .then_some(EXTERNAL_MIXER_OUTPUTS),
+            all_in_one,
+            all_in_one_mixes: mixer.all_in_one_mixes,
             deck_outputs: (0..laid_out).map(|deck| 2 * deck_pair(deck, laid_out, outputs)).collect(),
             headphones: mixer.headphones,
             headphones_in_use,
