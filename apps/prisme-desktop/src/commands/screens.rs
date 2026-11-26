@@ -108,7 +108,8 @@ mod desktop {
     pub fn start(app: &AppHandle) {
         let full = app.state::<AppState>().preferences.read(|p| p.ui.start_fullscreen);
         if let Some(main) = app.get_webview_window("main").filter(|_| full) {
-            if let Err(e) = main.set_fullscreen(true) {
+            // let go of filling the screen first, or Windows keeps that size full screen
+            if let Err(e) = main.unmaximize().and_then(|()| main.set_fullscreen(true)) {
                 warn!("not started full screen: {e}");
             }
         }
