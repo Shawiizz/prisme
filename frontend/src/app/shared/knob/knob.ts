@@ -54,8 +54,6 @@ function arc(from: number, to: number): string {
     '[class.small]': 'small()',
     '[class.dimmed]': 'dimmed()',
     '[class.disabled]': 'disabled()',
-    '[class.coloured]': 'color() !== null',
-    '[style.--knob-color]': 'color()',
   },
   template: `
     <svg
@@ -103,12 +101,7 @@ function arc(from: number, to: number): string {
         (click)="labelClick.emit()"
         [title]="labelTitle()"
       >
-        <span class="face" [class.shown]="!reading()">
-          @if (color()) {
-            <i class="dot"></i>
-          }
-          {{ label() }}
-        </span>
+        <span class="face" [class.shown]="!reading()">{{ label() }}</span>
         @if (reads() !== null) {
           <span class="face number" [class.shown]="reading()">{{ reads() }}</span>
         }
@@ -159,19 +152,7 @@ function arc(from: number, to: number): string {
       stroke: var(--pr-line-2);
     }
     .value {
-      stroke: var(--knob-color, var(--pr-light));
-    }
-    .dot {
-      display: inline-block;
-      width: 4px;
-      height: 4px;
-      margin-right: 3px;
-      border-radius: 50%;
-      vertical-align: 0.15em;
-      background: var(--knob-color);
-      :host(.dimmed) & {
-        background: var(--pr-line-2);
-      }
+      stroke: var(--pr-light);
     }
     .detent {
       stroke: var(--pr-text-2);
@@ -224,11 +205,6 @@ function arc(from: number, to: number): string {
       &.active:hover {
         background: var(--pr-light);
       }
-      // a coloured knob says it is off by going dark, its colour gone: its label stays a label
-      :host(.coloured) &.active {
-        background: transparent;
-        color: var(--pr-text-3);
-      }
     }
     .face {
       grid-area: 1 / 1;
@@ -266,9 +242,6 @@ export class Knob {
    * knob. */
   readonly active = input<boolean | null>(null);
   readonly small = input(false, { transform: booleanAttribute });
-  /** The colour of its ring of value, and of a dot by its label (an EQ band's, as the
-   * waveform draws it); dimmed, the dot goes dark. */
-  readonly color = input<string | null>(null);
   /** Drawn dimmed, its value kept (a stem muted at its level). */
   readonly dimmed = input(false, { transform: booleanAttribute });
   readonly disabled = input(false, { transform: booleanAttribute });
