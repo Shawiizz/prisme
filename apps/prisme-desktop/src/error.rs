@@ -36,6 +36,9 @@ pub enum AppError {
     NoBeatGrid(usize),
     #[error("{0} BPM is out of range")]
     InvalidBpm(f64),
+    /// A pin the grid of the deck's track cannot take: the tempo out of reach beside it.
+    #[error("deck {}: no beat can be pinned there", .0 + 1)]
+    PinRefused(usize),
     #[error("unknown key {0}")]
     InvalidKey(String),
     #[error("a sampler sound lasts {0} s at most: load longer files on a deck")]
@@ -145,6 +148,7 @@ impl AppError {
             AppError::RuleKey { rule, key } => ("ruleKey", json!({ "rule": rule, "key": key })),
             AppError::NoBeatGrid(deck) => ("noBeatGrid", json!({ "deck": deck })),
             AppError::InvalidBpm(bpm) => ("invalidBpm", json!({ "bpm": bpm })),
+            AppError::PinRefused(deck) => ("pinRefused", json!({ "deck": deck })),
             AppError::InvalidKey(key) => ("invalidKey", json!({ "key": key })),
             AppError::SampleTooLong(seconds) => ("sampleTooLong", json!({ "seconds": seconds })),
             AppError::AlreadyRecording => ("alreadyRecording", none()),

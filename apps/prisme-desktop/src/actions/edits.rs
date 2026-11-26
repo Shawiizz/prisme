@@ -36,6 +36,10 @@ pub enum GridChange {
     BeatHere,
     /// Starts a bar where the deck is, on a beat.
     BarHere,
+    /// Pins the beat nearest the deck where it is: the grid follows a tempo that drifts.
+    PinHere,
+    /// Takes off the pin nearest the deck.
+    Unpin,
     /// Moves the grid for its beats to fall on those of the deck it is mixed with, both playing.
     Align,
     /// Back to the analysis.
@@ -51,6 +55,8 @@ enum Regrid {
     Shift(f64),
     BeatAt(f64),
     BarAt(f64),
+    PinAt(f64),
+    UnpinAt(f64),
     Reset,
 }
 
@@ -64,6 +70,8 @@ impl GridChange {
             GridChange::Shift { seconds } => Regrid::Shift(seconds),
             GridChange::BeatHere => Regrid::BeatAt(state.deck_status(deck)?.position_s),
             GridChange::BarHere => Regrid::BarAt(state.deck_status(deck)?.position_s),
+            GridChange::PinHere => Regrid::PinAt(state.deck_status(deck)?.position_s),
+            GridChange::Unpin => Regrid::UnpinAt(state.deck_status(deck)?.position_s),
             GridChange::Align => match shift_to_other(state, deck)? {
                 Some(seconds) => Regrid::Shift(seconds),
                 None => return Ok(None),
@@ -139,6 +147,12 @@ pub fn change_grid(
             Regrid::Shift(seconds) => Some(grid?.shifted(seconds)),
             Regrid::BeatAt(position_s) => Some(grid?.with_beat_at(position_s)),
             Regrid::BarAt(position_s) => Some(grid?.with_bar_at(position_s)),
+            Regrid::PinAt(position_s) => Some(grid?.pinned_at(position_s).ok_or(AppError::PinRefused(deck))?),
+            // no pin to take off: the grid as it is
+            Regrid::UnpinAt(position_s) => {
+                let grid = grid?;
+                Some(grid.clone().unpinned_at(position_s).unwrap_or(grid))
+            }
             Regrid::Reset => None,
         };
         Ok(())

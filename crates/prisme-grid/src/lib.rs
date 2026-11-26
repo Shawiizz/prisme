@@ -186,6 +186,57 @@ impl BeatGrid {
         Self { bpm: self.bpm * factor, anchors, ..self }
     }
 
+    /// The grid with its beat nearest `time_s` pinned there, as a DJ follows a track whose tempo
+    /// drifts: the beats between it and the pins either side stretch or squeeze to fit, a
+    /// steady grid pinned from bar 1's first beat, where it is. Past the last pin, the tempo goes
+    /// on as it went before it. `None` where the pin cannot go: not after the pin before it, or
+    /// not before the one after, or with a tempo out of reach between them.
+    pub fn pinned(&self, time_s: f64) -> Option<Self> {
+        let beat = self.beats_at(time_s).round();
+        let mut anchors = match self.anchors() {
+            [] => vec![Anchor { beat: 0.0, time_s: self.first_beat_s }],
+            anchors => anchors.to_vec(),
+        };
+        anchors.retain(|a| a.beat != beat);
+        let at = anchors.partition_point(|a| a.beat < beat);
+        anchors.insert(at, Anchor { beat, time_s });
+        let bpm = match anchors.as_slice() {
+            [only] => return Some(Self::through(*only, self.bpm, self.bars_sure)),
+            [.., before, last] if at == anchors.len() - 1 => stretch_bpm(*before, *last),
+            _ => self.bpm,
+        };
+        Self::anchored(anchors, bpm, self.bars_sure)
+    }
+
+    /// The grid without its pin nearest `time_s`: past the pin before it, the tempo goes on as it
+    /// went up to the pin taken off; with one pin left, one tempo throughout, the one between the
+    /// two. `None` without pins.
+    pub fn unpinned(&self, time_s: f64) -> Option<Self> {
+        let anchors = self.anchors();
+        let distance = |a: &Anchor| (a.time_s - time_s).abs();
+        let nearest =
+            (0..anchors.len()).min_by(|&a, &b| distance(&anchors[a]).total_cmp(&distance(&anchors[b])))?;
+        let taken = anchors[nearest];
+        let mut kept = anchors.to_vec();
+        kept.remove(nearest);
+        match kept.as_slice() {
+            [only] => {
+                let bpm = stretch_bpm(*only, taken);
+                TEMPO_RANGE.contains(&bpm).then(|| Self::through(*only, bpm, self.bars_sure))
+            }
+            [.., last] if nearest == kept.len() => {
+                let bpm = stretch_bpm(*last, taken);
+                Self::anchored(kept, bpm, self.bars_sure)
+            }
+            _ => Self::anchored(kept, self.bpm, self.bars_sure),
+        }
+    }
+
+    /// One tempo throughout, `bpm`, through the beat and the instant of `anchor`.
+    fn through(anchor: Anchor, bpm: f64, bars_sure: bool) -> Self {
+        Self::steady(bpm, anchor.time_s - anchor.beat * 60.0 / bpm, bars_sure)
+    }
+
     /// The beats counted from beat `beat`, which becomes bar 1's first.
     fn renumbered(self, beat: f64) -> Self {
         let first_beat_s = self.time_of(beat);
@@ -323,5 +374,47 @@ mod tests {
         assert!(BeatGrid::anchored(vec![at(4.0, 1.0), at(0.0, 3.0)], 120.0, true).is_none(), "backwards");
         assert!(BeatGrid::anchored(vec![at(0.0, 0.0), at(1.0, 60.0)], 120.0, true).is_none(), "1 BPM");
         assert!(BeatGrid::anchored(vec![at(0.0, 0.0), at(4.0, 2.0)], 0.0, true).is_none(), "no tempo after");
+    }
+
+    #[test]
+    fn a_drifting_track_is_followed_pin_by_pin() {
+        // 120 BPM from 1 s; the kick of beat 16 comes 0.1 s late, that of beat 32 0.2 s late
+        let grid = BeatGrid::steady(120.0, 1.0, true);
+        let once = grid.pinned(9.1).unwrap();
+        assert_eq!(once.anchors(), [Anchor { beat: 0.0, time_s: 1.0 }, Anchor { beat: 16.0, time_s: 9.1 }]);
+        assert!(close(once.time_of(16.0), 9.1) && close(once.first_beat_s(), 1.0), "bar 1 stays");
+        assert!(close(once.bpm_at(20.0), once.bpm_at(5.0)), "past the pin, the tempo it had before");
+        let twice = once.pinned(17.25).unwrap();
+        assert!(close(twice.time_of(32.0), 17.25) && close(twice.time_of(16.0), 9.1));
+        let moved = twice.pinned(9.05).unwrap();
+        assert_eq!(moved.anchors().len(), 3, "a beat pinned again moves its pin");
+        assert!(close(moved.time_of(16.0), 9.05) && close(moved.time_of(32.0), 17.25));
+        assert!(once.pinned(1.0 + 0.5).is_some(), "between two pins");
+        assert!(BeatGrid::steady(120.0, 1.0, true).pinned(1.02).unwrap().is_steady(), "bar 1 pinned: moved");
+    }
+
+    #[test]
+    fn a_pin_next_to_another_squeezes_one_beat() {
+        let grid = BeatGrid::steady(120.0, 1.0, true).pinned(9.0).unwrap();
+        // beat 17 is due at 9.5 s; its kick a quarter of a beat early
+        let squeezed = grid.pinned(9.37).unwrap();
+        assert!(close(squeezed.time_of(17.0), 9.37) && close(squeezed.time_of(16.0), 9.0));
+        assert!(close(squeezed.bpm_at(9.2), 60.0 / 0.37), "the beat between them shorter");
+    }
+
+    #[test]
+    fn pins_come_off_one_by_one_back_to_one_tempo() {
+        let grid = BeatGrid::steady(120.0, 1.0, true).pinned(9.1).unwrap().pinned(17.25).unwrap();
+        let fewer = grid.unpinned(17.0).unwrap();
+        assert_eq!(fewer.anchors().len(), 2);
+        assert!(close(fewer.time_of(16.0), 9.1));
+        assert!(close(fewer.time_of(32.0), 17.25), "past the pin before, as it went to the one taken off");
+        let steady = fewer.unpinned(9.0).unwrap();
+        assert!(steady.is_steady());
+        assert!(
+            close(steady.time_of(0.0), 1.0) && close(steady.time_of(16.0), 9.1),
+            "the tempo between the two"
+        );
+        assert!(steady.unpinned(5.0).is_none(), "no pin left");
     }
 }

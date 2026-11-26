@@ -22,6 +22,7 @@ const TEXTS: Record<string, (p: Params) => string> = {
     }),
   noBeatGrid: (p) => t('Deck {deck} has no beat grid', onDeck(p)),
   invalidBpm: (p) => t('{bpm} BPM is out of range', p),
+  pinRefused: (p) => t('Deck {deck}: no beat can be pinned there', onDeck(p)),
   invalidKey: (p) => t('Unknown key {key}', p),
   sampleTooLong: (p) =>
     t('A sampler sound lasts {seconds} s at most: load longer files on a deck', p),

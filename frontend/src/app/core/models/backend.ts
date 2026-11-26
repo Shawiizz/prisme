@@ -980,6 +980,8 @@ export type GridChange =
   | { "kind": "shift"; seconds: number }
   | { "kind": "beatHere" }
   | { "kind": "barHere" }
+  | { "kind": "pinHere" }
+  | { "kind": "unpin" }
   | { "kind": "align" }
   | { "kind": "reset" };
 

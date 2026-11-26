@@ -41,6 +41,8 @@ export class GridEditor {
     const bpm = this.tapped() ?? this.track()?.tempo?.bpm;
     return bpm === undefined ? '' : bpm.toFixed(2);
   });
+  /** The pins of a grid whose tempo changes. */
+  protected readonly pins = computed(() => this.track()?.tempo?.anchors.length ?? 0);
   protected readonly minorKeys = computed(() => this.edits.keys().filter((k) => k.minor));
   protected readonly majorKeys = computed(() => this.edits.keys().filter((k) => !k.minor));
 

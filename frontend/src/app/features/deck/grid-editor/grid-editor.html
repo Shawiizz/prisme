@@ -82,6 +82,25 @@
   <div class="row">
     <button
       class="pr-btn pr-btn--sm wide"
+      [title]="
+        'Pin the beat nearest the deck where it is: the grid follows a tempo that drifts' | t
+      "
+      (click)="grid({ kind: 'pinHere' })"
+    >
+      {{ 'Pin here' | t }}
+    </button>
+    <button
+      class="pr-btn pr-btn--sm wide"
+      [disabled]="pins() === 0"
+      [title]="'Take off the pin nearest the deck' | t"
+      (click)="grid({ kind: 'unpin' })"
+    >
+      {{ 'Unpin' | t }}
+    </button>
+  </div>
+  <div class="row">
+    <button
+      class="pr-btn pr-btn--sm wide"
       [disabled]="!alignable()"
       [title]="
         'Both decks playing, matched by ear: the grid moves onto the beats of the other deck' | t

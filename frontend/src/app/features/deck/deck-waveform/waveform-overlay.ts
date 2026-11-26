@@ -117,6 +117,24 @@ export class OverlayPainter {
     }
     ctx.fill();
     this.drawBarNumbers(ctx, tempo, firstBar, last, left, view);
+    this.drawPins(ctx, tempo, tall, view);
+  }
+
+  /** Each pin of a grid whose tempo changes: a dot on its beat's line, above the ticks at the
+   * foot. */
+  private drawPins(ctx: CanvasRenderingContext2D, tempo: Tempo, tall: number, view: View) {
+    if (tempo.anchors.length === 0) return;
+    const radius = 2.5 * view.ratio;
+    const y = view.height - tall - radius - view.ratio;
+    ctx.fillStyle = this.palette.light;
+    ctx.beginPath();
+    for (const pin of tempo.anchors) {
+      const x = xOf(pin.timeS, view);
+      if (x < -radius || x > view.width + radius) continue;
+      ctx.moveTo(x + radius, y);
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
+    }
+    ctx.fill();
   }
 
   /** Each numbered bar's number, right of its line at the top. */

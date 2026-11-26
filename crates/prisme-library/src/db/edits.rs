@@ -64,6 +64,20 @@ impl GridEdit {
         self.set(|g| g.with_bar_at(position_s))
     }
 
+    /// The grid with its beat nearest `position_s` pinned there (see [`BeatGrid::pinned`]);
+    /// `None` where the pin cannot go.
+    pub fn pinned_at(self, position_s: f64) -> Option<Self> {
+        let grid = self.grid.pinned(position_s)?;
+        Some(self.set(|_| grid))
+    }
+
+    /// The grid without its pin nearest `position_s` (see [`BeatGrid::unpinned`]); `None`
+    /// without pins.
+    pub fn unpinned_at(self, position_s: f64) -> Option<Self> {
+        let grid = self.grid.unpinned(position_s)?;
+        Some(self.set(|_| grid))
+    }
+
     /// The grid as `change` leaves it, set by hand: the beats no longer the analysis's.
     fn set(self, change: impl FnOnce(BeatGrid) -> BeatGrid) -> Self {
         Self { grid: change(self.grid), beats_from_analysis: false }
