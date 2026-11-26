@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { NavigationService } from '../services/navigation.service';
 import { ControlService } from '../control/control.service';
 import { PreferencesService } from '../services/preferences.service';
-import { CTRL, keyName, keyOf } from './shortcuts';
+import { CTRL, byLetter, keyName, keyOf } from './shortcuts';
 import { t } from '../i18n/i18n';
 import type { Key, Shortcut } from '../models/backend';
 
@@ -75,6 +75,7 @@ export class KeyboardService {
   label(key: Key): string {
     // a layout may print the space bar as a space: named all the same
     const name =
+      (byLetter(key) && key.code.slice(3)) ||
       this.layout().get(key.code)?.trim().toUpperCase() ||
       KEY_NAMES[key.code] ||
       key.code.replace(/^(Key|Digit)/, '');
