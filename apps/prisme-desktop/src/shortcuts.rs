@@ -20,7 +20,7 @@ pub struct Shortcut {
 
 /// Actions whose keys work while typing and over the settings and the palette, if they hold
 /// Control or are function keys: a letter alone types.
-const EVERYWHERE: [&str; 3] = ["general.help", "general.palette", "general.settings"];
+const EVERYWHERE: [&str; 4] = ["general.help", "general.palette", "general.settings", "general.fullscreen"];
 
 /// The physical keys of each deck's actions: the left hand plays deck A, the right hand deck B;
 /// Shift held, the same keys play decks C and D, as the second layer of a four-deck controller.
@@ -59,7 +59,7 @@ struct DeckKeys {
 }
 
 /// The library's and the windows' keys: code, Control, Shift, action.
-const OTHER_KEYS: [(&str, bool, bool, &str); 17] = [
+const OTHER_KEYS: [(&str, bool, bool, &str); 18] = [
     ("ArrowUp", false, false, "library.previous"),
     ("ArrowDown", false, false, "library.next"),
     ("ArrowLeft", false, true, "library.load1"),
@@ -77,6 +77,7 @@ const OTHER_KEYS: [(&str, bool, bool, &str); 17] = [
     ("KeyK", true, false, "general.palette"),
     ("KeyP", true, true, "general.palette"),
     ("Comma", true, false, "general.settings"),
+    ("F11", false, false, "general.fullscreen"),
 ];
 
 fn shortcut(control: String, code: &str, ctrl: bool, shift: bool) -> Shortcut {

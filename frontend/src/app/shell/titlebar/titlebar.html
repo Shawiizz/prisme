@@ -230,6 +230,22 @@
 
   @if (!MAC) {
     <div class="window">
+      <button
+        class="win"
+        (click)="window.toggleFullscreen()"
+        [attr.aria-label]="(window.fullscreen() ? 'Exit full screen' : 'Full screen') | t"
+        [title]="fullscreenTitle()"
+      >
+        @if (window.fullscreen()) {
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M3.5 0.5v3h-3M6.5 0.5v3h3M3.5 9.5v-3h-3M6.5 9.5v-3h3" />
+          </svg>
+        } @else {
+          <svg viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M0.5 3.5v-3h3M9.5 3.5v-3h-3M0.5 6.5v3h3M9.5 6.5v3h-3" />
+          </svg>
+        }
+      </button>
       <button class="win" (click)="minimize()" [attr.aria-label]="'Minimize' | t">
         <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M1 5h8" /></svg>
       </button>

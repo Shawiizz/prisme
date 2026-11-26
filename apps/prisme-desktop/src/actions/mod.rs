@@ -463,15 +463,18 @@ impl InTurn {
     }
 }
 
-/// Where the actions the interface sends are: those of its page loaded as `run`, the one whose
-/// turn it is numbered `next`, `started` once it came, and the numbers come and waiting.
-#[derive(Default)]
+/// Where the actions a page of the interface sends are (each window's, each time it loads): the
+/// one whose turn it is numbered `next`, `started` once it came, the numbers come and waiting,
+/// and when it last sent one.
 struct Sent {
-    run: u64,
     next: u64,
     started: bool,
     waiting: Vec<u64>,
+    last: Instant,
 }
+
+/// The pages whose actions are kept in turn, the latest: one reloaded leaves the one it was.
+const PAGES: usize = 8;
 
 /// The place of an action among those the interface sends: its number among those of its page
 /// loaded as `run`.
@@ -488,8 +491,8 @@ pub struct Actions {
     /// The controllers' faders picking their settings up, and their encoders' steps short of
     /// one.
     inputs: Mutex<Inputs>,
-    /// The actions the interface sent, performed in their order.
-    sent: Mutex<Sent>,
+    /// The actions each page of the interface sent, by its `run`, performed in their order.
+    sent: Mutex<HashMap<u64, Sent>>,
     /// Told as one of them is performed.
     sent_on: Condvar,
     lanes: Lanes,
@@ -682,25 +685,33 @@ impl Actions {
     pub(crate) fn in_order<R>(&self, Order { run, number }: Order, send: impl FnOnce() -> R) -> R {
         let came = Instant::now();
         let mut sent = lock(&self.sent);
-        if sent.run != run {
-            *sent = Sent { run, next: number, ..Sent::default() };
-            self.sent_on.notify_all();
+        if !sent.contains_key(&run) {
+            if sent.len() >= PAGES {
+                let oldest = sent.iter().min_by_key(|(_, page)| page.last).map(|(&run, _)| run);
+                sent.retain(|&r, _| Some(r) != oldest);
+                self.sent_on.notify_all();
+            }
+            sent.insert(run, Sent { next: number, started: false, waiting: Vec::new(), last: came });
         }
-        sent.waiting.push(number);
-        loop {
-            // a page loaded since, or this one given up for lost and come late
-            if sent.run != run || number < sent.next {
+        if let Some(page) = sent.get_mut(&run) {
+            page.waiting.push(number);
+        }
+        // none: a page left long ago
+        while let Some(page) = sent.get_mut(&run) {
+            page.last = came;
+            // this one given up for lost and come late
+            if number < page.next {
                 break;
             }
-            if number == sent.next && !sent.started {
-                sent.started = true;
+            if number == page.next && !page.started {
+                page.started = true;
                 break;
             }
-            let lost = !sent.started && sent.waiting.iter().all(|&n| n >= number);
+            let lost = !page.started && page.waiting.iter().all(|&n| n >= number);
             sent = if lost {
                 let waited = came.elapsed();
                 if waited >= ORDER_WAIT {
-                    (sent.next, sent.started) = (number, true);
+                    (page.next, page.started) = (number, true);
                     break;
                 }
                 self.sent_on.wait_timeout(sent, ORDER_WAIT - waited).unwrap_or_else(|e| e.into_inner()).0
@@ -708,9 +719,9 @@ impl Actions {
                 self.sent_on.wait(sent).unwrap_or_else(|e| e.into_inner())
             };
         }
-        if sent.run == run {
-            if let Some(at) = sent.waiting.iter().position(|&n| n == number) {
-                sent.waiting.swap_remove(at);
+        if let Some(page) = sent.get_mut(&run) {
+            if let Some(at) = page.waiting.iter().position(|&n| n == number) {
+                page.waiting.swap_remove(at);
             }
         }
         drop(sent);
@@ -833,8 +844,8 @@ impl Drop for Sending<'_> {
     fn drop(&mut self) {
         let Order { run, number } = self.order;
         let mut sent = lock(&self.actions.sent);
-        if sent.run == run && sent.next == number && sent.started {
-            (sent.next, sent.started) = (number + 1, false);
+        if let Some(page) = sent.get_mut(&run).filter(|page| page.next == number && page.started) {
+            (page.next, page.started) = (number + 1, false);
             self.actions.sent_on.notify_all();
         }
     }

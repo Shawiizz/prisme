@@ -397,7 +397,7 @@ actions! {
         Button: Library = "general.library", Record = "general.record",
             TempoRange = "general.tempoRange", TempoRangePrevious = "general.tempoRange.previous",
             Help = "general.help", Palette = "general.palette", Settings = "general.settings",
-            Close = "general.close";
+            FullScreen = "general.fullscreen", Close = "general.close";
     }
     {
         Quantize(Turn),
@@ -458,7 +458,11 @@ impl Target {
         match self {
             Target::Library(LibraryAction::Search)
             | Target::General(
-                GeneralAction::Help | GeneralAction::Palette | GeneralAction::Settings | GeneralAction::Close,
+                GeneralAction::Help
+                | GeneralAction::Palette
+                | GeneralAction::Settings
+                | GeneralAction::FullScreen
+                | GeneralAction::Close,
             ) => Owner::Interface,
             Target::Shift(_) | Target::Mode { .. } => Owner::Reader,
             _ => Owner::Rust,
@@ -616,8 +620,14 @@ mod tests {
     fn the_interface_performs_its_windows_and_the_focus_of_its_search_and_nothing_else() {
         let ui: BTreeSet<String> =
             Target::all().iter().filter(|t| t.owner() == Owner::Interface).map(Target::to_string).collect();
-        let windows =
-            ["library.search", "general.help", "general.palette", "general.settings", "general.close"];
+        let windows = [
+            "library.search",
+            "general.help",
+            "general.palette",
+            "general.settings",
+            "general.fullscreen",
+            "general.close",
+        ];
         assert_eq!("shift".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         assert_eq!("mode.pads.roll".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).collect();

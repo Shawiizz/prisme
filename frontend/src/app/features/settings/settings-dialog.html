@@ -749,20 +749,73 @@
                 </div>
               </app-setting-row>
               @if (!PHONE) {
-                <app-setting-row
-                  id="interface.screenBelow"
-                  [help]="screens.below() ? null : ('No screen under this one.' | t)"
-                >
+                <app-setting-row id="interface.startFullscreen">
                   <button
                     class="pr-switch"
                     role="switch"
-                    [attr.aria-checked]="screens.span() !== null"
+                    [attr.aria-checked]="preferences.ui().startFullscreen"
                     settingControl
-                    [disabled]="!screens.below()"
-                    (click)="screens.spread(screens.span() === null)"
+                    (click)="set('startFullscreen', !preferences.ui().startFullscreen)"
                   >
                     <span></span>
                   </button>
+                </app-setting-row>
+                <app-setting-row
+                  id="interface.decksScreen"
+                  [help]="
+                    decksScreenGone()
+                      ? ('Their screen is not plugged in: the decks are in the main window until it is.'
+                        | t)
+                      : null
+                  "
+                >
+                  <div class="screens" role="radiogroup" settingControl>
+                    <div
+                      class="map"
+                      [style.width.px]="screenMap().width"
+                      [style.height.px]="screenMap().height"
+                    >
+                      @for (box of screenMap().boxes; track box.screen.name) {
+                        <button
+                          class="screen"
+                          role="radio"
+                          [class.is-on]="decksScreen() === box.screen.name"
+                          [attr.aria-checked]="decksScreen() === box.screen.name"
+                          [disabled]="box.screen.main"
+                          [style.left.px]="box.left"
+                          [style.top.px]="box.top"
+                          [style.width.px]="box.width"
+                          [style.height.px]="box.height"
+                          [title]="
+                            box.screen.main
+                              ? ('The main window is on this screen: move it to another first' | t)
+                              : ('Decks on screen {n} ({width} × {height})'
+                                | t
+                                  : {
+                                      n: box.number,
+                                      width: box.screen.width,
+                                      height: box.screen.height,
+                                    })
+                          "
+                          (click)="putDecksOn(box.screen.name)"
+                        >
+                          <span class="number pr-num">{{ box.number }}</span>
+                          @if (decksScreen() === box.screen.name) {
+                            <span class="what">{{ 'Decks' | t }}</span>
+                          } @else if (box.screen.main) {
+                            <span class="what">Prisme</span>
+                          }
+                        </button>
+                      }
+                    </div>
+                    <button
+                      class="pr-btn pr-btn--sm"
+                      [disabled]="decksScreen() === null"
+                      (click)="putDecksOn(null)"
+                    >
+                      {{ 'In the main window' | t }}
+                    </button>
+                  </div>
                 </app-setting-row>
               }
             </div>

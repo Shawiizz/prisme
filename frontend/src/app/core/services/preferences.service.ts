@@ -14,13 +14,14 @@ export function tellPreferences(preferences: Preferences) {
   told.set(preferences);
 }
 
-/** Where the interface kept the language, the phone's touch controls and the screen below
- * before the backend kept them: taken over once, then forgotten. */
+/** Where the interface kept the language and the phone's touch controls before the backend kept
+ * them: taken over once, then forgotten. The screen below it kept is gone with the way the decks
+ * went on it: forgotten too. */
 const STORED = {
   language: 'prisme.language',
   phoneTouch: 'prisme.phone.touch',
-  screenBelow: 'prisme.screenBelow',
 } as const;
+const FORGOTTEN = 'prisme.screenBelow';
 
 /** The preferences as the backend keeps them, read before the interface starts, the language
  * shown in theirs. */
@@ -33,11 +34,12 @@ export async function loadPreferences(): Promise<void> {
       STORED.phoneTouch,
       (saved) => ui.phoneTouch === null && choose('phoneTouch', saved === 'true'),
     ),
-    await takeOver(
-      STORED.screenBelow,
-      (saved) => saved === 'true' && !ui.screenBelow && choose('screenBelow', true),
-    ),
   ];
+  try {
+    localStorage.removeItem(FORGOTTEN);
+  } catch {
+    // no storage: nothing kept
+  }
   if (taken.includes(true)) tellPreferences(await invoke<Preferences>('get_preferences'));
   await showLanguage(told()!.ui.language);
 }

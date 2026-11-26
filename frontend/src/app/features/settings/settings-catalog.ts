@@ -67,7 +67,7 @@ const PAGES: readonly SettingsPage[] = [
   {
     id: 'interface',
     label: () => t('Interface'),
-    description: () => t('Language of Prisme.'),
+    description: () => t('Language, screens and window of Prisme.'),
     keywords: 'language french english',
   },
   {
@@ -363,12 +363,21 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     description: () => t('The whole interface changes at once.'),
   },
   {
-    id: 'interface.screenBelow',
+    id: 'interface.decksScreen',
     page: 'interface',
-    label: () => t('Decks on the screen below'),
+    label: () => t('Decks on a screen of their own'),
     description: () =>
       t(
-        'On a laptop with two screens, or with a screen set under the main one: the library above, the decks below, under the fingers.',
+        "In a window of their own, full screen on the screen chosen: a laptop's second screen, a touch screen. The main window goes where you like.",
+      ),
+  },
+  {
+    id: 'interface.startFullscreen',
+    page: 'interface',
+    label: () => t('Start in full screen'),
+    description: () =>
+      t(
+        "Without the system's bars. Else Prisme opens filling its screen. F11 switches at any time.",
       ),
   },
   {
@@ -403,7 +412,8 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
 
 /** The settings a phone has no use for: it has one screen. */
 const COMPUTER_ONLY_SETTINGS: readonly string[] = [
-  'interface.screenBelow',
+  'interface.decksScreen',
+  'interface.startFullscreen',
   'about.automaticUpdates',
 ];
 /** The settings only Android has the means of yet. */

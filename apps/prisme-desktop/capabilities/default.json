@@ -1,8 +1,11 @@
 {
   "$schema": "../../../target/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window",
-  "windows": ["main"],
+  "description": "Main window and the decks' window",
+  "windows": [
+    "main",
+    "decks"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
@@ -10,6 +13,8 @@
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
     "core:window:allow-is-maximized",
+    "core:window:allow-is-fullscreen",
+    "core:window:allow-set-fullscreen",
     "dialog:allow-save",
     "dialog:allow-open"
   ]

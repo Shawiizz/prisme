@@ -16,6 +16,7 @@ import { percent } from '../../shared/readout';
 import { MAC } from '../../core/keyboard/shortcuts';
 import { KeyboardService } from '../../core/keyboard/keyboard.service';
 import { Dismiss, overlay } from '../../shared/overlay';
+import { WindowService } from '../../core/services/window.service';
 
 /** Custom title bar: drag area, audio state, recording, update, dialogs and window buttons. */
 @Component({
@@ -36,6 +37,12 @@ export class Titlebar {
   protected readonly navigation = inject(NavigationService);
   protected readonly library = inject(LibraryService);
   protected readonly keyboard = inject(KeyboardService);
+  protected readonly window = inject(WindowService);
+  protected readonly fullscreenTitle = computed(() => {
+    const what = this.window.fullscreen() ? t('Exit full screen') : t('Full screen');
+    const key = this.keyboard.firstKey('general.fullscreen');
+    return key ? `${what} (${key})` : what;
+  });
   protected readonly settingsTitle = computed(() => {
     const key = this.keyboard.firstKey('general.settings');
     return key ? t('Settings ({key})', { key }) : t('Settings');
@@ -64,15 +71,15 @@ export class Titlebar {
 
   protected readonly clock = formatClock;
 
-  private readonly window = getCurrentWindow();
+  private readonly own = getCurrentWindow();
 
   minimize() {
-    this.window.minimize();
+    this.own.minimize();
   }
   toggleMaximize() {
-    this.window.toggleMaximize();
+    this.own.toggleMaximize();
   }
   close() {
-    this.window.close();
+    this.own.close();
   }
 }

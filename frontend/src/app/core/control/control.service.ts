@@ -1,10 +1,13 @@
 import { computed, effect, Injectable, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
+import { emitTo } from '@tauri-apps/api/event';
 import { EngineService } from '../services/engine.service';
 import { LibraryService } from '../services/library.service';
 import { NavigationService } from '../services/navigation.service';
 import { labelText } from '../i18n/i18n';
 import { OverlayService } from '../../shared/overlay';
+import { WindowService } from '../services/window.service';
+import { DECKS_WINDOW } from '../platform';
 import { Control } from './controls';
 import type { Target } from '../models/backend';
 
@@ -34,6 +37,7 @@ export class ControlService {
   private readonly library = inject(LibraryService);
   private readonly navigation = inject(NavigationService);
   private readonly overlays = inject(OverlayService);
+  private readonly window = inject(WindowService);
 
   /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
@@ -44,6 +48,7 @@ export class ControlService {
     'general.help': pressed(() => this.navigation.toggleSettings('shortcuts')),
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
+    'general.fullscreen': pressed(() => void this.window.toggleFullscreen()),
     'general.close': pressed(() => this.overlays.closeTop()),
   };
 
@@ -82,8 +87,13 @@ export class ControlService {
    * encoder's steps): the app's own here, the others the backend's (which does nothing for one
    * of a deck not in use, or a light). */
   act(id: string, value: number) {
-    const own = this.own[id];
-    if (own) own(value);
-    else void this.engine.perform(id, value);
+    const own = id in this.own ? this.own[id] : undefined;
+    // the decks' own window has no library, dialogs or title bar: the main one does those, but
+    // closes what is open over the decks
+    if (own === undefined) {
+      void this.engine.perform(id, value);
+    } else if (DECKS_WINDOW && id !== 'general.close') {
+      void emitTo('main', 'ui-action', { target: id, value });
+    } else own(value);
   }
 }

@@ -1,83 +1,183 @@
-//! A screen right under the one Prisme is on, as on a laptop with two screens: Prisme takes
-//! both, the library above, the decks under the fingers on the touch screen below.
+//! The decks on a screen of their own, as on a laptop with two screens or a touch screen beside
+//! it: a window of their own, without borders, full screen on the screen the DJ chose; the main
+//! window, apart from it, goes where it likes. Their screen unplugged, the decks go back into the
+//! main window, and out to it again once it is plugged back.
 
-use serde::Serialize;
-use tauri::{Monitor, PhysicalPosition, PhysicalSize, State, WebviewWindow};
-
-use crate::error::{AppError, AppResult};
+use crate::error::AppResult;
 use crate::state::AppState;
+use serde::Serialize;
+use tauri::{AppHandle, State};
 
-/// How far apart two screens may be laid out and still be one under the other (physical px).
-const GAP_PX: i32 = 8;
+/// The window of the decks.
+pub const DECKS: &str = "decks";
+/// Tells the main window whether the decks are in a window of their own.
+pub const APART_EVENT: &str = "decks-apart";
 
-/// Pretends there is a screen below, its top this far down the window (CSS px), and,
-/// optionally, its scale against the main screen's (`560` or `560@0.8`): to try the layout
-/// on a computer with one screen.
-const FAKE_SPLIT: &str = "PRISME_FAKE_SPLIT";
-
-/// The window spread over both screens.
-#[derive(Debug, Clone, Copy, Serialize)]
+/// A screen plugged in.
+#[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Span"))]
-pub struct SpanDto {
-    /// Where the screen below starts in the window (CSS px).
-    split: f64,
-    /// The window draws at the main screen's scale: what the screen below shows is scaled by
-    /// this to look as Windows scales that screen (200 % below 250 %: 0.8).
-    zoom: f64,
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Screen"))]
+pub struct ScreenDto {
+    /// The system's name of it, by which it is chosen.
+    pub name: String,
+    /// Its place and size on the desktop (physical px).
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    /// The main window is on it.
+    pub main: bool,
 }
 
-fn fake_span() -> Option<SpanDto> {
-    let fake = std::env::var(FAKE_SPLIT).ok()?;
-    let (split, zoom) = fake.split_once('@').unwrap_or((fake.as_str(), "1"));
-    Some(SpanDto { split: split.parse().ok()?, zoom: zoom.parse().ok()? })
-}
-
-/// The screen the window is on, and the one under it: its top on the other's bottom (give or
-/// take a few pixels), the two side by side for some width.
-fn screens(window: &WebviewWindow) -> Option<(Monitor, Monitor)> {
-    let main = window.current_monitor().ok()??;
-    let (top, size) = (main.position(), main.size());
-    let bottom = top.y + size.height as i32;
-    let below = window.available_monitors().ok()?.into_iter().find(|m| {
-        let (p, s) = (m.position(), m.size());
-        (p.y - bottom).abs() <= GAP_PX && p.x < top.x + size.width as i32 && p.x + s.width as i32 > top.x
-    })?;
-    Some((main, below))
-}
-
-/// Whether there is a screen under the one Prisme is on.
+/// The screens plugged in.
 #[tauri::command]
-pub fn screen_below(window: WebviewWindow) -> bool {
-    fake_span().is_some() || screens(&window).is_some()
+pub fn list_screens(app: AppHandle) -> Vec<ScreenDto> {
+    #[cfg(desktop)]
+    return desktop::screens(&app);
+    #[cfg(mobile)]
+    {
+        let _ = app;
+        Vec::new()
+    }
 }
 
-/// Spreads the window over its screen and the one under it, or brings it back to its screen.
+/// Whether the decks are in a window of their own.
 #[tauri::command]
-pub fn span_screens(
-    window: WebviewWindow,
+pub fn decks_apart(app: AppHandle) -> bool {
+    use tauri::Manager;
+    app.get_webview_window(DECKS).is_some()
+}
+
+/// The decks on the screen `screen` (its name), or back in the main window (`None`). Not on the
+/// main thread: a window opened there would wait on it.
+#[tauri::command]
+pub async fn set_decks_screen(
+    app: AppHandle,
     state: State<'_, AppState>,
-    span: bool,
-) -> AppResult<Option<SpanDto>> {
-    state.update_settings(|p| p.ui.screen_below = span);
-    let failed = |e: tauri::Error| AppError::Other(e.to_string());
-    if let Some(fake) = fake_span() {
-        return Ok(span.then_some(fake));
-    }
-    let Some((main, below)) = screens(&window) else {
-        return Ok(None);
-    };
-    // a phone has one screen: none is ever found under it
+    screen: Option<String>,
+) -> AppResult<()> {
+    state.update_settings(|p| p.ui.decks_screen = screen);
     #[cfg(desktop)]
-    if !span {
-        window.maximize().map_err(failed)?;
-        return Ok(None);
+    desktop::place(&app)?;
+    #[cfg(mobile)]
+    let _ = app;
+    Ok(())
+}
+
+#[cfg(desktop)]
+pub use desktop::{closed_by_the_dj, start};
+
+#[cfg(desktop)]
+mod desktop {
+    use super::{ScreenDto, APART_EVENT, DECKS};
+    use crate::error::{AppError, AppResult};
+    use crate::state::AppState;
+    use std::time::Duration;
+    use tauri::{AppHandle, Emitter, Manager, Monitor, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+    use tracing::warn;
+
+    /// How often the screens plugged in are looked at.
+    const WATCH: Duration = Duration::from_secs(2);
+
+    pub fn screens(app: &AppHandle) -> Vec<ScreenDto> {
+        let main = app.get_webview_window("main").and_then(|w| w.current_monitor().ok().flatten());
+        let main = main.and_then(|m| m.name().cloned());
+        monitors(app)
+            .into_iter()
+            .filter_map(|m| {
+                let name = m.name()?.clone();
+                let (position, size) = (m.position(), m.size());
+                Some(ScreenDto {
+                    main: main.as_ref() == Some(&name),
+                    name,
+                    x: position.x,
+                    y: position.y,
+                    width: size.width,
+                    height: size.height,
+                })
+            })
+            .collect()
     }
-    #[cfg(desktop)]
-    window.unmaximize().map_err(failed)?;
-    let (top, size) = (main.position(), main.size());
-    window.set_position(PhysicalPosition::new(top.x, top.y)).map_err(failed)?;
-    window.set_size(PhysicalSize::new(size.width, size.height + below.size().height)).map_err(failed)?;
-    let scale = window.scale_factor().map_err(failed)?;
-    Ok(Some(SpanDto { split: f64::from(size.height) / scale, zoom: below.scale_factor() / scale }))
+
+    fn monitors(app: &AppHandle) -> Vec<Monitor> {
+        app.available_monitors().inspect_err(|e| warn!("the screens not listed: {e}")).unwrap_or_default()
+    }
+
+    /// The main window as the DJ wants it at the start, full screen or filling its screen, and
+    /// the decks on their screen, kept there as screens come and go.
+    pub fn start(app: &AppHandle) {
+        let full = app.state::<AppState>().preferences.read(|p| p.ui.start_fullscreen);
+        if let Some(main) = app.get_webview_window("main").filter(|_| full) {
+            if let Err(e) = main.set_fullscreen(true) {
+                warn!("not started full screen: {e}");
+            }
+        }
+        let app = app.clone();
+        std::thread::Builder::new()
+            .name("prisme-screens".into())
+            .spawn(move || loop {
+                if let Err(e) = place(&app) {
+                    warn!("the decks not put on their screen: {e}");
+                }
+                std::thread::sleep(WATCH);
+            })
+            .expect("cannot start the screens thread");
+    }
+
+    /// The decks where the DJ chose: in a window of their own on their screen if it is plugged
+    /// in, else in the main window.
+    pub fn place(app: &AppHandle) -> AppResult<()> {
+        let chosen = app.state::<AppState>().preferences.read(|p| p.ui.decks_screen.clone());
+        let screen = chosen.and_then(|name| monitors(app).into_iter().find(|m| m.name() == Some(&name)));
+        let failed = |e: tauri::Error| AppError::Other(e.to_string());
+        match (screen, app.get_webview_window(DECKS)) {
+            (Some(screen), Some(window)) => {
+                let on = window.current_monitor().map_err(failed)?.and_then(|m| m.name().cloned());
+                if on.as_ref() != screen.name() {
+                    fill(&window, &screen).map_err(failed)?;
+                }
+            }
+            (Some(screen), None) => {
+                let window =
+                    WebviewWindowBuilder::new(app, DECKS, WebviewUrl::App("index.html?view=decks".into()))
+                        .title("Prisme")
+                        .decorations(false)
+                        .visible(false)
+                        .skip_taskbar(true)
+                        .disable_drag_drop_handler()
+                        .build()
+                        .map_err(failed)?;
+                fill(&window, &screen).map_err(failed)?;
+                window.show().map_err(failed)?;
+                tell(app, true);
+            }
+            (None, Some(window)) => {
+                window.destroy().map_err(failed)?;
+                tell(app, false);
+            }
+            (None, None) => {}
+        }
+        Ok(())
+    }
+
+    /// The window full screen on `screen`.
+    fn fill(window: &WebviewWindow, screen: &Monitor) -> tauri::Result<()> {
+        window.set_fullscreen(false)?;
+        window.set_position(*screen.position())?;
+        window.set_size(*screen.size())?;
+        window.set_fullscreen(true)
+    }
+
+    fn tell(app: &AppHandle, apart: bool) {
+        if let Err(e) = app.emit_to("main", APART_EVENT, apart) {
+            warn!("the main window not told where the decks are: {e}");
+        }
+    }
+
+    /// The window of the decks closed by the DJ (its keys, the system's): the decks back in the
+    /// main window, until another screen is chosen.
+    pub fn closed_by_the_dj(app: &AppHandle) {
+        app.state::<AppState>().update_settings(|p| p.ui.decks_screen = None);
+        tell(app, false);
+    }
 }

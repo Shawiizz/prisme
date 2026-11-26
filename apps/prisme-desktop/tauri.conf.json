@@ -18,6 +18,7 @@
         "minHeight": 640,
         "decorations": false,
         "center": true,
+        "maximized": true,
         "dragDropEnabled": false,
         "backgroundColor": "#0a0b0d"
       }

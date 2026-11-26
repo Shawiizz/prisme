@@ -29,7 +29,7 @@ import { TurntablePanel } from '../turntables/turntable-panel';
 import { ControllersSettings } from '../controllers/controllers-settings';
 import { ShortcutsSettings } from '../shortcuts/shortcuts-settings';
 import { ANDROID, PHONE } from '../../core/platform';
-import { ScreensService } from '../../core/services/screens.service';
+import { ScreensService, numbered } from '../../core/services/screens.service';
 import { SETTINGS_PAGES, SETTING_BY_ID } from './settings-catalog';
 import { SettingsSearch } from './settings-search';
 import { SettingControl, SettingRow } from './setting-row';
@@ -69,6 +69,9 @@ function inputKey(input: InputChannels | null): string {
  * audio or the interface wait in a bar until applied, and the window does not close
  * over them. On a phone, a page of its settings screen (`app-phone-settings`).
  */
+/** The room the map of the screens takes at most (CSS px). */
+const SCREEN_MAP_PX = { width: 220, height: 110 };
+
 @Component({
   selector: 'app-settings-dialog',
   templateUrl: './settings-dialog.html',
@@ -98,6 +101,41 @@ export class SettingsDialog implements OnInit {
   protected readonly search = inject(SettingsSearch);
 
   protected readonly pages = SETTINGS_PAGES;
+  /** The screen the decks are on in a window of their own, if any. */
+  protected readonly decksScreen = computed(() => this.preferences.ui().decksScreen);
+  /** That screen not plugged in. */
+  protected readonly decksScreenGone = computed(() => {
+    const chosen = this.decksScreen();
+    const screens = this.screens.screens();
+    return chosen !== null && screens.length > 0 && !screens.some((s) => s.name === chosen);
+  });
+  /** The screens as the system lays them out, drawn in [`SCREEN_MAP_PX`] at most. */
+  protected readonly screenMap = computed(() => {
+    const screens = this.screens.screens();
+    if (screens.length === 0) return { width: 0, height: 0, boxes: [] };
+    const left = Math.min(...screens.map((s) => s.x));
+    const top = Math.min(...screens.map((s) => s.y));
+    const right = Math.max(...screens.map((s) => s.x + s.width));
+    const bottom = Math.max(...screens.map((s) => s.y + s.height));
+    const scale = Math.min(
+      SCREEN_MAP_PX.width / (right - left),
+      SCREEN_MAP_PX.height / (bottom - top),
+    );
+    const at = (v: number) => Math.round(v * scale);
+    return {
+      width: at(right - left),
+      height: at(bottom - top),
+      boxes: numbered(screens).map(({ screen, number }) => ({
+        screen,
+        number,
+        left: at(screen.x - left),
+        top: at(screen.y - top),
+        // apart by a line, as the system draws them
+        width: at(screen.width) - 2,
+        height: at(screen.height) - 2,
+      })),
+    };
+  });
   /** On a phone the head's button goes back to the pages, and there is no screen below. */
   protected readonly PHONE = PHONE;
   protected readonly ANDROID = ANDROID;
@@ -239,6 +277,7 @@ export class SettingsDialog implements OnInit {
 
   async ngOnInit() {
     this.saved(this.service.loadBackends());
+    if (!PHONE) this.saved(this.screens.look());
     this.version.set(await getVersion().catch(() => ''));
   }
 
@@ -312,6 +351,11 @@ export class SettingsDialog implements OnInit {
 
   set<K extends keyof Settings>(setting: K, value: Settings[K]) {
     this.saved(this.preferences.set(setting, value));
+  }
+
+  /** The decks on the screen `name`, or back in the main window. */
+  putDecksOn(name: string | null) {
+    this.saved(this.screens.putDecksOn(name));
   }
 
   /** Asks for another music folder; nothing if cancelled. */

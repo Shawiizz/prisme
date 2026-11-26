@@ -1,31 +1,41 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
-import { PHONE } from '../platform';
-import { PreferencesService } from './preferences.service';
-import type { Span } from '../models/backend';
+import { listen } from '@tauri-apps/api/event';
+import type { Screen } from '../models/backend';
 
 /**
- * A screen under the main one, as on a laptop with two screens: Prisme can spread over
- * both, the library on the main screen, the decks on the one below, under the fingers.
+ * The screens plugged in, and the decks in a window of their own on the one the DJ chose, full
+ * screen there, the main window apart from them (`commands/screens.rs`): a laptop's second
+ * screen, a touch screen beside it.
  */
 @Injectable({ providedIn: 'root' })
 export class ScreensService {
-  private readonly preferences = inject(PreferencesService);
-  /** There is a screen under the one Prisme is on. */
-  readonly below = signal(false);
-  /** Spread over both: where the screen below starts in the window (CSS px), and the
-   * scale of what it shows, so that it looks as the system scales that screen. */
-  readonly span = signal<{ split: number; zoom: number } | null>(null);
+  /** As last looked at. */
+  readonly screens = signal<Screen[]>([]);
+  /** The decks are in a window of their own. */
+  readonly decksApart = signal(false);
 
-  /** Looks for a screen below, and spreads over it again if the DJ chose so last time. */
+  /** Follows where the decks are: their screen unplugged, they come back. */
   async init(): Promise<void> {
-    if (PHONE) return;
-    this.below.set(await invoke<boolean>('screen_below'));
-    if (this.below() && this.preferences.ui().screenBelow) await this.spread(true);
+    await listen<boolean>('decks-apart', ({ payload }) => this.decksApart.set(payload));
+    this.decksApart.set(await invoke<boolean>('decks_apart'));
   }
 
-  /** Spreads over the screen below or no longer: the backend keeps the choice. */
-  async spread(on: boolean): Promise<void> {
-    this.span.set(await invoke<Span | null>('span_screens', { span: on }));
+  /** The screens plugged in now. */
+  async look(): Promise<void> {
+    this.screens.set(await invoke<Screen[]>('list_screens'));
   }
+
+  /** The decks on `screen` (its name), or back in the main window (`null`). */
+  async putDecksOn(screen: string | null): Promise<void> {
+    await invoke('set_decks_screen', { screen });
+    await this.look();
+  }
+}
+
+/** The screens numbered as read: from the top, then from the left (the system's own numbers
+ * are not those its settings show). */
+export function numbered(screens: readonly Screen[]): { screen: Screen; number: number }[] {
+  const order = [...screens].sort((a, b) => a.y - b.y || a.x - b.x);
+  return screens.map((screen) => ({ screen, number: order.indexOf(screen) + 1 }));
 }

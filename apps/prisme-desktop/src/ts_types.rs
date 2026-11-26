@@ -7,7 +7,7 @@ use crate::commands::folders::DroppedDto;
 use crate::commands::new_version::NewVersionDto;
 use crate::commands::pads::PadPageDto;
 use crate::commands::preferences::Setting;
-use crate::commands::screens::SpanDto;
+use crate::commands::screens::ScreenDto;
 use crate::controllers::PluggedIn;
 use crate::dto::*;
 use crate::error::ErrorDto;
@@ -107,7 +107,7 @@ fn the_page_has_the_types_the_backend_declares() {
         .of::<Setting>()
         .of::<KeyPreference>()
         .of::<TakenKeyDto>()
-        .of::<SpanDto>()
+        .of::<ScreenDto>()
         .of::<TargetDto>()
         .of::<PadPageDto>()
         // what the events tell

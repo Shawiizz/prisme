@@ -1914,6 +1914,27 @@ export type Rule =
   | { "kind": "year"; min: number | null; max: number | null }
   | { "kind": "key"; camelot: Array<string> };
 
+/**
+ * A screen plugged in.
+ */
+export type Screen = {
+  /**
+   * The system's name of it, by which it is chosen.
+   */
+  name: string;
+  /**
+   * Its place and size on the desktop (physical px).
+   */
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /**
+   * The main window is on it.
+   */
+  main: boolean;
+};
+
 export type SearchScope = "list" | "library";
 
 /**
@@ -1947,7 +1968,7 @@ export type Setting =
   | { "setting": "stemsFast"; "value": boolean }
   | { "setting": "language"; "value": string | null }
   | { "setting": "phoneTouch"; "value": boolean | null }
-  | { "setting": "screenBelow"; "value": boolean }
+  | { "setting": "startFullscreen"; "value": boolean }
   | { "setting": "automaticUpdates"; "value": boolean };
 
 /**
@@ -2019,21 +2040,6 @@ export type SortColumn =
   | "rating"
   | "plays"
   | "mix";
-
-/**
- * The window spread over both screens.
- */
-export type Span = {
-  /**
-   * Where the screen below starts in the window (CSS px).
-   */
-  split: number;
-  /**
-   * The window draws at the main screen's scale: what the screen below shows is scaled by
-   * this to look as Windows scales that screen (200 % below 250 %: 0.8).
-   */
-  zoom: number;
-};
 
 /**
  * A part of a deck's separated track, as its knob shows it.
@@ -2360,9 +2366,14 @@ export type UiPreferences = {
    */
   phoneTouch: boolean | null;
   /**
-   * Spread over the screen under the main one, when there is one.
+   * The main window full screen at the start, not only filling its screen.
    */
-  screenBelow: boolean;
+  startFullscreen: boolean;
+  /**
+   * The screen the decks are on in a window of their own (its system name), else in the main
+   * window.
+   */
+  decksScreen: string | null;
 };
 
 /**

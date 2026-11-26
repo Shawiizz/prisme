@@ -54,8 +54,11 @@ pub struct UiPreferences {
     pub language: Option<String>,
     /// On a phone, the decks' touch controls shown or not, else as what is plugged in says.
     pub phone_touch: Option<bool>,
-    /// Spread over the screen under the main one, when there is one.
-    pub screen_below: bool,
+    /// The main window full screen at the start, not only filling its screen.
+    pub start_fullscreen: bool,
+    /// The screen the decks are on in a window of their own (its system name), else in the main
+    /// window.
+    pub decks_screen: Option<String>,
 }
 
 impl UiPreferences {

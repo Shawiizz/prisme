@@ -9,20 +9,21 @@ use crate::state::{lock, AppState, Section, SECTIONS};
 use prisme_actions::view::View;
 use serde::Serialize;
 use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 use tauri::ipc::Channel;
-use tauri::State;
+use tauri::{State, WebviewWindow};
 
 /// The longest the page is told nothing: told nothing for much longer, it lost a status and
 /// listens anew.
 const ALIVE: Duration = Duration::from_millis(500);
 
-/// The page listening, if one does.
+/// The pages listening: one a window, by its label.
 #[derive(Default)]
 pub struct StatusStream {
-    listener: Mutex<Option<Listener>>,
+    listeners: Mutex<HashMap<String, Listener>>,
 }
 
 struct Listener {
@@ -33,21 +34,22 @@ struct Listener {
     sent: Instant,
 }
 
-/// The page listens from now on: a newer one in place of an older (a page reloaded), the keys
-/// the older held let go.
+/// The page of `window` listens from now on: a newer one in place of an older (a page reloaded),
+/// the keys the older held let go.
 #[tauri::command]
 pub fn subscribe_status(
+    window: WebviewWindow,
     stream: State<'_, StatusStream>,
     actions: State<'_, Actions>,
     channel: Channel<Value>,
 ) {
     actions.page_loaded();
-    *lock(&stream.listener) = Some(Listener::new(channel));
+    lock(&stream.listeners).insert(window.label().to_owned(), Listener::new(channel));
 }
 
 impl StatusStream {
-    /// Tells the page listening, if one does, what changed of the status `status` builds (only
-    /// then) and of the sections of `state` that moved since it was last told at `revision`,
+    /// Tells the pages listening, if any, what changed of the status `status` builds (only then,
+    /// once) and of the sections of `state` that moved since each was last told at `revision`,
     /// read in `view`; the library's too if its rows were sent again (`rows_moved`).
     pub fn tell(
         &self,
@@ -57,19 +59,46 @@ impl StatusStream {
         rows_moved: bool,
         status: impl FnOnce() -> StatusDto,
     ) {
-        // taken out while it is told: nothing waits on its lock meanwhile
-        let Some(mut listener) = lock(&self.listener).take() else { return };
-        let told =
-            catch_unwind(AssertUnwindSafe(|| listener.tell(state, view, revision, rows_moved, status)));
-        let kept = match &told {
-            Ok(kept) => kept.then_some(listener),
-            // what it holds no longer known: told whole next time
-            Err(_) => Some(Listener { told: Told::default(), revision: None, ..listener }),
-        };
-        if let Some(listener) = kept {
-            lock(&self.listener).get_or_insert(listener);
+        // taken out while they are told: nothing waits on their lock meanwhile
+        let listeners = std::mem::take(&mut *lock(&self.listeners));
+        if listeners.is_empty() {
+            return;
         }
-        if let Err(panic) = told {
+        let status = match catch_unwind(AssertUnwindSafe(status)) {
+            Ok(status) => status,
+            Err(panic) => {
+                // what they hold no longer known: told whole next time
+                let mut kept = lock(&self.listeners);
+                for (window, listener) in listeners {
+                    kept.entry(window).or_insert(Listener {
+                        told: Told::default(),
+                        revision: None,
+                        ..listener
+                    });
+                }
+                drop(kept);
+                resume_unwind(panic);
+            }
+        };
+        let mut panicked = None;
+        for (window, mut listener) in listeners {
+            let told = catch_unwind(AssertUnwindSafe(|| {
+                listener.tell(state, view, revision, rows_moved, status.clone())
+            }));
+            let kept = match told {
+                Ok(kept) => kept.then_some(listener),
+                // what it holds no longer known: told whole next time
+                Err(panic) => {
+                    panicked = Some(panic);
+                    Some(Listener { told: Told::default(), revision: None, ..listener })
+                }
+            };
+            // a page that listened anew meanwhile is the one kept
+            if let Some(listener) = kept {
+                lock(&self.listeners).entry(window).or_insert(listener);
+            }
+        }
+        if let Some(panic) = panicked {
             resume_unwind(panic);
         }
     }
@@ -88,9 +117,8 @@ impl Listener {
         view: &View,
         revision: [u64; SECTIONS],
         rows_moved: bool,
-        status: impl FnOnce() -> StatusDto,
+        mut status: StatusDto,
     ) -> bool {
-        let mut status = status();
         if self.revision != Some(revision) || rows_moved {
             let told = self.revision;
             let moved = |s: Section| told.is_none_or(|t| t[s as usize] != revision[s as usize]);
@@ -210,7 +238,7 @@ mod tests {
             Ok(())
         });
         let stream = StatusStream::default();
-        *lock(&stream.listener) = Some(Listener::new(channel));
+        lock(&stream.listeners).insert("main".into(), Listener::new(channel));
         let tell = || {
             stream.tell(&state, &view, state.revision(), false, || {
                 StatusDto::of(&view, None, Default::default())

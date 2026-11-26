@@ -5,32 +5,18 @@
     @defer (on immediate) {
       <app-phone />
     }
+  } @else if (DECKS_WINDOW) {
+    <main class="layout on-their-own">
+      <ng-container [ngTemplateOutlet]="lanes" />
+    </main>
   } @else {
     <app-titlebar />
 
-    <main
-      class="layout"
-      [class.split]="under() !== null"
-      [class.library-only]="navigation.libraryOnly()"
-      [style.--under.px]="under()"
-      [style.--under-zoom]="underZoom()"
-    >
-      @if (under() !== null || navigation.libraryOnly()) {
+    <main class="layout" [class.library-only]="libraryOnly()">
+      @if (libraryOnly()) {
         <app-now-playing />
       }
-      <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
-        @for (deck of decks(); track deck) {
-          <app-deck-lane
-            [deck]="deck"
-            [compact]="compact()"
-            animate.enter="lane-in"
-            animate.leave="lane-out"
-          />
-          @if (deck === 0) {
-            <app-phase-strip />
-          }
-        }
-      </section>
+      <ng-container [ngTemplateOutlet]="lanes" />
 
       <section class="library">
         <app-library />
@@ -39,20 +25,37 @@
   }
 
   <!-- loaded when first opened -->
-  @if (!PHONE && navigation.settings()) {
+  @if (!PHONE && !DECKS_WINDOW && navigation.settings()) {
     @defer (on immediate) {
       <app-settings-dialog animate.leave="pr-fade-out" />
     }
   }
 
-  @if (!PHONE && navigation.palette()) {
+  @if (!PHONE && !DECKS_WINDOW && navigation.palette()) {
     @defer (on immediate) {
       <app-command-palette animate.leave="pr-fade-out" />
     }
   }
 
-  <app-models-dialog />
+  @if (!DECKS_WINDOW) {
+    <app-models-dialog />
+  }
 }
+<ng-template #lanes>
+  <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
+    @for (deck of decks(); track deck) {
+      <app-deck-lane
+        [deck]="deck"
+        [compact]="compact()"
+        animate.enter="lane-in"
+        animate.leave="lane-out"
+      />
+      @if (deck === 0) {
+        <app-phase-strip />
+      }
+    }
+  </section>
+</ng-template>
 <app-select-picker />
 <app-confirm />
 <app-notice />

@@ -982,6 +982,7 @@ mod tests {
                 "general.help",
                 "general.palette",
                 "general.settings",
+                "general.fullscreen",
                 "general.close"
             ]
         );

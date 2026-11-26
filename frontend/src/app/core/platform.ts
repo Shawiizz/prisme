@@ -9,3 +9,6 @@ export const PHONE =
 
 /** Android lays the page out clear of its bars and its camera itself (`MainActivity.kt`). */
 export const ANDROID = /Android/.test(navigator.userAgent);
+
+/** The page of the decks' own window, on a screen of their own (`commands/screens.rs`). */
+export const DECKS_WINDOW = new URLSearchParams(location.search).get('view') === 'decks';

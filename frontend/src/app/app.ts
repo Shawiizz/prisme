@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { PreviewService } from './core/services/preview.service';
 import { LibraryService } from './core/services/library.service';
 import { Titlebar } from './shell/titlebar/titlebar';
@@ -15,7 +16,8 @@ import { NowPlaying } from './shell/now-playing/now-playing';
 import { ScreensService } from './core/services/screens.service';
 import { clickWithEveryFinger } from './core/every-finger';
 import { dismissSplash } from './core/splash';
-import { PHONE } from './core/platform';
+import { DECKS_WINDOW, PHONE } from './core/platform';
+import { WindowService } from './core/services/window.service';
 import { KeyboardService } from './core/keyboard/keyboard.service';
 import { ControllerService } from './core/control/controller.service';
 import { UpdateService } from './core/services/update.service';
@@ -29,17 +31,19 @@ import { FileDropService } from './core/services/file-drop.service';
 import { NoticeView } from './shared/notice/notice';
 import { ModelsDialog } from './features/stems/models-dialog';
 
-/** The height whole lanes for two decks take on a screen below (CSS px). */
+/** The height whole lanes for two decks take in the decks' own window (CSS px). */
 const WHOLE_LANES_PX = 420;
 
 /**
- * Main window layout: title bar, a lane per deck (compact ones for four decks) with the
- * phase strip after the first, the library; and the dialogs. Spread over a screen below, the
- * library above and the decks on the screen below. On a phone, its own screens.
+ * Main window layout: title bar, a lane per deck (compact ones for four decks) with the phase
+ * strip after the first, the library; and the dialogs. The decks in a window of their own (see
+ * `ScreensService`), what plays recalled above the library, and that window the lanes alone,
+ * sharing its height. On a phone, its own screens.
  */
 @Component({
   selector: 'app-root',
   imports: [
+    NgTemplateOutlet,
     SelectPicker,
     Confirm,
     Tooltip,
@@ -74,22 +78,20 @@ export class App implements OnInit {
   private readonly updates = inject(UpdateService);
   protected readonly navigation = inject(NavigationService);
   protected readonly PHONE = PHONE;
-  private readonly screens = inject(ScreensService);
+  protected readonly DECKS_WINDOW = DECKS_WINDOW;
+  protected readonly screens = inject(ScreensService);
+  private readonly window = inject(WindowService);
   private readonly recording = inject(RecordingService);
   private readonly fileDrops = inject(FileDropService);
   protected readonly height = signal(innerHeight);
-  /** Four decks, or a screen below too short for whole lanes: compact lanes. */
-  protected readonly compact = computed(() => {
-    const under = this.under();
-    return this.decks().length > 2 || (under !== null && under / this.underZoom() < WHOLE_LANES_PX);
-  });
-  /** Spread over a screen below: the height the decks have on it (CSS px). */
-  protected readonly under = computed(() => {
-    const span = this.screens.span();
-    return span === null ? null : Math.max(this.height() - span.split, 0);
-  });
-  /** The scale of the screen below against the main one's (see `ScreensService`). */
-  protected readonly underZoom = computed(() => this.screens.span()?.zoom ?? 1);
+  /** Four decks, or the decks' own window too short for whole lanes: compact lanes. */
+  protected readonly compact = computed(
+    () => this.decks().length > 2 || (DECKS_WINDOW && this.height() < WHOLE_LANES_PX),
+  );
+  /** The library over the whole main window: what plays recalled above it. */
+  protected readonly libraryOnly = computed(
+    () => this.navigation.libraryOnly() || this.screens.decksApart(),
+  );
 
   constructor() {
     // a touch screen, a phone's or a laptop's, takes several fingers at once
@@ -100,16 +102,22 @@ export class App implements OnInit {
     try {
       // what the others read (the preferences among it) comes with the first status
       await this.engine.connect();
-      await Promise.all([
-        this.preview.init(),
-        this.library.init(),
-        this.settings.init(),
-        this.keyboard.start(),
-        this.controllers.start(),
-        this.screens.init(),
-        this.recording.init(),
-        this.fileDrops.start(),
-      ]);
+      // the decks' own window: their keys, the rest is the main window's
+      await Promise.all(
+        DECKS_WINDOW
+          ? [this.keyboard.start()]
+          : [
+              this.preview.init(),
+              this.library.init(),
+              this.settings.init(),
+              this.keyboard.start(),
+              this.controllers.start(),
+              this.screens.init(),
+              this.window.init(),
+              this.recording.init(),
+              this.fileDrops.start(),
+            ],
+      );
     } catch (err) {
       console.error(err);
     } finally {

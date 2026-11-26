@@ -102,17 +102,6 @@ use tracing::{error, warn};
 /// How long quitting waits for the actions sent before to be done.
 const CLOSE_WAIT: Duration = Duration::from_secs(2);
 
-/// The window maximised where its first size does not fit the screen (a laptop at 150 %).
-#[cfg(desktop)]
-fn fit_window(app: &tauri::App) {
-    let Some(window) = app.get_webview_window("main") else { return };
-    let (Ok(Some(monitor)), Ok(size)) = (window.current_monitor(), window.outer_size()) else { return };
-    let area = monitor.work_area().size;
-    if size.width > area.width || size.height > area.height {
-        let _ = window.maximize();
-    }
-}
-
 /// The keys of the browser under the page off in a release (reload, print, find, zoom, its
 /// developer tools): Prisme is an application, its keys are its own. Kept in development.
 #[cfg(windows)]
@@ -222,10 +211,13 @@ pub fn run() {
             #[cfg(not(target_os = "android"))]
             start_audio(app.handle(), &restored);
             start_services(app, &library);
+            #[cfg(desktop)]
+            commands::screens::start(app.handle());
             #[cfg(target_os = "android")]
             start_audio_apart(app.handle().clone(), restored);
             Ok(())
         })
+        .on_window_event(window_event)
         .invoke_handler(invoke_handler())
         .build(tauri::generate_context!())
         .expect("error while building Prisme")
@@ -238,6 +230,25 @@ pub fn run() {
         });
 }
 
+/// The main window closed: the decks' with it, and Prisme quits. The decks' closed by the DJ:
+/// the decks back in the main window.
+fn window_event(window: &tauri::Window, event: &tauri::WindowEvent) {
+    #[cfg(desktop)]
+    match (window.label(), event) {
+        ("main", tauri::WindowEvent::CloseRequested { .. }) => {
+            if let Some(decks) = window.app_handle().get_webview_window(commands::screens::DECKS) {
+                let _ = decks.destroy();
+            }
+        }
+        (commands::screens::DECKS, tauri::WindowEvent::CloseRequested { .. }) => {
+            commands::screens::closed_by_the_dj(window.app_handle());
+        }
+        _ => {}
+    }
+    #[cfg(mobile)]
+    let _ = (window, event);
+}
+
 /// Prisme's data folder: the one the environment asks for, else the system's.
 fn data_dir<R: tauri::Runtime>(app: &impl Manager<R>) -> Option<PathBuf> {
     dev_startup::data_dir()
@@ -246,8 +257,6 @@ fn data_dir<R: tauri::Runtime>(app: &impl Manager<R>) -> Option<PathBuf> {
 
 /// The window as the platform needs it, before anything shows in it.
 fn prepare_window(app: &tauri::App) {
-    #[cfg(desktop)]
-    fit_window(app);
     #[cfg(windows)]
     browser_keys_off(app);
     #[cfg(any(windows, target_os = "macos"))]
@@ -466,8 +475,9 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::recording::stop_recording,
         commands::sampler::load_sample,
         commands::sampler::take_sample_off,
-        commands::screens::screen_below,
-        commands::screens::span_screens,
+        commands::screens::list_screens,
+        commands::screens::decks_apart,
+        commands::screens::set_decks_screen,
         commands::stems::cancel_separation,
         commands::stems::download_stems_model,
         commands::stems::download_stems_models,

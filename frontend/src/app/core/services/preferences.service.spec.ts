@@ -4,7 +4,9 @@ import { loadPreferences, PreferencesService } from './preferences.service';
 import type { Preferences } from '../models/backend';
 
 const preferences = (ui: Partial<Preferences['ui']>) =>
-  ({ ui: { language: null, phoneTouch: null, screenBelow: false, ...ui } }) as Preferences;
+  ({
+    ui: { language: null, phoneTouch: null, startFullscreen: false, decksScreen: null, ...ui },
+  }) as Preferences;
 
 describe('loadPreferences', () => {
   afterEach(() => {
@@ -14,6 +16,7 @@ describe('loadPreferences', () => {
 
   it('gives the backend what the page kept once, then reads the preferences it keeps', async () => {
     localStorage.setItem('prisme.language', 'en');
+    localStorage.setItem('prisme.phone.touch', 'true');
     localStorage.setItem('prisme.screenBelow', 'true');
     let kept = preferences({});
     const given: unknown[] = [];
@@ -27,7 +30,7 @@ describe('loadPreferences', () => {
     await loadPreferences();
     expect(given).toEqual([
       { setting: 'language', value: 'en' },
-      { setting: 'screenBelow', value: true },
+      { setting: 'phoneTouch', value: true },
     ]);
     expect(TestBed.inject(PreferencesService).ui()).toEqual(kept.ui);
     expect(localStorage.length).toBe(0);

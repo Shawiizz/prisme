@@ -44,8 +44,8 @@ pub enum Setting {
     StemsFast(bool),
     Language(Option<String>),
     PhoneTouch(Option<bool>),
-    /// Spread over the screen below at the next start (`span_screens` spreads at once).
-    ScreenBelow(bool),
+    /// The main window full screen at the next start.
+    StartFullscreen(bool),
     /// New versions downloaded and put in place by themselves (a computer's).
     AutomaticUpdates(bool),
 }
@@ -119,7 +119,7 @@ impl Setting {
                 p.ui.language = language;
             }
             Setting::PhoneTouch(touch) => p.ui.phone_touch = touch,
-            Setting::ScreenBelow(on) => p.ui.screen_below = on,
+            Setting::StartFullscreen(on) => p.ui.start_fullscreen = on,
             Setting::AutomaticUpdates(on) => {
                 p.updates.automatic = on;
                 return Ok(if on { Then::LookForUpdate } else { Then::Nothing });
@@ -330,11 +330,11 @@ mod tests {
         let state = state();
         let before = state.revision();
         change(&state, Setting::PhoneTouch(Some(false))).unwrap();
-        change(&state, Setting::ScreenBelow(true)).unwrap();
+        change(&state, Setting::StartFullscreen(true)).unwrap();
         let moved = state.moved_since(before);
         assert!(moved.contains(&crate::state::Section::Settings), "{moved:?}");
         let shown = PreferencesDto::of(&state);
-        assert_eq!((shown.ui.phone_touch, shown.ui.screen_below), (Some(false), true));
+        assert_eq!((shown.ui.phone_touch, shown.ui.start_fullscreen), (Some(false), true));
         assert_eq!(shown.choices.deck_counts, [2, 4]);
     }
 }

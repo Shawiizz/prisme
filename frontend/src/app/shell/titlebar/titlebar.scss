@@ -72,6 +72,12 @@
 
 // opens the command palette
 .palette {
+  position: relative;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: calc((26px - var(--pr-titlebar)) / 2) 0;
+  }
   // gives up its width first
   flex: 0 20 300px;
   min-width: 120px;
@@ -143,6 +149,17 @@
   .pr-btn {
     height: 28px;
     font-size: 12.5px;
+  }
+  // the bar's own keys pressed from the top edge of the screen to the bottom of the bar: a
+  // pointer thrown up lands on them (not those of the menu under one)
+  > .pr-btn,
+  > .rec > .pr-btn {
+    position: relative;
+    &::after {
+      content: '';
+      position: absolute;
+      inset: calc((28px - var(--pr-titlebar)) / 2) 0;
+    }
   }
   .update {
     margin-right: var(--pr-space-2);
