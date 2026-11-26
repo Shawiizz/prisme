@@ -68,11 +68,15 @@ const SESSION_DATE = computed(
  * file manager are dropped on the prepare list and the crates too, folders on the music
  * folders. A phone picks a folder to add in its own sheet (`pickFolder`).
  */
+/** How long a delete key asked for waits for its second press (ms). */
+const ARMED_MS = 4000;
+
 @Component({
   selector: 'app-library-sidebar',
   templateUrl: './library-sidebar.html',
   styleUrl: './library-sidebar.scss',
   imports: [Dismiss, SmartCrateDialog, TPipe],
+  host: { '(document:pointerdown)': 'disarmElsewhere($event)' },
 })
 export class LibrarySidebar {
   /** On a phone: a folder to add is to be picked. */
@@ -129,6 +133,17 @@ export class LibrarySidebar {
       () => this.folderMenu() !== null,
       () => this.folderMenu.set(null),
     );
+    // a delete asked for and not confirmed: forgotten with Escape, a press elsewhere, or
+    // after a while
+    overlay(
+      () => this.armed() !== null,
+      () => this.armed.set(null),
+    );
+    effect((cleanup) => {
+      if (this.armed() === null) return;
+      const forgotten = setTimeout(() => this.armed.set(null), ARMED_MS);
+      cleanup(() => clearTimeout(forgotten));
+    });
     // the list the knob points at kept in sight
     afterRenderEffect(() => {
       if (this.pointed() === null) return;
@@ -229,6 +244,13 @@ export class LibrarySidebar {
     if (!name || editing === null) return;
     if (editing === 'new') await this.library.createCrate(name);
     else await this.library.renameCrate(editing, name);
+  }
+
+  /** A press anywhere but on the delete key asked for forgets it. */
+  protected disarmElsewhere(event: PointerEvent) {
+    if (this.armed() !== null && !(event.target as Element | null)?.closest('.delete.armed')) {
+      this.armed.set(null);
+    }
   }
 
   isArmed(kind: Deletable, id: number): boolean {
