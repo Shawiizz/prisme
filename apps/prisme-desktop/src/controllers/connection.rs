@@ -2,9 +2,9 @@
 //! closed, let go.
 
 use super::{
-    base_port_name, find_port, hid_plugged, light_of, midi, midi_error, open_output, port_names, port_of,
-    with_hid, Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade, CLIENT,
-    PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
+    base_port_name, find_port, hid_plugged, in_order, input_ports, light_of, midi, midi_error, open_output,
+    port_of, with_hid, Connection, Controllers, JogSteps, Lighting, Link, Lit, MidiWriter, PluggedIn, Shade,
+    CLIENT, PLUGGED_EVENT, WATCH_EVERY, WATCH_WITHOUT_MIDI_EVERY,
 };
 use crate::actions::{Host, InTurn, Moved, Source};
 use crate::controller_hid;
@@ -25,7 +25,7 @@ use tracing::{error, info, warn};
 impl Controllers {
     /// The controllers plugged in: the MIDI ports, and the HID devices that may be controllers.
     pub(super) fn plugged() -> Vec<String> {
-        let midi = MidiInput::new(CLIENT).map(|input| port_names(&input)).unwrap_or_else(|e| {
+        let midi = MidiInput::new(CLIENT).map(|input| input_ports(&input)).unwrap_or_else(|e| {
             warn!("MIDI ports not listed: {e}");
             Vec::new()
         });
@@ -35,12 +35,12 @@ impl Controllers {
     /// Opens the controllers in use that are plugged in, and those of a model Prisme knows,
     /// unless the DJ turned them off.
     fn open_at_start(&self, app: &AppHandle) {
-        for device in self.setup.read(|s| s.enabled.clone()) {
+        let plugged = Self::plugged();
+        for device in in_order(&self.setup.read(|s| s.enabled.clone()), &plugged) {
             if let Err(e) = self.open(app, &device) {
                 warn!("controller {device} not opened: {e}");
             }
         }
-        let plugged = Self::plugged();
         for port in &plugged {
             if self.new_to_the_dj(port) && controller_profiles::of(port).is_some() {
                 self.take_up(app, port);
@@ -73,7 +73,7 @@ impl Controllers {
                     looking = MidiInput::new(CLIENT).ok();
                     midi_tried = Some(Instant::now());
                 }
-                let midi = looking.as_ref().map(port_names).unwrap_or_default();
+                let midi = looking.as_ref().map(input_ports).unwrap_or_default();
                 let plugged = with_hid(midi, &hid_plugged());
                 let controllers = app.state::<Controllers>();
                 let unplugged: Vec<String> = controllers
@@ -84,7 +84,7 @@ impl Controllers {
                 for device in &unplugged {
                     controllers.let_go(&app, device);
                 }
-                for device in controllers.setup.read(|s| s.enabled.clone()) {
+                for device in in_order(&controllers.setup.read(|s| s.enabled.clone()), &plugged) {
                     let open = lock(&controllers.connections).iter().any(|c| c.device == device);
                     if open || port_of(&plugged, &device, &controllers.ports_open()).is_none() {
                         continue;
@@ -261,7 +261,7 @@ impl Controllers {
                 controllers.receive(&receiving, &name, read.get(), event, at_s);
             }
         })?;
-        let output = open_output(&port_name).unwrap_or_else(|e| {
+        let output = open_output(&port_name, &port.id()).unwrap_or_else(|e| {
             warn!("controller {device} opened without its lights: {e}");
             None
         });

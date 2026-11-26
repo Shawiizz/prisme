@@ -44,7 +44,9 @@ enum Path {
 struct Entry {
     info: HidInfo,
     product: String,
-    serial: String,
+    /// The device it is part of, with its other interfaces: one unit of its model (see
+    /// [`unit_of`]).
+    unit: String,
     path: Path,
 }
 
@@ -55,7 +57,7 @@ struct Entry {
 pub fn plugged(fit: impl Fn(&HidInfo) -> Option<usize>) -> Vec<Plugged> {
     let mut devices: BTreeMap<(u16, u16, String), Vec<Entry>> = BTreeMap::new();
     for entry in system().into_iter().chain(simulated::entries()) {
-        let key = (entry.info.vendor_id, entry.info.product_id, entry.serial.clone());
+        let key = (entry.info.vendor_id, entry.info.product_id, entry.unit.clone());
         devices.entry(key).or_default().push(entry);
     }
     let mut plugged: Vec<Plugged> = Vec::new();
@@ -139,7 +141,7 @@ fn system() -> Vec<Entry> {
                     usage: d.usage(),
                 },
                 product: d.product_string().unwrap_or_default().to_owned(),
-                serial: d.serial_number().unwrap_or_default().to_owned(),
+                unit: unit_of(d.path(), d.serial_number()),
                 path: Path::System(d.path().to_owned()),
             })
             .filter(|e| !no_controller(&e.info))
@@ -154,6 +156,73 @@ fn system() -> Vec<Entry> {
 #[cfg(not(desktop))]
 fn system() -> Vec<Entry> {
     Vec::new()
+}
+
+/// The device the HID interface at `path` is part of: on Windows its container, on Linux its
+/// USB device, elsewhere its serial number (two units of a model without one are then taken
+/// for one, the system telling them apart no other way to hidapi).
+#[cfg(desktop)]
+fn unit_of(path: &std::ffi::CStr, serial: Option<&str>) -> String {
+    #[cfg(windows)]
+    if let Some(container) = windows_unit(path) {
+        return container;
+    }
+    #[cfg(target_os = "linux")]
+    if let Some(usb) = linux_unit(path) {
+        return usb;
+    }
+    let _ = path;
+    serial.unwrap_or_default().to_owned()
+}
+
+/// The container of the device whose HID interface is at `path` (`\\?\HID#VID_…`).
+#[cfg(windows)]
+fn windows_unit(path: &std::ffi::CStr) -> Option<String> {
+    use windows_sys::core::GUID;
+    use windows_sys::Win32::Devices::DeviceAndDriverInstallation::{
+        CM_Get_DevNode_PropertyW, CM_Get_Device_Interface_PropertyW, CM_Locate_DevNodeW,
+        CM_LOCATE_DEVNODE_NORMAL, CR_SUCCESS,
+    };
+    use windows_sys::Win32::Devices::Properties::{DEVPKEY_Device_ContainerId, DEVPKEY_Device_InstanceId};
+    let path: Vec<u16> = path.to_str().ok()?.encode_utf16().chain(Some(0)).collect();
+    let mut kind = 0;
+    let mut instance = [0u16; 512];
+    let mut size = std::mem::size_of_val(&instance) as u32;
+    // SAFETY: each buffer is as large as the size given with it, the strings are terminated,
+    // and the property read into `container` is a GUID
+    let container = unsafe {
+        let key = &DEVPKEY_Device_InstanceId;
+        let found = CM_Get_Device_Interface_PropertyW(
+            path.as_ptr(),
+            key,
+            &mut kind,
+            instance.as_mut_ptr().cast(),
+            &mut size,
+            0,
+        );
+        (found == CR_SUCCESS).then_some(())?;
+        let mut node = 0;
+        (CM_Locate_DevNodeW(&mut node, instance.as_ptr(), CM_LOCATE_DEVNODE_NORMAL) == CR_SUCCESS)
+            .then_some(())?;
+        let mut container: GUID = std::mem::zeroed();
+        size = std::mem::size_of::<GUID>() as u32;
+        let key = &DEVPKEY_Device_ContainerId;
+        let read = CM_Get_DevNode_PropertyW(node, key, &mut kind, (&raw mut container).cast(), &mut size, 0);
+        (read == CR_SUCCESS).then_some(container)?
+    };
+    let GUID { data1, data2, data3, data4 } = container;
+    Some(format!("{data1:08x}-{data2:04x}-{data3:04x}-{}", data4.map(|b| format!("{b:02x}")).concat()))
+}
+
+/// The USB device whose HID interface is `path` (`/dev/hidraw3`): its place in sysfs, the
+/// first above the interface that has a vendor id (`…/usb1/1-2`).
+#[cfg(target_os = "linux")]
+fn linux_unit(path: &std::ffi::CStr) -> Option<String> {
+    let node = std::path::Path::new(path.to_str().ok()?).file_name()?;
+    let device =
+        std::fs::canonicalize(std::path::Path::new("/sys/class/hidraw").join(node).join("device")).ok()?;
+    let usb = device.ancestors().find(|place| place.join("idVendor").is_file())?;
+    Some(usb.to_string_lossy().into_owned())
 }
 
 /// What a device open is read and written through.
@@ -497,7 +566,7 @@ pub mod simulated {
             .map(|d| Entry {
                 info: d.info.clone(),
                 product: d.product.clone(),
-                serial: format!("simulated {}", d.id),
+                unit: format!("simulated {}", d.id),
                 path: Path::Simulated(d.id),
             })
             .collect()

@@ -24,7 +24,7 @@ use crate::controller_hid;
 use crate::controller_profiles;
 use crate::dto::ControllersDto;
 use crate::error::{AppError, AppResult};
-use midir::{MidiIO, MidiOutput};
+use midir::{MidiIO, MidiInput, MidiOutput, MidiOutputPort};
 use prisme_actions::hold::Pressed;
 use prisme_actions::input::Input;
 use prisme_actions::perform::ClipHold;
@@ -345,23 +345,55 @@ pub(crate) fn hid_plugged() -> Vec<controller_hid::Plugged> {
     controller_hid::plugged(controller_profiles::hid_fit)
 }
 
+/// A MIDI input plugged in: its name, and the id its system gives it (midir's): on Windows its
+/// device's interface (`\\?\usb#vid_06f8&pid_b105&mi_00#…`), shared by the device's ports.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct MidiPort {
+    pub name: String,
+    pub id: String,
+}
+
+/// The MIDI inputs plugged in.
+pub(crate) fn input_ports(input: &MidiInput) -> Vec<MidiPort> {
+    input
+        .ports()
+        .iter()
+        .filter_map(|p| Some(MidiPort { name: input.port_name(p).ok()?, id: p.id() }))
+        .collect()
+}
+
+/// The USB vendor and product ids a port's id holds (`…#vid_06f8&pid_b105…`), on Windows.
+fn usb_ids(id: &str) -> Option<(u16, u16)> {
+    let id = id.to_lowercase();
+    let hex = |key: &str| {
+        let at = id.find(key)? + key.len();
+        u16::from_str_radix(id.get(at..at + 4)?, 16).ok()
+    };
+    Some((hex("vid_")?, hex("pid_")?))
+}
+
 /// The controllers plugged in, the MIDI ports `midi` and the HID devices `hid`, a controller
 /// that is both used one way only: by HID if Prisme knows it so and not by MIDI, else by MIDI.
-fn with_hid(mut midi: Vec<String>, hid: &[controller_hid::Plugged]) -> Vec<String> {
+/// A port is of a HID device when its id holds the device's USB ids; where the system gives a
+/// port no such id, when its name begins with the device's product name.
+fn with_hid(midi: Vec<MidiPort>, hid: &[controller_hid::Plugged]) -> Vec<String> {
     let known = |name: &str| controller_profiles::of(name).is_some();
+    let mut midi: Vec<MidiPort> = midi;
     let mut plugged = Vec::with_capacity(midi.len() + hid.len());
     for device in hid {
-        let product = device.product.to_lowercase();
-        let same = |port: &String| product.len() >= 4 && port.to_lowercase().contains(&product);
+        let (ids, product) = ((device.info.vendor_id, device.info.product_id), device.product.to_lowercase());
+        let same = |port: &MidiPort| match usb_ids(&port.id) {
+            Some(usb) => usb == ids,
+            None => product.len() >= 4 && port.name.to_lowercase().starts_with(&product),
+        };
         match midi.iter().position(same) {
-            Some(at) if known(&device.name) && !known(&midi[at]) => drop(midi.remove(at)),
+            Some(at) if known(&device.name) && !known(&midi[at].name) => drop(midi.remove(at)),
             Some(_) => continue,
             None => {}
         }
         plugged.push(device.name.clone());
     }
-    midi.extend(plugged);
-    midi
+    midi.into_iter().map(|port| port.name).chain(plugged).collect()
 }
 
 /// What `mapping` driven to `value` drives: its action and those it drives along, but a shift's
@@ -400,10 +432,23 @@ pub struct Levels {
     sides: [f32; 2],
 }
 
-/// The output of the same name, for the lights: none on a controller without one.
-fn open_output(device: &str) -> AppResult<Option<MidiWriter>> {
+/// The output of the controller whose input is the port `name` of id `id`, for its lights: an
+/// output of the same device (the same id: Windows gives every port of a device its device's,
+/// ALSA a port its address both ways), of the same name if it has several; else, where an
+/// output has an id of its own (Core MIDI, Android), the output of the same name. None on a
+/// controller without one.
+fn open_output(name: &str, id: &str) -> AppResult<Option<MidiWriter>> {
     let output = MidiOutput::new(CLIENT).map_err(midi_error)?;
-    let Some((port, _)) = find_port(&output, device, &[]) else { return Ok(None) };
+    let ports = output.ports();
+    let named = |port: &MidiOutputPort| output.port_name(port).ok();
+    let device: Vec<&MidiOutputPort> = ports.iter().filter(|p| p.id() == id).collect();
+    let port = device
+        .iter()
+        .copied()
+        .find(|p| named(p).as_deref() == Some(name))
+        .or_else(|| device.first().copied())
+        .or_else(|| ports.iter().find(|p| named(p).as_deref() == Some(name)));
+    let Some(port) = port.cloned() else { return Ok(None) };
     Ok(Some(MidiWriter::new(midi::Output::open(output, &port, CLIENT)?)?))
 }
 
@@ -430,6 +475,13 @@ pub(crate) fn port_of(names: &[String], device: &str, taken: &[String]) -> Optio
         let base = base_port_name(device);
         names.iter().position(|n| base_port_name(n) == base && free(n))
     })
+}
+
+/// The controllers `saved`, those on a port of their very name among `plugged` first: given the
+/// ports in this order (see [`port_of`]), one numbered anew by Windows takes no other's port.
+pub(crate) fn in_order(saved: &[String], plugged: &[String]) -> Vec<String> {
+    let (own, others): (Vec<String>, Vec<String>) = saved.iter().cloned().partition(|s| plugged.contains(s));
+    own.into_iter().chain(others).collect()
 }
 
 /// A port's name wherever its controller is plugged: without the numbers Windows puts in,
@@ -466,6 +518,22 @@ mod tests {
             ["Midi Through:Midi Through Port-0 14:0".to_owned(), "DDJ-400:DDJ-400 MIDI 1 28:0".to_owned()];
         assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 1 24:0", &[]), Some(1));
         assert_eq!(port_of(&plugged, "DDJ-400:DDJ-400 MIDI 2 24:0", &[]), None);
+    }
+
+    #[test]
+    fn a_controller_numbered_anew_by_windows_is_listed_once_as_it_was_saved() {
+        let c = controllers();
+        c.save(|s| s.enabled = vec!["2- DDJ-SB2".into(), "DDJ-SB2".into()]);
+        *lock(&c.plugged) = vec!["DDJ-SB2".into(), "Other".into()];
+        let listed: Vec<_> = c.listed().controllers.into_iter().map(|c| (c.name, c.plugged)).collect();
+        assert_eq!(
+            listed,
+            [("DDJ-SB2".into(), true), ("Other".into(), true), ("2- DDJ-SB2".into(), false)],
+            "the one of its very name on it, the other missing"
+        );
+        c.save(|s| s.enabled = vec!["2- DDJ-SB2".into()]);
+        let listed: Vec<_> = c.listed().controllers.into_iter().map(|c| (c.name, c.plugged)).collect();
+        assert_eq!(listed, [("2- DDJ-SB2".into(), true), ("Other".into(), true)], "alone, it is that one");
     }
 
     #[test]
@@ -1384,11 +1452,24 @@ mod tests {
         };
         let s4 = hid("Traktor Kontrol S4 MK2", 0x17cc, 0x1310);
         let other = hid("DJ Console Mk2", 0x06f8, 0xb100);
+        let port = |name: &str, id: &str| MidiPort { name: name.into(), id: id.into() };
         let plugged = with_hid(
-            vec!["Traktor Kontrol S4 MK2 MIDI".into(), "DJ Console Mk2 MIDI".into(), "DDJ-400".into()],
+            vec![
+                // Windows: the USB ids of the port's device
+                port("NI S4 MK2 MIDI", r"\\?\usb#vid_17cc&pid_1310&mi_00#7&1a&0&0000#{6994ad04}"),
+                // Core MIDI, ALSA: the product's name
+                port("DJ Console Mk2 MIDI", "1234"),
+                port("DDJ-400", r"\\?\usb#vid_2b73&pid_0001&mi_00#7&2b&0&0000#{6994ad04}"),
+            ],
             &[s4.clone(), other],
         );
         // the S4 by HID, its profile's; the Hercules by MIDI, which Prisme knows it by
         assert_eq!(plugged, ["DJ Console Mk2 MIDI", "DDJ-400", s4.name.as_str()]);
+    }
+
+    #[test]
+    fn a_port_tells_the_usb_ids_of_its_device_on_windows() {
+        assert_eq!(usb_ids(r"\\?\USB#VID_08E4&PID_01A0&MI_00#7&2&0&0000#{…}"), Some((0x08e4, 0x01a0)));
+        assert_eq!(usb_ids("24:0"), None);
     }
 }

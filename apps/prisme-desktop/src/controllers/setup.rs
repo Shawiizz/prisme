@@ -1,7 +1,9 @@
 //! The controllers in use and what drives what: the profiles, what was learnt over them, the
 //! choices of the DJ kept in `controllers.json`; what the interface is shown of them.
 
-use super::{base_port_name, ControllerSetup, Controllers, KeyWays, Models, Shown, Unmapped};
+use super::{
+    base_port_name, in_order, port_of, ControllerSetup, Controllers, KeyWays, Models, Shown, Unmapped,
+};
 use crate::controller_profiles;
 use crate::dto::{ControllerDto, ControllersDto, OfferedProfileDto};
 use crate::error::{AppError, AppResult};
@@ -164,12 +166,24 @@ impl Controllers {
         }
     }
 
-    /// The controllers plugged in when last looked for, and those in use that are not.
-    fn listed(&self) -> ControllersDto {
-        let plugged = lock(&self.plugged).clone();
+    /// The controllers plugged in when last looked for, and those in use that are not. One in
+    /// use is listed as it was saved, on the port it opens on (see [`port_of`]): Windows numbers
+    /// a controller anew on another USB port.
+    pub(super) fn listed(&self) -> ControllersDto {
+        let ports = lock(&self.plugged).clone();
         let setup = self.setup();
-        let missing: Vec<String> =
-            setup.enabled.iter().filter(|name| !plugged.contains(name)).cloned().collect();
+        let mut plugged = ports.clone();
+        let mut missing = Vec::new();
+        let mut taken: Vec<String> = Vec::new();
+        for saved in in_order(&setup.enabled, &ports) {
+            match port_of(&ports, &saved, &taken) {
+                Some(at) => {
+                    taken.push(ports[at].clone());
+                    plugged[at] = saved;
+                }
+                None => missing.push(saved),
+            }
+        }
         let library = controller_profiles::current();
         let dto = |name: String, plugged: bool| {
             let known = library.chosen(&name, setup.profiles.get(&name).map(String::as_str));
