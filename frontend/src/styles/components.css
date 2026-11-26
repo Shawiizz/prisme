@@ -337,6 +337,11 @@
 .pr-veil--dim {
   background: rgb(0 0 0 / 0.55);
 }
+/* the key that opened it, over its veil: still under the pointer, pressed again to close */
+.pr-over-veil {
+  position: relative;
+  z-index: calc(var(--pr-layer, var(--pr-z-menu)) + 1);
+}
 /* floating over what it belongs to */
 .pr-popover {
   z-index: calc(var(--pr-layer, var(--pr-z-menu)) + 1);

@@ -199,6 +199,7 @@
       } @else {
         <button
           class="pr-btn pr-btn--ghost pr-btn--rec"
+          [class.pr-over-veil]="recordMenu()"
           (click)="recordMenu.set(!recordMenu())"
           [title]="lastTitle()"
           [disabled]="!engine.audioRunning()"

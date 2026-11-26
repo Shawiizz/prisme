@@ -36,6 +36,7 @@ const MENU_GAP_PX = 6;
     <button
       class="pr-btn pr-btn--sm pr-btn--icon"
       [class.is-on]="at()"
+      [class.pr-over-veil]="at()"
       (click)="toggle($any($event.currentTarget))"
       [title]="'Deck options: motor, reverse, mute, repeat, tempo range, fader start, eject' | t"
       [attr.aria-label]="

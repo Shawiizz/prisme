@@ -13,6 +13,7 @@ import { MixerControls } from '../mixer-controls/mixer-controls';
     <button
       class="pr-btn pr-btn--sm pr-btn--icon"
       [class.is-on]="open()"
+      [class.pr-over-veil]="open()"
       (click)="open.set(!open())"
       [title]="'Master, limiter, headphones, microphone and aux line' | t"
       [attr.aria-label]="'Master, limiter, headphones, microphone and aux line' | t"
