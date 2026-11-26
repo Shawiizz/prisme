@@ -9,7 +9,8 @@ use windows::Win32::Foundation::PROPERTYKEY;
 use windows::Win32::Media::Audio::{IDeviceTopology, IMMDevice, IMMDeviceEnumerator, MMDeviceEnumerator};
 use windows::Win32::System::Com::StructuredStorage::PropVariantToGUID;
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED, STGM_READ,
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL, COINIT_MULTITHREADED,
+    STGM_READ,
 };
 
 /// The container of what is built into the computer, the same for all of it.
