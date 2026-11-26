@@ -5,7 +5,7 @@
 use crate::dto::{AudioInfo, AudioSettings};
 use crate::error::{AppError, AppResult};
 use crate::input_access;
-use prisme_audio_io::{is_available, AudioCallback, DeviceKind, StreamSettings, StreamStats};
+use prisme_audio_io::{is_available, AudioCallback, DeviceKind, DeviceRef, StreamSettings, StreamStats};
 use prisme_engine::{Engine, EngineConfig, EngineController, MAX_DECKS};
 use prisme_timecode::testing::{Pattern, SimulatedTurntable};
 use prisme_timecode::TimecodeFormat;
@@ -62,6 +62,8 @@ pub struct AudioSession {
     pub info: AudioInfo,
     /// What it was started with, to start it again.
     pub settings: AudioSettings,
+    /// The output it opened, as its system knows it.
+    pub output: DeviceRef,
     /// The commands sent to restore the decks (`AppState::restore`): until the engine's status
     /// follows them, it does not show where the decks are.
     pub restored: u64,
@@ -95,6 +97,7 @@ impl AudioSession {
             engine_config,
             info,
             settings: AudioSettings::default(),
+            output: DeviceRef { id: "test".into(), name: "Test".into() },
             restored: 0,
             stop: None,
             thread: None,
@@ -116,17 +119,18 @@ impl Drop for AudioSession {
 /// Whether the devices `settings` asks for are there.
 pub fn devices_available(settings: &AudioSettings) -> bool {
     let backend = settings.backend.into();
-    let input = settings.input_device.as_deref().filter(|_| !settings.simulate);
-    is_available(backend, DeviceKind::Output, settings.output_device.as_deref())
-        && input.is_none_or(|name| is_available(backend, DeviceKind::Input, Some(name)))
+    let output = settings.output.as_ref().map(DeviceRef::from);
+    let input = settings.input.as_ref().filter(|_| !settings.simulate).map(DeviceRef::from);
+    is_available(backend, DeviceKind::Output, output.as_ref())
+        && input.is_none_or(|input| is_available(backend, DeviceKind::Input, Some(&input)))
 }
 
 /// The devices `settings` open.
 pub fn stream_settings(settings: &AudioSettings) -> StreamSettings {
     StreamSettings {
         backend: settings.backend.into(),
-        output_device: settings.output_device.clone(),
-        input_device: if settings.simulate { None } else { settings.input_device.clone() },
+        output_device: settings.output.as_ref().map(DeviceRef::from),
+        input_device: settings.input.as_ref().filter(|_| !settings.simulate).map(DeviceRef::from),
         buffer_frames: settings.buffer_frames,
     }
 }
@@ -144,7 +148,7 @@ pub fn start(
     let simulate = settings.simulate;
     let backend = settings.backend;
 
-    type Ready = (EngineController, EngineConfig, AudioInfo, Arc<StreamStats>);
+    type Ready = (EngineController, EngineConfig, AudioInfo, Arc<StreamStats>, DeviceRef);
     let (ready_tx, ready_rx) = mpsc::channel::<AppResult<Ready>>();
     let (stop_tx, stop_rx) = mpsc::channel::<()>();
     let thread = std::thread::Builder::new().name("prisme-audio".into()).spawn(move || {
@@ -164,7 +168,7 @@ pub fn start(
             (Ok(stream), Some((controller, config))) => {
                 let info = AudioInfo {
                     backend,
-                    device: stream.output_device.clone(),
+                    device: stream.output_device.name.clone(),
                     sample_rate: stream.format.sample_rate,
                     output_channels: stream.format.output_channels,
                     input_channels: stream.format.input_channels,
@@ -172,7 +176,8 @@ pub fn start(
                     simulated: simulate,
                     missing: None,
                 };
-                if ready_tx.send(Ok((controller, config, info, stream.stats.clone()))).is_ok() {
+                let ready = (controller, config, info, stream.stats.clone(), stream.output_device.clone());
+                if ready_tx.send(Ok(ready)).is_ok() {
                     let _ = stop_rx.recv(); // keep the stream alive until asked to stop
                 }
                 drop(stream);
@@ -183,7 +188,7 @@ pub fn start(
             (Ok(_), None) => unreachable!("the callback is built before the stream starts"),
         }
     })?;
-    let (controller, engine_config, info, stats) =
+    let (controller, engine_config, info, stats, output) =
         ready_rx.recv().map_err(|_| AppError::Other("the audio thread stopped".into()))??;
     static NEXT_ID: AtomicU64 = AtomicU64::new(1);
     Ok(AudioSession {
@@ -193,6 +198,7 @@ pub fn start(
         engine_config,
         info,
         settings: settings.clone(),
+        output,
         restored: 0,
         stop: Some(stop_tx),
         thread: Some(thread),

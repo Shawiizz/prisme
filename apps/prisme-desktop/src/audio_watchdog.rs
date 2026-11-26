@@ -8,14 +8,11 @@
 
 use crate::audio_host::{devices_available, stream_settings};
 use crate::commands::audio::{restart_saved_audio, start_audio_instead_of, start_audio_unless_running};
-use crate::dto::AudioSettings;
-use crate::dto::BackendDto;
-use crate::dto::CardOffer;
+use crate::dto::{AudioSettings, BackendDto, CardOffer, DeviceChoice};
 use crate::input_access;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{
-    base_device_name, default_output_name, list_devices, output_opens, system_devices, usb_asks, Backend,
-    DeviceKind,
+    default_output, output_opens, system_devices, usb_asks, Backend, DeviceKind, DeviceRef, Present,
 };
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -45,13 +42,13 @@ pub fn start(app: AppHandle) {
             let mut restarts = Restarts::default();
             let mut last_periods = None;
             let mut last_look = Instant::now();
-            let mut devices: Option<Vec<String>> = None;
+            let mut devices: Option<Vec<Present>> = None;
             let mut looks_left = 0;
             // no audio since the last check: tried at once, then when devices change
             let mut silent = false;
-            let mut default_output = default_output_name();
+            let mut default_output = default_output();
             // the system's devices at the last look, while the audio runs
-            let mut plugged: Option<Vec<String>> = None;
+            let mut plugged: Option<Vec<Present>> = None;
             let mut answers = usb_asks::answers();
             loop {
                 let seen = answers;
@@ -66,8 +63,14 @@ pub fn start(app: AppHandle) {
                     last_periods = None;
                 }
                 let session = lock(&state.session).as_ref().map(|s| {
-                    let device = s.info.device.clone();
-                    (s.id, s.device_lost(), s.engine_failed(), s.periods(), s.settings.clone(), device)
+                    (
+                        s.id,
+                        s.device_lost(),
+                        s.engine_failed(),
+                        s.periods(),
+                        s.settings.clone(),
+                        s.output.clone(),
+                    )
                 });
                 let Some((id, lost, failed, periods, settings, device)) = session else {
                     last_periods = None;
@@ -149,7 +152,7 @@ pub extern "system" fn Java_com_shawiizz_prisme_MainActivity_shown(
 /// lets go of it (tried without stopping the audio meanwhile). True once the audio of session
 /// `id` moved to it.
 fn take_the_card_let_go(state: &AppState, id: u64, saved: &AudioSettings, current: &AudioSettings) -> bool {
-    let held = lock(&state.busy_output).is_some() && saved.output_device.is_some();
+    let held = lock(&state.busy_output).is_some() && saved.output.is_some();
     if !held || saved.same_devices(current) || !output_opens(&stream_settings(saved)) {
         return false;
     }
@@ -173,7 +176,7 @@ fn move_to_saved(
     id: u64,
     saved: &AudioSettings,
     current: &AudioSettings,
-    devices: &mut Option<Vec<String>>,
+    devices: &mut Option<Vec<Present>>,
     looks_left: &mut u32,
 ) -> bool {
     let now = system_devices();
@@ -203,26 +206,26 @@ fn move_to_saved(
 }
 
 /// Audio on the system's default output (no device chosen) moves when the default changes from
-/// `last` to another device than `device`: a headset connected takes the sound, as in every
+/// `last` to another device than `playing`: a headset connected takes the sound, as in every
 /// other program. True once the audio of session `id` moved, or other audio took its place.
 fn follow_default_output(
     state: &AppState,
     id: u64,
     settings: &AudioSettings,
-    device: &str,
-    last: &mut Option<String>,
+    playing: &DeviceRef,
+    last: &mut Option<DeviceRef>,
 ) -> bool {
-    if settings.output_device.is_some() || settings.backend != BackendDto::default() {
+    if settings.output.is_some() || settings.backend != BackendDto::default() {
         return false;
     }
-    let now = default_output_name();
+    let now = default_output();
     if now == *last {
         return false;
     }
     *last = now.clone();
     match now {
-        Some(default) if default != device => {
-            info!("the system plays on {default} now, the audio follows");
+        Some(default) if default.id != playing.id => {
+            info!("the system plays on {} now, the audio follows", default.name);
             if let Err(e) = start_audio_instead_of(state, id, settings) {
                 error!("audio could not follow the default output: {e}");
             }
@@ -233,82 +236,65 @@ fn follow_default_output(
 }
 
 /// Offers the DJ a sound card plugged in since the last look (`plugged`), unless the audio
-/// plays on it or on the system's default output (which a card plugged in may take), the saved
-/// devices are back (the audio moves to them), or the DJ chose not to use it. Using it plays on
-/// it, and listens to it for the turntables if they are listened to.
+/// plays on it (`playing` is one of its devices) or on the system's default output (which a
+/// card plugged in may take), the saved devices are back (the audio moves to them), or the DJ
+/// chose not to use it. Using it plays on it, and listens to it for the turntables if they are
+/// listened to.
 fn offer_cards_plugged(
     state: &AppState,
     app: &AppHandle,
     settings: &AudioSettings,
     saved: &AudioSettings,
-    device: &str,
-    plugged: &mut Option<Vec<String>>,
+    playing: &DeviceRef,
+    plugged: &mut Option<Vec<Present>>,
 ) {
     let now = system_devices();
     let Some(before) = plugged.replace(now.clone()) else { return };
     if !saved.same_devices(settings) && devices_available(saved) {
         return;
     }
-    let declined = state.preferences.read(|p| p.declined_cards.clone());
-    let fresh: Vec<&String> = now
-        .iter()
-        .filter(|name| !before.contains(name) && *name != device)
-        .filter(|name| !declined.contains(&base_device_name(card_name(name))))
-        .collect();
-    if fresh.is_empty() {
-        return;
-    }
-    let devices = list_devices(Backend::SYSTEM).unwrap_or_default();
-    let of_kind = |kind: DeviceKind| {
-        devices.iter().find(|d| d.kind == kind && fresh.contains(&&d.name)).map(|d| d.name.clone())
-    };
-    let (output, input) = (of_kind(DeviceKind::Output), of_kind(DeviceKind::Input));
-    let Some(name) = output.as_deref().or(input.as_deref()).map(|n| card_name(n).to_owned()) else { return };
+    let declined = state.preferences.read(|p| p.declined_sound_cards.clone());
+    let playing_card = now.iter().find(|p| p.device.id == playing.id).map(|p| &p.card.id);
+    let fresh = now.iter().map(|p| &p.card).find(|card| {
+        !before.iter().any(|p| p.card.id == card.id)
+            && Some(&card.id) != playing_card
+            && !declined.contains(&card.id)
+    });
+    let Some(card) = fresh.cloned() else { return };
     // on the system's default output, a card is offered while a controller with no mixer of
     // its own is plugged in (its own, most likely); any other may become the default, which
     // the audio follows
     let controller = state.all_in_one();
-    if settings.output_device.is_none() && controller.is_none() {
+    if settings.output.is_none() && controller.is_none() {
         return;
     }
-    let offer = CardOffer {
-        controller,
-        name,
-        settings: AudioSettings {
-            backend: Backend::SYSTEM.into(),
-            output_device: output.clone().or_else(|| settings.output_device.clone()),
-            input_device: if settings.input_device.is_some() {
-                input.or_else(|| settings.input_device.clone())
-            } else {
-                None
-            },
-            buffer_frames: None,
-            ..settings.clone()
-        },
+    let side = |kind: DeviceKind| {
+        now.iter()
+            .find(|p| p.card.id == card.id && p.kind == kind)
+            .map(|p| DeviceChoice { id: p.device.id.clone(), name: p.device.name.clone() })
     };
+    let input = side(DeviceKind::Input).filter(|_| settings.input.is_some());
+    let settings = AudioSettings {
+        backend: Backend::SYSTEM.into(),
+        output: side(DeviceKind::Output).or_else(|| settings.output.clone()),
+        input: input.or_else(|| settings.input.clone()),
+        buffer_frames: None,
+        ..settings.clone()
+    };
+    let offer = CardOffer { controller, card: card.id, name: card.name, settings };
     info!("sound card {} plugged in, offered", offer.name);
     let _ = app.emit(CARD_PLUGGED_EVENT, offer);
 }
 
-/// The card of a device of the system, as its endpoint names it: `Speakers (UMC404HD 192k)`
-/// is of `UMC404HD 192k`; a name without one is the card's.
-pub fn card_name(endpoint: &str) -> &str {
-    let Some(inner) = endpoint.strip_suffix(')') else { return endpoint };
-    let mut depth = 0;
-    for (at, c) in inner.char_indices().rev() {
-        match c {
-            ')' => depth += 1,
-            '(' if depth == 0 => return inner[at + 1..].trim(),
-            '(' => depth -= 1,
-            _ => {}
-        }
-    }
-    endpoint
+/// The name of the card `device` is a side of ("PIONEER DDJ-SB2"), else its own.
+pub fn card_of(device: &DeviceRef) -> String {
+    let present = system_devices().into_iter().find(|p| p.device.id == device.id);
+    present.map_or_else(|| device.name.clone(), |p| p.card.name)
 }
 
 /// With no audio at all (no device when Prisme started, or a restart that failed), starts it
 /// on the saved devices, else the default ones, whenever the system's devices change.
-fn start_when_devices_change(state: &AppState, devices: &mut Option<Vec<String>>) {
+fn start_when_devices_change(state: &AppState, devices: &mut Option<Vec<Present>>) {
     let now = system_devices();
     if devices.as_ref() == Some(&now) {
         return;
@@ -383,14 +369,6 @@ impl Restarts {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_card_of_an_endpoint() {
-        assert_eq!(card_name("Speakers (UMC404HD 192k)"), "UMC404HD 192k");
-        assert_eq!(card_name("Haut-parleurs (Realtek(R) Audio)"), "Realtek(R) Audio");
-        assert_eq!(card_name("Line (2- SL3)"), "2- SL3");
-        assert_eq!(card_name("Built-in Output"), "Built-in Output");
-    }
 
     #[test]
     fn restarts_are_limited_within_the_window() {

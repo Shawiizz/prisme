@@ -23,8 +23,8 @@ export class SoundCardNoticesService {
         const { busy, info, settings } = this.engine.told().audio;
         const playing = info?.device ?? '';
         untracked(() => {
-          if (busy && busy !== held) this.tellHeld(busy, playing, settings.outputDevice !== null);
-          else if (!busy && held && settings.outputDevice !== null) this.tellFree(held);
+          if (busy && busy !== held) this.tellHeld(busy, playing, settings.output !== null);
+          else if (!busy && held && settings.output !== null) this.tellFree(held);
         });
         held = busy;
       },

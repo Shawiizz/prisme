@@ -91,15 +91,18 @@
                   @if (oneDevice()) {
                     <select
                       class="pr-select"
-                      [value]="d.outputDevice ?? ''"
+                      [value]="d.output?.id ?? ''"
                       (change)="
-                        change({ setting: 'driver', value: orNull($any($event.target).value) })
+                        change({
+                          setting: 'driver',
+                          value: chosen(outputs(), $any($event.target).value),
+                        })
                       "
                       settingControl
                     >
                       <option value="">{{ firstDriverLabel() }}</option>
-                      @for (o of outputs(); track o.name) {
-                        <option [value]="o.name" [selected]="o.name === d.outputDevice">
+                      @for (o of outputs(); track o.id) {
+                        <option [value]="o.id" [selected]="o.id === d.output?.id">
                           {{ o.name }}
                           @if (o.channels) {
                             · {{ '{n} out' | t: { n: o.channels } }}
@@ -111,15 +114,18 @@
                   } @else {
                     <select
                       class="pr-select"
-                      [value]="d.outputDevice ?? ''"
+                      [value]="d.output?.id ?? ''"
                       (change)="
-                        change({ setting: 'output', value: orNull($any($event.target).value) })
+                        change({
+                          setting: 'output',
+                          value: chosen(outputs(), $any($event.target).value),
+                        })
                       "
                       settingControl
                     >
                       <option value="">{{ 'Default device' | t }}</option>
-                      @for (o of outputs(); track o.name) {
-                        <option [value]="o.name" [selected]="o.name === d.outputDevice">
+                      @for (o of outputs(); track o.id) {
+                        <option [value]="o.id" [selected]="o.id === d.output?.id">
                           {{ o.name }} · {{ '{n} ch' | t: { n: o.channels } }} ·
                           {{ o.sampleRate }} Hz
                         </option>
@@ -223,26 +229,29 @@
                     <button
                       class="pr-switch"
                       role="switch"
-                      [attr.aria-checked]="!!d.inputDevice"
+                      [attr.aria-checked]="!!d.input"
                       [disabled]="d.simulate"
                       settingControl
-                      (click)="change({ setting: 'turntablesOnDriver', value: !d.inputDevice })"
+                      (click)="change({ setting: 'turntablesOnDriver', value: !d.input })"
                     >
                       <span></span>
                     </button>
                   } @else {
                     <select
                       class="pr-select"
-                      [value]="d.inputDevice ?? ''"
+                      [value]="d.input?.id ?? ''"
                       (change)="
-                        change({ setting: 'input', value: orNull($any($event.target).value) })
+                        change({
+                          setting: 'input',
+                          value: chosen(inputs(), $any($event.target).value),
+                        })
                       "
                       [disabled]="d.simulate"
                       settingControl
                     >
                       <option value="">{{ 'None' | t }}</option>
-                      @for (i of inputs(); track i.name) {
-                        <option [value]="i.name" [selected]="i.name === d.inputDevice">
+                      @for (i of inputs(); track i.id) {
+                        <option [value]="i.id" [selected]="i.id === d.input?.id">
                           {{ i.name }} · {{ '{n} ch' | t: { n: i.channels } }} ·
                           {{ i.sampleRate }} Hz
                         </option>

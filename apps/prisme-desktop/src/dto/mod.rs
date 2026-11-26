@@ -37,31 +37,34 @@ mod tests {
     fn a_draft_of_the_audio_settings_follows_the_rules_of_its_driver() {
         let asio = AudioSettings {
             backend: BackendDto::Asio,
-            output_device: Some("Card".into()),
-            input_device: Some("Card".into()),
+            output: Some("Card".into()),
+            input: Some("Card".into()),
             buffer_frames: Some(256),
             ..AudioSettings::default()
         };
         let none = || None;
         let other = asio.changed(AudioChangeDto::Driver(Some("Other".into())), none);
-        assert_eq!(
-            (other.output_device.as_deref(), other.input_device.as_deref()),
-            (Some("Other"), Some("Other"))
-        );
+        assert_eq!((named(&other.output), named(&other.input)), (Some("Other"), Some("Other")));
         let off = asio.changed(AudioChangeDto::TurntablesOnDriver(false), none);
-        assert_eq!(off.input_device, None);
+        assert_eq!(off.input, None);
         let alone = off.changed(AudioChangeDto::Driver(Some("Other".into())), none);
-        assert_eq!(alone.input_device, None, "no turntables: none on the new driver");
-        let first = AudioSettings { output_device: None, ..off }
+        assert_eq!(alone.input, None, "no turntables: none on the new driver");
+        let first = AudioSettings { output: None, ..off }
             .changed(AudioChangeDto::TurntablesOnDriver(true), || Some("First".into()));
-        assert_eq!(first.input_device.as_deref(), Some("First"));
+        assert_eq!(named(&first.input), Some("First"));
         let wasapi = asio.changed(AudioChangeDto::Backend(BackendDto::Wasapi), none);
         assert_eq!(wasapi, AudioSettings { backend: BackendDto::Wasapi, ..AudioSettings::default() });
     }
 
-    fn device(name: &str, kind: &'static str, is_default: bool) -> DeviceDto {
+    fn named(device: &Option<DeviceChoice>) -> Option<&str> {
+        device.as_ref().map(|d| d.name.as_str())
+    }
+
+    fn device(name: &str, card: &str, kind: &'static str, is_default: bool) -> DeviceDto {
         DeviceDto {
+            id: name.into(),
             name: name.into(),
+            card: card.into(),
             kind,
             channels: 2,
             sample_rate: 48_000,
@@ -72,38 +75,27 @@ mod tests {
 
     #[test]
     fn the_turntables_turned_on_read_the_driver_or_the_inputs_of_the_card_played_on() {
-        let usb = AudioSettings {
-            backend: BackendDto::Usb,
-            output_device: Some("DJM".into()),
-            ..Default::default()
-        };
-        assert_eq!(usb.with_turntables(&[]).unwrap().input_device.as_deref(), Some("DJM"));
-        let listed = [device("UMC", "output", false), device("DJM", "output", true)];
-        let first = AudioSettings { output_device: None, ..usb.clone() }.with_turntables(&listed);
-        assert_eq!(first.unwrap().input_device.as_deref(), Some("UMC"), "as the settings' switch");
-        assert_eq!(AudioSettings { output_device: None, ..usb }.with_turntables(&[]), None);
+        let usb =
+            AudioSettings { backend: BackendDto::Usb, output: Some("DJM".into()), ..Default::default() };
+        assert_eq!(named(&usb.with_turntables(&[]).unwrap().input), Some("DJM"));
+        let listed = [device("UMC", "umc", "output", false), device("DJM", "djm", "output", true)];
+        let first = AudioSettings { output: None, ..usb.clone() }.with_turntables(&listed);
+        assert_eq!(named(&first.unwrap().input), Some("UMC"), "as the settings' switch");
+        assert_eq!(AudioSettings { output: None, ..usb }.with_turntables(&[]), None);
 
         let card = "Speakers (UMC404HD 192k)";
-        let wasapi = AudioSettings {
-            backend: BackendDto::Wasapi,
-            output_device: Some(card.into()),
-            ..Default::default()
-        };
+        let wasapi =
+            AudioSettings { backend: BackendDto::Wasapi, output: Some(card.into()), ..Default::default() };
         let listed = [
-            device(card, "output", false),
-            device("Microphone (Realtek Audio)", "input", true),
-            device("Line (UMC404HD 192k)", "input", false),
+            device(card, "umc", "output", false),
+            device("Microphone (Realtek Audio)", "realtek", "input", true),
+            device("Line (UMC404HD 192k)", "umc", "input", false),
         ];
         let on = wasapi.with_turntables(&listed).unwrap();
-        assert_eq!(on, AudioSettings { input_device: Some("Line (UMC404HD 192k)".into()), ..wasapi.clone() });
-        let default =
-            AudioSettings { output_device: Some("Speakers (Realtek Audio)".into()), ..wasapi.clone() };
+        assert_eq!(on, AudioSettings { input: Some("Line (UMC404HD 192k)".into()), ..wasapi.clone() });
+        let default = AudioSettings { output: Some("Speakers (Realtek Audio)".into()), ..wasapi.clone() };
         let on = default.with_turntables(&listed[1..]).unwrap();
-        assert_eq!(
-            on.input_device.as_deref(),
-            Some("Microphone (Realtek Audio)"),
-            "no card of its own: the default"
-        );
+        assert_eq!(named(&on.input), Some("Microphone (Realtek Audio)"), "no card of its own: the default");
         assert_eq!(wasapi.with_turntables(&listed[..1]), None, "no input");
     }
 
@@ -171,12 +163,14 @@ mod tests {
         assert_eq!(BufferSizeDto::offered(None, 0).len(), 7, "every one, at 48 kHz");
         let kept = AudioSettings::default();
         let draft =
-            |output: Option<&str>| AudioSettings { output_device: output.map(String::from), ..kept.clone() };
+            |output: Option<&str>| AudioSettings { output: output.map(DeviceChoice::from), ..kept.clone() };
         let drafted = |output, devices: &[DeviceDto]| AudioDraftDto::of(draft(output), &kept, devices);
         assert_eq!(drafted(None, &[]).buffer_sizes, BufferSizeDto::offered(None, 0), "no device");
         assert!(!drafted(None, &[]).changed);
         let output = |name: &str, is_default| DeviceDto {
+            id: name.into(),
             name: name.into(),
+            card: name.into(),
             kind: "output",
             channels: 2,
             sample_rate: 44_100,
@@ -245,20 +239,17 @@ mod tests {
     #[test]
     fn the_default_devices_keep_the_simulated_turntable() {
         let chosen = AudioSettings {
-            output_device: Some("UMC404HD".into()),
-            input_device: Some("UMC404HD".into()),
+            output: Some("UMC404HD".into()),
+            input: Some("UMC404HD".into()),
             simulate: true,
             buffer_frames: Some(128),
             ..AudioSettings::default()
         };
         let fallback = chosen.on_default_devices();
-        assert_eq!(
-            (fallback.output_device, fallback.input_device, fallback.buffer_frames),
-            (None, None, None)
-        );
+        assert_eq!((fallback.output, fallback.input, fallback.buffer_frames), (None, None, None));
         assert!(fallback.simulate);
         assert!(chosen.same_devices(&AudioSettings { simulate: false, ..chosen.clone() }));
-        assert!(!chosen.same_devices(&AudioSettings { output_device: None, ..chosen.clone() }));
+        assert!(!chosen.same_devices(&AudioSettings { output: None, ..chosen.clone() }));
     }
 
     #[test]

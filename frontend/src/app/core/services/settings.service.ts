@@ -68,14 +68,14 @@ export class SettingsService {
   }
 
   /** A sound card plugged in, offered: used at once, or not offered again. */
-  private offer({ controller, name, settings }: CardOffer) {
+  private offer({ controller, card, name, settings }: CardOffer) {
     this.notices.show({
       text: t('New sound card: {name}', { name }),
       detail: controller
         ? t('Play on it? Prisme mixes for {controller}: it has no mixer of its own.', {
             controller,
           })
-        : settings.inputDevice
+        : settings.input
           ? t('Play on it and read the turntables from it?')
           : t('Play on it?'),
       stays: controller !== null,
@@ -87,7 +87,7 @@ export class SettingsService {
         },
         {
           label: t('Ignore'),
-          run: () => attempt(this.engine.error, () => invoke('decline_card', { name })),
+          run: () => attempt(this.engine.error, () => invoke('decline_card', { card })),
         },
       ],
     });

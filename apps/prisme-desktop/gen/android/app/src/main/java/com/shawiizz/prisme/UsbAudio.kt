@@ -68,13 +68,16 @@ object UsbAudio {
 
   /**
    * The cards plugged in that speak the second USB audio class: the name Android gives each,
-   * then the name of its product, shown to the DJ.
+   * the name of its product, shown to the DJ, and its model (USB vendor and product ids), by
+   * which Prisme keeps it.
    */
   @JvmStatic
   fun cards(): Array<String> =
     manager.deviceList.values
       .filter(::isAudioClass2)
-      .flatMap { listOf(it.deviceName, it.productName ?: it.deviceName) }
+      .flatMap {
+        listOf(it.deviceName, it.productName ?: it.deviceName, "%04x:%04x".format(it.vendorId, it.productId))
+      }
       .toTypedArray()
 
   /** Whether Android lets Prisme open card `id`. */

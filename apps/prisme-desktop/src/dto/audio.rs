@@ -1,8 +1,7 @@
 //! The audio: its settings, the devices, the audio running and how well it keeps up.
 
-use crate::audio_watchdog::card_name;
 use crate::state::{lock, AppState};
-use prisme_audio_io::{usb_asks, Backend, StreamStats};
+use prisme_audio_io::{usb_asks, Backend, DeviceRef, StreamStats};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::sync::atomic::Ordering;
@@ -11,7 +10,11 @@ use std::sync::atomic::Ordering;
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "AudioDevice"))]
 pub struct DeviceDto {
+    /// What its system calls it, by which it is chosen ([`DeviceChoice`]).
+    pub id: String,
     pub name: String,
+    /// The sound card it is a side of: an interface's outputs and inputs share it.
+    pub card: String,
     /// "input" or "output"
     pub kind: &'static str,
     pub channels: u16,
@@ -39,7 +42,7 @@ impl AudioDraftDto {
     pub fn of(draft: AudioSettings, kept: &AudioSettings, devices: &[DeviceDto]) -> Self {
         let outputs = || devices.iter().filter(|d| d.kind == "output");
         let output = outputs()
-            .find(|d| Some(&d.name) == draft.output_device.as_ref())
+            .find(|d| draft.output.as_ref().is_some_and(|chosen| chosen.id == d.id))
             .or_else(|| outputs().find(|d| d.is_default));
         let buffer_sizes = output.map_or_else(|| BufferSizeDto::offered(None, 0), |d| d.buffer_sizes.clone());
         Self { changed: draft != *kept, draft, buffer_sizes }
@@ -142,15 +145,44 @@ impl From<Backend> for BackendDto {
     }
 }
 
+/// A device chosen in the settings: the id its system gives it, by which it is found again, and
+/// its name, shown, and by which the same model is found when its id is not there (see
+/// [`DeviceRef`]).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(test, derive(ts_rs::TS), ts(rename = "DeviceChoice"))]
+pub struct DeviceChoice {
+    pub id: String,
+    pub name: String,
+}
+
+impl From<&DeviceDto> for DeviceChoice {
+    fn from(device: &DeviceDto) -> Self {
+        Self { id: device.id.clone(), name: device.name.clone() }
+    }
+}
+
+#[cfg(test)]
+impl From<&str> for DeviceChoice {
+    fn from(name: &str) -> Self {
+        Self { id: name.to_owned(), name: name.to_owned() }
+    }
+}
+
+impl From<&DeviceChoice> for DeviceRef {
+    fn from(choice: &DeviceChoice) -> Self {
+        Self { id: choice.id.clone(), name: choice.name.clone() }
+    }
+}
+
 /// Audio settings chosen by the user.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default, rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct AudioSettings {
     pub backend: BackendDto,
-    pub output_device: Option<String>,
+    pub output: Option<DeviceChoice>,
     /// Turntable input (DVS interface). None = no turntables.
-    pub input_device: Option<String>,
+    pub input: Option<DeviceChoice>,
     /// Feed deck 1 with a simulated turntable instead of the input.
     pub simulate: bool,
     pub buffer_frames: Option<u32>,
@@ -170,9 +202,9 @@ pub enum AudioChangeDto {
     Backend(BackendDto),
     /// The one device of a driver that has one for the outputs and the inputs (`oneDevice`):
     /// its turntables, if they are on, on it too.
-    Driver(Option<String>),
-    Output(Option<String>),
-    Input(Option<String>),
+    Driver(Option<DeviceChoice>),
+    Output(Option<DeviceChoice>),
+    Input(Option<DeviceChoice>),
     /// The turntables on the one device of the driver, or none.
     TurntablesOnDriver(bool),
     Buffer(Option<u32>),
@@ -182,20 +214,20 @@ pub enum AudioChangeDto {
 impl AudioSettings {
     /// These settings with `change`; the turntables put on a driver with no device chosen go on
     /// its `first` output device.
-    pub fn changed(&self, change: AudioChangeDto, first: impl FnOnce() -> Option<String>) -> Self {
+    pub fn changed(&self, change: AudioChangeDto, first: impl FnOnce() -> Option<DeviceChoice>) -> Self {
         let mut next = self.clone();
         match change {
             AudioChangeDto::Backend(backend) => {
-                next = Self { backend, output_device: None, input_device: None, buffer_frames: None, ..next }
+                next = Self { backend, output: None, input: None, buffer_frames: None, ..next }
             }
             AudioChangeDto::Driver(device) => {
-                next.input_device = next.input_device.and(device.clone());
-                next.output_device = device;
+                next.input = next.input.and(device.clone());
+                next.output = device;
             }
-            AudioChangeDto::Output(device) => next.output_device = device,
-            AudioChangeDto::Input(device) => next.input_device = device,
+            AudioChangeDto::Output(device) => next.output = device,
+            AudioChangeDto::Input(device) => next.input = device,
             AudioChangeDto::TurntablesOnDriver(on) => {
-                next.input_device = if on { next.output_device.clone().or_else(first) } else { None }
+                next.input = if on { next.output.clone().or_else(first) } else { None }
             }
             AudioChangeDto::Buffer(frames) => next.buffer_frames = frames,
             AudioChangeDto::Simulate(on) => next.simulate = on,
@@ -209,20 +241,19 @@ impl AudioSettings {
     pub fn with_turntables(&self, devices: &[DeviceDto]) -> Option<Self> {
         let of_kind = |kind| devices.iter().filter(move |d| d.kind == kind);
         if self.backend.one_device() {
-            let first = || of_kind("output").next().map(|d| d.name.clone());
+            let first = || of_kind("output").next().map(DeviceChoice::from);
             return Some(self.changed(AudioChangeDto::TurntablesOnDriver(true), first))
-                .filter(|on| on.input_device.is_some());
+                .filter(|on| on.input.is_some());
         }
-        let output = self.output_device.as_deref().or_else(|| {
-            let default = of_kind("output").find(|d| d.is_default);
-            default.map(|d| d.name.as_str())
-        });
-        let card = output.map(card_name);
+        let output = match &self.output {
+            Some(chosen) => of_kind("output").find(|d| chosen.id == d.id),
+            None => of_kind("output").find(|d| d.is_default),
+        };
         let input = of_kind("input")
-            .find(|d| Some(card_name(&d.name)) == card)
+            .find(|d| output.is_some_and(|o| o.card == d.card))
             .or_else(|| of_kind("input").find(|d| d.is_default))
             .or_else(|| of_kind("input").next())?;
-        Some(Self { input_device: Some(input.name.clone()), ..self.clone() })
+        Some(Self { input: Some(input.into()), ..self.clone() })
     }
 
     /// These settings on the computer's default devices: what plays while the chosen ones are
@@ -233,8 +264,9 @@ impl AudioSettings {
 
     /// Whether `other` chose the same devices.
     pub fn same_devices(&self, other: &Self) -> bool {
-        (self.backend, &self.output_device, &self.input_device)
-            == (other.backend, &other.output_device, &other.input_device)
+        let id = |d: &Option<DeviceChoice>| d.as_ref().map(|d| d.id.clone());
+        (self.backend, id(&self.output), id(&self.input))
+            == (other.backend, id(&other.output), id(&other.input))
     }
 }
 
@@ -246,6 +278,8 @@ pub struct CardOffer {
     /// A controller plugged in with no mixer of its own, that Prisme mixes for: its card is
     /// likely this one.
     pub controller: Option<String>,
+    /// The card, as its system tells it apart: what the DJ declines.
+    pub card: String,
     pub name: String,
     pub settings: AudioSettings,
 }
@@ -331,7 +365,7 @@ impl AudioStateDto {
         let info = lock(&state.session).as_ref().map(|s| {
             // a default output held by another application is there, not missing
             let missing = (busy.is_none() && !s.settings.same_devices(&settings))
-                .then(|| settings.output_device.clone().unwrap_or_default());
+                .then(|| settings.output.as_ref().map(|d| d.name.clone()).unwrap_or_default());
             AudioInfo { missing, ..s.info.clone() }.into()
         });
         let asked = usb_asks::asked().map(|a| CardAskedDto { card: a.card, refused: a.refused });

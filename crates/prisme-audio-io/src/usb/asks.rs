@@ -172,7 +172,7 @@ mod tests {
     use std::sync::Arc;
 
     fn card(id: &str) -> UsbCard {
-        UsbCard { id: id.into(), name: format!("UMC404HD {id}") }
+        UsbCard { id: id.into(), name: format!("UMC404HD {id}"), model: "1397:0509".into() }
     }
 
     #[test]
@@ -281,7 +281,11 @@ mod tests {
     fn the_system_asks_the_user_once_until_answered() {
         let phone = Phone { allowed: false, asked: Mutex::default() };
         // a card of its own: the asks are the whole crate's
-        let umc = UsbCard { id: "/dev/bus/usb/009/001".into(), name: "UMC404HD 192k".into() };
+        let umc = UsbCard {
+            id: "/dev/bus/usb/009/001".into(),
+            name: "UMC404HD 192k".into(),
+            model: "1397:0509".into(),
+        };
         let plugged = [umc.clone()];
         let asked =
             || matches!(may_open(&phone, &umc, &plugged), Err(AudioError::UsbAsked(c)) if c == umc.name);

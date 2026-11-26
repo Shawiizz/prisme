@@ -10,10 +10,12 @@ pub mod latency;
 mod perf;
 mod stream;
 mod usb;
+#[cfg(windows)]
+mod windows_cards;
 
 pub use devices::{
-    base_device_name, default_output_name, is_available, list_devices, system_devices, Backend, DeviceInfo,
-    DeviceKind,
+    base_device_name, default_output, is_available, list_devices, system_devices, Backend, Card, DeviceInfo,
+    DeviceKind, DeviceRef, Present,
 };
 pub use stream::{output_opens, start, RunningStream, StreamFormat, StreamSettings, StreamStats};
 pub use usb::{asks as usb_asks, set_usb_host, OpenedCard, UsbCard, UsbHost};

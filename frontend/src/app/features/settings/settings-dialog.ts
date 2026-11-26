@@ -45,6 +45,7 @@ import type {
   AudioDevice,
   AudioDraft,
   AudioSettings,
+  DeviceChoice,
   InputChannels,
   LatencyChannels,
   LiveSource,
@@ -481,6 +482,12 @@ export class SettingsDialog implements OnInit {
   /** Select value -> setting (empty string = default / none). */
   orNull(v: string): string | null {
     return v === '' ? null : v;
+  }
+
+  /** The device of `devices` a select gives the id of, or none (an empty value). */
+  protected chosen(devices: AudioDevice[], id: string): DeviceChoice | null {
+    const device = devices.find((d) => d.id === id);
+    return device ? { id: device.id, name: device.name } : null;
   }
 
   bufferLabel(size: AudioDevice['bufferSizes'][number]): string {

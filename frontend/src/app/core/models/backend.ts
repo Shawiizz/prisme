@@ -34,15 +34,23 @@ export type AudioBackend =
  */
 export type AudioChange =
   | { "setting": "backend"; "value": AudioBackend }
-  | { "setting": "driver"; "value": string | null }
-  | { "setting": "output"; "value": string | null }
-  | { "setting": "input"; "value": string | null }
+  | { "setting": "driver"; "value": DeviceChoice | null }
+  | { "setting": "output"; "value": DeviceChoice | null }
+  | { "setting": "input"; "value": DeviceChoice | null }
   | { "setting": "turntablesOnDriver"; "value": boolean }
   | { "setting": "buffer"; "value": number | null }
   | { "setting": "simulate"; "value": boolean };
 
 export type AudioDevice = {
+  /**
+   * What its system calls it, by which it is chosen ([`DeviceChoice`]).
+   */
+  id: string;
   name: string;
+  /**
+   * The sound card it is a side of: an interface's outputs and inputs share it.
+   */
+  card: string;
   /**
    * "input" or "output"
    */
@@ -132,11 +140,11 @@ export type AudioInfo = {
  */
 export type AudioSettings = {
   backend: AudioBackend;
-  outputDevice: string | null;
+  output: DeviceChoice | null;
   /**
    * Turntable input (DVS interface). None = no turntables.
    */
-  inputDevice: string | null;
+  input: DeviceChoice | null;
   /**
    * Feed deck 1 with a simulated turntable instead of the input.
    */
@@ -250,6 +258,10 @@ export type CardOffer = {
    * likely this one.
    */
   controller: string | null;
+  /**
+   * The card, as its system tells it apart: what the DJ declines.
+   */
+  card: string;
   name: string;
   settings: AudioSettings;
 };
@@ -757,6 +769,13 @@ export type DeckStatus = {
    */
   separating: number | null;
 };
+
+/**
+ * A device chosen in the settings: the id its system gives it, by which it is found again, and
+ * its name, shown, and by which the same model is found when its id is not there (see
+ * [`DeviceRef`]).
+ */
+export type DeviceChoice = { id: string; name: string };
 
 export type DeviceMappings = {
   device: string;

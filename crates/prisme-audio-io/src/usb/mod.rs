@@ -14,7 +14,7 @@ mod format;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod usbfs;
 
-use crate::devices::{Backend, DeviceInfo, DeviceKind};
+use crate::devices::{Backend, Card, DeviceInfo, DeviceKind, DeviceRef};
 use std::sync::{Mutex, OnceLock};
 
 /// A card the system opened for Prisme: its file, and its descriptors (the device's, then its
@@ -25,11 +25,21 @@ pub struct OpenedCard {
 }
 
 /// A card plugged in: the system's name for it, its own until it is unplugged (given as it is
-/// plugged in), and its product's, shown to the DJ.
+/// plugged in), its product's, shown to the DJ, and its model, its USB vendor and product ids
+/// (`1397:0509`), by which it is kept.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UsbCard {
     pub id: String,
     pub name: String,
+    pub model: String,
+}
+
+impl UsbCard {
+    /// What the settings keep it by: its model, and for a second card of it the number it was
+    /// told apart by (`usb:1397:0509#2`).
+    pub fn key(&self) -> String {
+        format!("usb:{}", self.model)
+    }
 }
 
 /// What the system does for the cards, each known by its [`UsbCard::id`]: says which are
@@ -68,44 +78,32 @@ fn cards() -> Vec<UsbCard> {
     host().map_or_else(Vec::new, |host| told_apart(host.cards()))
 }
 
-/// `cards` in the order the system named them, a second card of a product already there named
-/// after it with a number ("UMC404HD 192k 2"). Plugged in again, two such cards may trade
-/// their numbers: the system names them anew.
+/// `cards` in the order the system named them, a second card of a model already there named
+/// and kept after it with a number ("UMC404HD 192k 2", `1397:0509#2`). Plugged in again, two
+/// such cards may trade their numbers: the system names them anew.
 fn told_apart(mut cards: Vec<UsbCard>) -> Vec<UsbCard> {
     cards.sort_by(|a, b| a.id.cmp(&b.id));
-    let products: Vec<String> = cards.iter().map(|c| c.name.clone()).collect();
+    let models: Vec<String> = cards.iter().map(|c| c.model.clone()).collect();
     for (i, card) in cards.iter_mut().enumerate() {
-        let before = products[..i].iter().filter(|&p| *p == card.name).count();
+        let before = models[..i].iter().filter(|&m| *m == card.model).count();
         if before > 0 {
             card.name = format!("{} {}", card.name, before + 1);
+            card.model = format!("{}#{}", card.model, before + 1);
         }
     }
     cards
 }
 
-/// The card plugged in that `wanted` names ([`pick`]).
-pub(crate) fn find(wanted: Option<&str>) -> Option<UsbCard> {
+/// The card plugged in that `wanted` is ([`pick`]).
+pub(crate) fn find(wanted: Option<&DeviceRef>) -> Option<UsbCard> {
     pick(cards(), wanted)
 }
 
-/// The card of `cards` that `wanted` names, case aside: the one of that name, else the first
-/// whose name holds it (a name saved before a second card was there), else the first whose
-/// name it holds (the system's name of the card, "USB-Audio - UMC404HD 192k"), else the first
-/// of its product (a second card saved, alone now); the first of all without a name.
-fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
-    let Some(wanted) = wanted.map(str::to_lowercase) else { return cards.into_iter().next() };
-    let names: Vec<String> = cards.iter().map(|c| c.name.to_lowercase()).collect();
-    // a second card's name, its product's and the number `told_apart` gave it
-    let product = wanted
-        .rsplit_once(' ')
-        .filter(|(_, number)| number.parse::<u32>().is_ok_and(|n| n >= 2))
-        .map(|(product, _)| product);
-    let at = names
-        .iter()
-        .position(|n| *n == wanted)
-        .or_else(|| names.iter().position(|n| n.contains(&wanted)))
-        .or_else(|| names.iter().position(|n| wanted.contains(n.as_str())))
-        .or_else(|| names.iter().position(|n| Some(n.as_str()) == product))?;
+/// The card of `cards` that `wanted` is, by its model ([`UsbCard::key`]), wherever it is
+/// plugged in; the first of all without one.
+fn pick(mut cards: Vec<UsbCard>, wanted: Option<&DeviceRef>) -> Option<UsbCard> {
+    let Some(wanted) = wanted else { return cards.into_iter().next() };
+    let at = cards.iter().position(|c| c.key() == wanted.id)?;
     Some(cards.swap_remove(at))
 }
 
@@ -113,10 +111,13 @@ fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
 pub(crate) fn list() -> Vec<DeviceInfo> {
     let known = CHANNELS.lock().unwrap_or_else(|e| e.into_inner()).clone();
     let mut list = Vec::new();
-    for (n, UsbCard { name, .. }) in cards().into_iter().enumerate() {
+    for (n, card) in cards().into_iter().enumerate() {
+        let (key, name) = (card.key(), card.name);
         let (outputs, inputs) = known.iter().find(|(k, ..)| *k == name).map_or((0, 0), |&(_, o, i)| (o, i));
         for (kind, channels) in [(DeviceKind::Output, outputs), (DeviceKind::Input, inputs)] {
             list.push(DeviceInfo {
+                id: key.clone(),
+                card: Card { id: key.clone(), name: name.clone() },
                 name: name.clone(),
                 kind,
                 backend: Backend::Usb,
@@ -146,6 +147,7 @@ mod running {
     use super::driver::{Driver, Options, MAX_URBS};
     use super::{asks, cards, descriptors, host, pick, remember, SAMPLE_RATE};
     use crate::stream::{Renderer, RunningStream, StreamFormat, StreamSettings, StreamStats, Streams};
+    use crate::DeviceRef;
     use crate::{AudioCallback, AudioError};
     use std::sync::Arc;
 
@@ -177,11 +179,12 @@ mod running {
         make_callback: impl FnOnce(StreamFormat) -> C,
     ) -> Result<RunningStream, AudioError> {
         let host = host().ok_or(AudioError::BackendUnavailable(crate::Backend::Usb))?;
-        let wanted = settings.output_device.as_deref();
+        let wanted = settings.output_device.as_ref();
         let plugged = cards();
         let card = pick(plugged.clone(), wanted)
-            .ok_or_else(|| AudioError::DeviceNotFound(wanted.unwrap_or_default().into()))?;
+            .ok_or_else(|| AudioError::DeviceNotFound(wanted.map(|w| w.name.clone()).unwrap_or_default()))?;
         asks::may_open(host, &card, &plugged)?;
+        let opened_as = DeviceRef { id: card.key(), name: card.name.clone() };
         let name = card.name;
         let opened =
             host.open(&card.id).ok_or_else(|| AudioError::Usb(format!("{name} could not be opened")))?;
@@ -219,7 +222,7 @@ mod running {
             Driver::start(opened.fd, &card, &options, renderer, producer, stats.clone())
                 .map_err(|e| AudioError::Usb(format!("{name}: {e}")))?,
         );
-        Ok(RunningStream::new(Streams::Usb { _card: running }, format, stats, name))
+        Ok(RunningStream::new(Streams::Usb { _card: running }, format, stats, opened_as))
     }
 }
 
@@ -227,54 +230,48 @@ mod running {
 mod tests {
     use super::*;
 
-    fn card(id: &str, name: &str) -> UsbCard {
-        UsbCard { id: id.into(), name: name.into() }
+    fn card(id: &str, name: &str, model: &str) -> UsbCard {
+        UsbCard { id: id.into(), name: name.into(), model: model.into() }
+    }
+
+    fn umc(id: &str) -> UsbCard {
+        card(id, "UMC404HD 192k", "1397:0509")
+    }
+
+    fn kept(id: &str) -> DeviceRef {
+        DeviceRef { id: id.into(), name: String::new() }
     }
 
     #[test]
-    fn two_cards_of_a_product_are_told_apart_in_the_order_they_were_named() {
+    fn two_cards_of_a_model_are_told_apart_in_the_order_they_were_named() {
         let cards = told_apart(vec![
-            card("/dev/bus/usb/001/007", "UMC404HD 192k"),
-            card("/dev/bus/usb/001/003", "UMC404HD 192k"),
-            card("/dev/bus/usb/001/005", "DJControl"),
+            umc("/dev/bus/usb/001/007"),
+            umc("/dev/bus/usb/001/003"),
+            card("/dev/bus/usb/001/005", "DJControl", "06f8:b105"),
         ]);
-        let names: Vec<_> = cards.iter().map(|c| (c.id.as_str(), c.name.as_str())).collect();
+        let named: Vec<_> = cards.iter().map(|c| (c.id.as_str(), c.name.as_str(), c.key())).collect();
         assert_eq!(
-            names,
+            named,
             [
-                ("/dev/bus/usb/001/003", "UMC404HD 192k"),
-                ("/dev/bus/usb/001/005", "DJControl"),
-                ("/dev/bus/usb/001/007", "UMC404HD 192k 2"),
+                ("/dev/bus/usb/001/003", "UMC404HD 192k", "usb:1397:0509".into()),
+                ("/dev/bus/usb/001/005", "DJControl", "usb:06f8:b105".into()),
+                ("/dev/bus/usb/001/007", "UMC404HD 192k 2", "usb:1397:0509#2".into()),
             ]
         );
     }
 
     #[test]
-    fn a_card_is_found_by_its_name_or_a_part_of_it() {
-        let cards = || told_apart(vec![card("a", "UMC404HD 192k"), card("b", "UMC404HD 192k")]);
-        let found = |wanted| pick(cards(), wanted).map(|c| c.id);
-        assert_eq!(found(Some("umc404hd 192k 2")).as_deref(), Some("b"));
-        assert_eq!(found(Some("UMC404HD 192k")).as_deref(), Some("a"));
-        assert_eq!(found(Some("UMC404")).as_deref(), Some("a"));
+    fn a_card_is_found_by_its_model() {
+        let cards = || told_apart(vec![umc("a"), umc("b")]);
+        let found = |wanted: Option<DeviceRef>| pick(cards(), wanted.as_ref()).map(|c| c.id);
+        assert_eq!(found(Some(kept("usb:1397:0509#2"))).as_deref(), Some("b"));
+        assert_eq!(found(Some(kept("usb:1397:0509"))).as_deref(), Some("a"));
         assert_eq!(found(None).as_deref(), Some("a"));
-        assert_eq!(found(Some("SL3")), None);
-    }
-
-    #[test]
-    fn a_card_is_found_by_the_name_android_gives_its_audio() {
-        let cards = vec![card("a", "DJControl"), card("b", "UMC404HD 192k")];
-        assert_eq!(pick(cards, Some("USB-Audio - UMC404HD 192k")).map(|c| c.id).as_deref(), Some("b"));
     }
 
     #[test]
     fn a_card_of_another_model_of_the_maker_is_not_taken() {
-        let other = vec![card("b", "DDJ-FLX4")];
-        assert!(pick(other, Some("DDJ-400")).is_none());
-    }
-
-    #[test]
-    fn a_second_card_saved_is_found_alone_by_its_product() {
-        let alone = vec![card("b", "UMC404HD 192k")];
-        assert_eq!(pick(alone, Some("UMC404HD 192k 2")).map(|c| c.id).as_deref(), Some("b"));
+        let other = vec![card("b", "DDJ-FLX4", "2b73:0024")];
+        assert!(pick(other, Some(&kept("usb:08e4:0201"))).is_none());
     }
 }

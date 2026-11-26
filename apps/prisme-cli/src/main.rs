@@ -9,7 +9,7 @@ mod timecode;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand, ValueEnum};
-use prisme_audio_io::{AudioCallback, Backend, DeviceKind, StreamSettings};
+use prisme_audio_io::{AudioCallback, Backend, DeviceKind, DeviceRef, StreamSettings};
 use prisme_engine::{Command, Engine, EngineConfig, EngineController, VinylMode};
 use prisme_timecode::testing::SimulatedTurntable;
 use prisme_timecode::TimecodeFormat;
@@ -57,7 +57,7 @@ enum Cmd {
     /// Plays a track driven by a real turntable on the sound card input.
     Vinyl {
         file: PathBuf,
-        /// Part of the input device name (the DVS interface).
+        /// The input device's name, as `prisme devices` lists it (the DVS interface).
         #[arg(long)]
         input: String,
         #[arg(long, value_enum, default_value_t = Mode::Absolute)]
@@ -76,7 +76,7 @@ enum Cmd {
     },
     /// Measures the round trip from an output to an input joined by a cable.
     Latency {
-        /// Part of the input device name (ASIO: the same driver as the output).
+        /// The input device's name, as `prisme devices` lists it (ASIO: the driver of the output).
         #[arg(long)]
         input: String,
         /// Output channel playing the clicks, from 1.
@@ -122,7 +122,7 @@ struct AudioArgs {
     /// How the sound card is reached (the system's own audio if omitted).
     #[arg(long, value_enum)]
     backend: Option<BackendArg>,
-    /// Part of the output device name (default device if omitted).
+    /// The output device's name, as `prisme devices` lists it (default device if omitted).
     #[arg(long)]
     output: Option<String>,
     /// Requested buffer size in frames.
@@ -215,10 +215,15 @@ fn main() -> Result<()> {
             })
         }
         Cmd::Latency { input, out_channel, in_channel, seconds, audio } => {
+            let backend = audio.backend.map_or(Backend::SYSTEM, Into::into);
             let settings = StreamSettings {
-                backend: audio.backend.map_or(Backend::SYSTEM, Into::into),
-                output_device: audio.output.clone(),
-                input_device: Some(input),
+                backend,
+                output_device: audio
+                    .output
+                    .as_deref()
+                    .map(|o| device(backend, DeviceKind::Output, o))
+                    .transpose()?,
+                input_device: Some(device(backend, DeviceKind::Input, &input)?),
                 buffer_frames: audio.buffer,
             };
             latency::run(&settings, out_channel, in_channel, seconds)
@@ -234,6 +239,14 @@ fn main() -> Result<()> {
             csv.as_deref(),
         ),
     }
+}
+
+/// The device of `backend` named `name` on the command line, as `prisme devices` lists it.
+fn device(backend: Backend, kind: DeviceKind, name: &str) -> Result<DeviceRef> {
+    let listed = prisme_audio_io::list_devices(backend)?;
+    let found = listed.into_iter().find(|d| d.kind == kind && d.name == name);
+    let found = found.with_context(|| format!("no device named {name:?}: see `prisme devices`"))?;
+    Ok(DeviceRef { id: found.id, name: found.name })
 }
 
 fn devices() -> Result<()> {
@@ -268,10 +281,11 @@ fn run(
         started.elapsed().as_millis()
     );
 
+    let backend = audio.backend.map_or(Backend::SYSTEM, Into::into);
     let settings = StreamSettings {
-        backend: audio.backend.map_or(Backend::SYSTEM, Into::into),
-        output_device: audio.output.clone(),
-        input_device: input.as_ref().map(|(name, _)| name.clone()),
+        backend,
+        output_device: audio.output.as_deref().map(|o| device(backend, DeviceKind::Output, o)).transpose()?,
+        input_device: input.as_ref().map(|(name, _)| device(backend, DeviceKind::Input, name)).transpose()?,
         buffer_frames: audio.buffer,
     };
     let format = input

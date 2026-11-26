@@ -214,7 +214,7 @@ fn turntables_off(state: &AppState) -> Option<AudioSettings> {
     let saved = state.preferences.read(|p| p.audio.clone());
     let session = lock(&state.session);
     let running = session.as_ref()?;
-    let off = !running.info.simulated && running.settings.input_device.is_none();
+    let off = !running.info.simulated && running.settings.input.is_none();
     (off && running.settings.same_devices(&saved)).then_some(saved)
 }
 
@@ -789,7 +789,7 @@ mod tests {
 
     /// The bench's card with the turntables off, as the DJ chose and as the audio runs.
     fn put_turntables_off(bench: &Bench) -> AudioSettings {
-        let off = AudioSettings { input_device: None, ..bench.state.preferences.read(|p| p.audio.clone()) };
+        let off = AudioSettings { input: None, ..bench.state.preferences.read(|p| p.audio.clone()) };
         bench.state.update_preferences(|p| p.audio = off.clone());
         let mut session = lock(&bench.state.session);
         let running = session.as_mut().unwrap();
@@ -838,7 +838,7 @@ mod tests {
         bench.press("deck1.passthrough.on", 1.0).unwrap();
 
         // the card chosen with its turntables is missing: the audio plays on the defaults
-        bench.state.update_preferences(|p| p.audio.input_device = Some("Card".into()));
+        bench.state.update_preferences(|p| p.audio.input = Some("Card".into()));
         lock(&bench.state.session).as_mut().unwrap().info.simulated = false;
         set_mode(&bench.state, 1, Drive::Relative, None).unwrap();
 
@@ -854,7 +854,7 @@ mod tests {
         let given = std::cell::RefCell::new(Vec::new());
         let turn_on = |saved: &AudioSettings| {
             given.borrow_mut().push(saved.clone());
-            let on = AudioSettings { input_device: saved.output_device.clone(), ..saved.clone() };
+            let on = AudioSettings { input: saved.output.clone(), ..saved.clone() };
             bench.state.update_preferences(|p| p.audio = on.clone());
             let mut session = lock(&bench.state.session);
             let running = session.as_mut().unwrap();

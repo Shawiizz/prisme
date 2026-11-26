@@ -559,9 +559,9 @@ fn start_saved_audio(state: &AppState) {
     let Err(e) = start(&settings) else { return };
     warn!("saved audio settings unusable ({e}), using the default devices");
     // the card chosen is there but does not open: another application holds it
-    let held = settings.output_device.clone().filter(|_| audio_host::devices_available(&settings));
-    if let Some(card) = held {
-        *lock(&state.busy_output) = Some(audio_watchdog::card_name(&card).to_owned());
+    let held = settings.output.as_ref().filter(|_| audio_host::devices_available(&settings));
+    if let Some(output) = held {
+        *lock(&state.busy_output) = Some(audio_watchdog::card_of(&output.into()));
         state.moved(Section::Audio);
     }
     let defaults = settings.on_default_devices();
@@ -570,14 +570,16 @@ fn start_saved_audio(state: &AppState) {
         Err(AppError::Audio(e)) if e.device_busy() => e,
         Err(e) => return error!("audio could not start: {e}"),
     };
-    let busy = prisme_audio_io::default_output_name();
-    *lock(&state.busy_output) = busy.clone();
+    let busy = prisme_audio_io::default_output();
+    *lock(&state.busy_output) = busy.as_ref().map(audio_watchdog::card_of);
     state.moved(Section::Audio);
     let others = prisme_audio_io::list_devices(defaults.backend.into()).unwrap_or_default();
-    let others =
-        others.into_iter().filter(|d| d.kind == DeviceKind::Output && Some(&d.name) != busy.as_ref());
+    let others = others
+        .into_iter()
+        .filter(|d| d.kind == DeviceKind::Output && busy.as_ref().is_none_or(|busy| busy.id != d.id));
     for output in others {
-        let on_it = AudioSettings { output_device: Some(output.name.clone()), ..defaults.clone() };
+        let chosen = dto::DeviceChoice { id: output.id.clone(), name: output.name.clone() };
+        let on_it = AudioSettings { output: Some(chosen), ..defaults.clone() };
         if start(&on_it).is_ok() {
             return warn!(
                 "the default output is held by another application, the sound plays on {}",

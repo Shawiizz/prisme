@@ -1091,8 +1091,8 @@ pub(crate) mod bench {
             };
             let card = AudioSettings {
                 backend: BackendDto::Asio,
-                output_device: Some("Card".into()),
-                input_device: Some("Card".into()),
+                output: Some("Card".into()),
+                input: Some("Card".into()),
                 ..AudioSettings::default()
             };
             let state = AppState::new(JsonFile::in_memory(Default::default()));

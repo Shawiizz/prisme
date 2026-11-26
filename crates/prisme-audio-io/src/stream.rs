@@ -2,7 +2,7 @@
 //! feeds it through a lock-free ring buffer. With ASIO both streams come from the same
 //! driver period, so the ring never holds more than a period.
 
-use crate::devices::{configs, device_name, drivers, find, Backend, DeviceKind};
+use crate::devices::{configs, device_ref, drivers, find, Backend, DeviceKind, DeviceRef};
 use crate::formats::{input_stream, output_stream, MAX_PERIOD};
 use crate::perf::{PerformanceHint, Refused};
 use crate::{AudioCallback, AudioError};
@@ -16,10 +16,10 @@ use tracing::warn;
 #[derive(Debug, Clone, Default)]
 pub struct StreamSettings {
     pub backend: Backend,
-    /// Part of the output device name, or `None` for the default device.
-    pub output_device: Option<String>,
-    /// Part of the input device name. `None` = no input (no turntables).
-    pub input_device: Option<String>,
+    /// The output, or `None` for the default device.
+    pub output_device: Option<DeviceRef>,
+    /// The input. `None` = no input (no turntables).
+    pub input_device: Option<DeviceRef>,
     /// Requested period in frames (`None` = device default). Not every driver honours it.
     pub buffer_frames: Option<u32>,
 }
@@ -63,8 +63,8 @@ pub struct RunningStream {
     streams: Option<Streams>,
     pub format: StreamFormat,
     pub stats: Arc<StreamStats>,
-    /// Name of the output device.
-    pub output_device: String,
+    /// The output opened, as its system knows it.
+    pub output_device: DeviceRef,
 }
 
 /// What keeps the sound going.
@@ -81,7 +81,7 @@ impl RunningStream {
         streams: Streams,
         format: StreamFormat,
         stats: Arc<StreamStats>,
-        output_device: String,
+        output_device: DeviceRef,
     ) -> Self {
         Self { streams: Some(streams), format, stats, output_device }
     }
@@ -101,7 +101,7 @@ pub fn start<C: AudioCallback>(
         return Err(AudioError::BackendUnavailable(Backend::Usb));
     }
     let _drivers = drivers();
-    let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref())?;
+    let out_device = find(settings.backend, DeviceKind::Output, settings.output_device.as_ref())?;
     let mut tried = configs(&out_device, DeviceKind::Output)?.into_iter().peekable();
     loop {
         let config = tried.next().expect("a device has a configuration");
@@ -122,7 +122,7 @@ pub fn output_opens(settings: &StreamSettings) -> bool {
         return false;
     }
     let _drivers = drivers();
-    let Ok(device) = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref()) else {
+    let Ok(device) = find(settings.backend, DeviceKind::Output, settings.output_device.as_ref()) else {
         return false;
     };
     let Ok(config) = device.default_output_config() else { return false };
@@ -143,13 +143,14 @@ fn start_with<C: AudioCallback>(
     out_default: cpal::SupportedStreamConfig,
     make_callback: &mut impl FnMut(StreamFormat) -> C,
 ) -> Result<RunningStream, AudioError> {
+    let output_device = device_ref(out_device).ok_or(AudioError::NoOutputDevice)?;
     let mut sample_rate = out_default.sample_rate();
     let output_channels = out_default.channels() as usize;
     let mut out_config = out_default.config();
     // The system's shared output takes any rate (the system converts it): it follows the
     // input, whose rate the timecode needs as it is, when the system set them apart.
     if settings.backend == Backend::SYSTEM {
-        if let Some(rate) = settings.input_device.as_deref().and_then(input_rate) {
+        if let Some(rate) = settings.input_device.as_ref().and_then(input_rate) {
             sample_rate = rate;
             out_config.sample_rate = rate;
         }
@@ -161,9 +162,9 @@ fn start_with<C: AudioCallback>(
     }
 
     let stats = Arc::new(StreamStats::default());
-    let (input_stream, ring, input_channels) = match settings.input_device.as_deref() {
-        Some(name) => {
-            let input = open_input(settings.backend, name, out_device, sample_rate, &stats)?;
+    let (input_stream, ring, input_channels) = match settings.input_device.as_ref() {
+        Some(wanted) => {
+            let input = open_input(settings.backend, wanted, out_device, sample_rate, &stats)?;
             (Some(input.stream), Some(input.ring), input.channels)
         }
         None => (None, None, 0),
@@ -183,7 +184,6 @@ fn start_with<C: AudioCallback>(
         i.play()?;
     }
     output.play()?;
-    let output_device = device_name(out_device).unwrap_or_default();
     Ok(RunningStream::new(
         Streams::Cpal { _output: output, _input: input_stream },
         format,
@@ -202,9 +202,9 @@ impl Drop for RunningStream {
     }
 }
 
-/// The rate the system runs input `name` at, if it is there.
-fn input_rate(name: &str) -> Option<u32> {
-    let device = find(Backend::SYSTEM, DeviceKind::Input, Some(name)).ok()?;
+/// The rate the system runs input `wanted` at, if it is there.
+fn input_rate(wanted: &DeviceRef) -> Option<u32> {
+    let device = find(Backend::SYSTEM, DeviceKind::Input, Some(wanted)).ok()?;
     Some(device.default_input_config().ok()?.sample_rate())
 }
 
@@ -216,15 +216,19 @@ struct Input {
 
 fn open_input(
     backend: Backend,
-    name: &str,
+    wanted: &DeviceRef,
     out_device: &cpal::Device,
     sample_rate: u32,
     stats: &Arc<StreamStats>,
 ) -> Result<Input, AudioError> {
     // an ASIO driver, as the JACK server, is one device for both directions: open it once
-    let same_driver = matches!(backend, Backend::Asio | Backend::Jack)
-        && device_name(out_device).is_some_and(|n| n.to_lowercase().contains(&name.to_lowercase()));
-    let device = if same_driver { out_device.clone() } else { find(backend, DeviceKind::Input, Some(name))? };
+    let same_driver = match backend {
+        Backend::Jack => true,
+        Backend::Asio => device_ref(out_device).is_some_and(|out| out.id == wanted.id),
+        _ => false,
+    };
+    let device =
+        if same_driver { out_device.clone() } else { find(backend, DeviceKind::Input, Some(wanted))? };
     let mut tried = configs(&device, DeviceKind::Input)?.into_iter().peekable();
     loop {
         let config = tried.next().expect("a device has a configuration");

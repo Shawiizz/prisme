@@ -22,7 +22,7 @@ struct AndroidUsb;
 impl UsbHost for AndroidUsb {
     fn cards(&self) -> Vec<UsbCard> {
         call("list the USB cards", |env, class| {
-            // the system's name of each card, then its product's
+            // the system's name of each card, its product's, then its model's (vendor:product)
             let array = JObjectArray::from(
                 env.call_static_method(class, "cards", "()[Ljava/lang/String;", &[])?.l()?,
             );
@@ -33,7 +33,9 @@ impl UsbHost for AndroidUsb {
                 env.delete_local_ref(text)?;
                 Ok(string)
             };
-            (0..length / 2).map(|i| Ok(UsbCard { id: text(2 * i)?, name: text(2 * i + 1)? })).collect()
+            (0..length / 3)
+                .map(|i| Ok(UsbCard { id: text(3 * i)?, name: text(3 * i + 1)?, model: text(3 * i + 2)? }))
+                .collect()
         })
         .unwrap_or_default()
     }

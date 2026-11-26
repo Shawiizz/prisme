@@ -2,7 +2,7 @@ use crate::audio_host;
 use crate::commands::blocking;
 use crate::dto::{
     AudioChangeDto, AudioDraftDto, AudioInfo, AudioSettings, BackendChoiceDto, BackendDto, BufferSizeDto,
-    DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
+    DeviceChoice, DeviceDto, LatencyChannelsDto, LatencyDto, MixModeDto, TimecodeMakerDto,
 };
 use crate::error::{AppError, AppResult};
 use crate::state::{lock, AppState, Section};
@@ -64,7 +64,9 @@ fn devices_of(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
                 DeviceKind::Input => "input",
                 DeviceKind::Output => "output",
             },
+            id: d.id,
             name: d.name,
+            card: d.card.id,
             channels: d.channels,
             sample_rate: d.sample_rate,
             buffer_sizes: BufferSizeDto::offered(d.buffer_range, d.sample_rate),
@@ -74,13 +76,13 @@ fn devices_of(backend: BackendDto) -> AppResult<Vec<DeviceDto>> {
     Ok(devices)
 }
 
-/// The DJ chose not to use the sound card `name` just plugged in: it is not offered again.
+/// The DJ chose not to use the sound card `card` just plugged in (as its system tells it apart):
+/// it is not offered again.
 #[tauri::command]
-pub fn decline_card(state: State<'_, AppState>, name: String) {
-    let base = prisme_audio_io::base_device_name(&name);
+pub fn decline_card(state: State<'_, AppState>, card: String) {
     state.update_preferences(|p| {
-        if !p.declined_cards.contains(&base) {
-            p.declined_cards.push(base);
+        if !p.declined_sound_cards.contains(&card) {
+            p.declined_sound_cards.push(card);
         }
     });
 }
@@ -102,7 +104,7 @@ pub fn change_audio_draft(
 ) -> AudioDraftDto {
     let listed_of = |backend: BackendDto| listed.of(backend, || devices_of(backend));
     let backend = draft.backend;
-    let first_output = || listed_of(backend).into_iter().find(|d| d.kind == "output").map(|d| d.name);
+    let first_output = || listed_of(backend).iter().find(|d| d.kind == "output").map(DeviceChoice::from);
     let draft = match change {
         Some(change) => draft.changed(change, first_output),
         None => draft,
@@ -187,9 +189,10 @@ pub fn latency_channels(state: State<'_, AppState>) -> LatencyChannelsDto {
     let settings =
         running.as_ref().map_or_else(|| state.preferences.read(|p| p.audio.clone()), |r| r.0.clone());
     let (outputs, inputs) = running.map_or((0, 0), |(_, info)| (info.output_channels, info.input_channels));
-    let input = settings.input_device.clone().or_else(|| settings.output_device.clone());
+    let input = settings.input.clone().or_else(|| settings.output.clone());
     let devices = prisme_audio_io::list_devices(settings.backend.into()).unwrap_or_default();
-    let listed = devices.iter().find(|d| d.kind == DeviceKind::Input && Some(&d.name) == input.as_ref());
+    let listed =
+        devices.iter().find(|d| d.kind == DeviceKind::Input && input.as_ref().is_some_and(|i| i.id == d.id));
     LatencyChannelsDto {
         outputs: outputs.max(2),
         inputs: inputs.max(listed.map_or(0, |d| usize::from(d.channels))).max(2),
@@ -345,7 +348,9 @@ mod tests {
         let failed = listed.of(BackendDto::Asio, || Err(AppError::Other("busy".into())));
         assert!(failed.is_empty());
         let device = DeviceDto {
+            id: "asio:Card".into(),
             name: "Card".into(),
+            card: "asio:Card".into(),
             kind: "output",
             channels: 2,
             sample_rate: 48_000,
