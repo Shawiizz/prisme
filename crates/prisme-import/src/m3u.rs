@@ -45,7 +45,7 @@ mod tests {
             artist: Some("deadmau5".into()),
             ..TrackTags::default()
         };
-        let analysis = prisme_analysis::TrackAnalysis { tempo: None, key: None };
+        let analysis = prisme_analysis::TrackAnalysis::default();
         let path = "C:\\Music\\Café\\strobe.flac";
         let stamp = FileStamp { size: 1, modified_ms: 1 };
         let record = TrackRecord::analyzed(Path::new(path), stamp, 634.6, analysis, tags);

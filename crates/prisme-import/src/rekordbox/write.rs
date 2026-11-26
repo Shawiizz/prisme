@@ -44,7 +44,7 @@ fn write_track<W: Write>(xml: &mut Writer<W>, id: usize, track: &ExportedTrack) 
     let record = track.record.as_ref();
     let tags = record.map(|r| &r.tags);
     let analysis = record.map(|r| r.effective_analysis());
-    let tempo = analysis.and_then(|a| a.tempo);
+    let tempo = analysis.as_ref().and_then(|a| a.tempo);
     let grid = record.and_then(|r| r.beat_grid());
     let tag = |value: Option<&String>| value.map(|v| text(v)).filter(|v| !v.is_empty());
     let title = tag(tags.and_then(|t| t.title.as_ref()))
@@ -65,7 +65,7 @@ fn write_track<W: Write>(xml: &mut Writer<W>, id: usize, track: &ExportedTrack) 
         ("PlayCount", record.map(|r| r.play_count.to_string())),
         ("Rating", record.map(|r| ((f64::from(r.marks.rating) * RATING_STEP) as u32).to_string())),
         ("Location", Some(location(&track.path))),
-        ("Tonality", analysis.and_then(|a| a.key).map(|k| k.key.name().to_owned())),
+        ("Tonality", analysis.as_ref().and_then(|a| a.key).map(|k| k.key.name().to_owned())),
         (
             "Colour",
             record
@@ -261,6 +261,7 @@ mod tests {
         let analysis = TrackAnalysis {
             tempo: Some(Tempo { bpm: 124.996, first_beat_s: 0.05, confidence: 0.9, bars_sure: true }),
             key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.8, tuning_cents: 0.0 }),
+            anchors: None,
         };
         let tags = TrackTags {
             title: Some("Strobe".into()),

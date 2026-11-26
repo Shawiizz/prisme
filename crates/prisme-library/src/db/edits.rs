@@ -86,19 +86,19 @@ impl GridEdit {
     /// An imported grid moved the least onto the beats of `analysed` in the middle of the track
     /// (`duration_s` long), if it is the same tempo there and its beats fall near them: its
     /// tempo and bars stay. Any other grid as it is.
-    fn on_beats_of(&self, analysed: Option<Tempo>, duration_s: Option<f64>) -> BeatGrid {
+    fn on_beats_of(&self, analysed: Option<&BeatGrid>, duration_s: Option<f64>) -> BeatGrid {
         let grid = self.grid.clone();
         let Some(analysed) = analysed.filter(|_| self.beats_from_analysis) else { return grid };
         let middle = duration_s.map_or(grid.first_beat_s(), |d| d / 2.0);
-        let bpm = grid.bpm_at(middle);
-        let octave = octave_ratio(bpm, analysed.bpm);
-        if (bpm / octave / analysed.bpm - 1.0).abs() > SAME_TEMPO {
+        let (bpm, theirs_bpm) = (grid.bpm_at(middle), analysed.bpm_at(middle));
+        let octave = octave_ratio(bpm, theirs_bpm);
+        if (bpm / octave / theirs_bpm - 1.0).abs() > SAME_TEMPO {
             return grid;
         }
         let own = grid.nearest_beat_s(middle);
-        let theirs = BeatGrid::steady(analysed.bpm, analysed.first_beat_s, true).nearest_beat_s(middle);
+        let theirs = analysed.nearest_beat_s(middle);
         // the beats of the slower grid are beats of the faster one too
-        let period = grid.beat_period_s_at(middle).min(analysed.beat_period_s());
+        let period = grid.beat_period_s_at(middle).min(analysed.beat_period_s_at(middle));
         let gap = theirs - own - ((theirs - own) / period).round() * period;
         if gap.abs() > SAME_BEATS_S {
             return grid;
@@ -125,25 +125,31 @@ impl TrackEdits {
     }
 
     /// The grid of a track `duration_s` long analysed as `detected`, with the corrections.
-    pub fn beat_grid(&self, detected: Option<Tempo>, duration_s: Option<f64>) -> Option<BeatGrid> {
+    pub fn beat_grid(&self, detected: Option<BeatGrid>, duration_s: Option<f64>) -> Option<BeatGrid> {
         match &self.grid {
-            Some(edit) => Some(edit.on_beats_of(detected, duration_s)),
-            None => detected.map(|t| BeatGrid::steady(t.bpm, t.first_beat_s, t.bars_sure)),
+            Some(edit) => Some(edit.on_beats_of(detected.as_ref(), duration_s)),
+            None => detected,
         }
     }
 
     /// The analysis of a track `duration_s` long with the corrections applied: a grid whose
     /// tempo changes at its tempo on average.
-    pub fn apply(&self, detected: TrackAnalysis, duration_s: Option<f64>) -> TrackAnalysis {
+    pub fn apply(&self, detected: &TrackAnalysis, duration_s: Option<f64>) -> TrackAnalysis {
+        let edited = self.grid.as_ref().and_then(|_| self.beat_grid(detected.beat_grid(), duration_s));
         TrackAnalysis {
-            tempo: match &self.grid {
-                Some(_) => self.beat_grid(detected.tempo, duration_s).map(|g| Tempo {
-                    bpm: g.mean_bpm(),
-                    first_beat_s: g.first_beat_s(),
+            tempo: match &edited {
+                Some(grid) => Some(Tempo {
+                    bpm: grid.mean_bpm(),
+                    first_beat_s: grid.first_beat_s(),
                     confidence: 1.0,
                     bars_sure: true,
                 }),
+                None if self.grid.is_some() => None,
                 None => detected.tempo,
+            },
+            anchors: match &edited {
+                Some(grid) => (!grid.is_steady()).then(|| grid.anchors().into()),
+                None => detected.anchors.clone(),
             },
             key: self
                 .key
@@ -182,11 +188,11 @@ impl TrackEdits {
 }
 
 /// Anchors as stored: each its beat then its instant, little-endian `f64`s.
-fn anchors_blob(anchors: &[Anchor]) -> Vec<u8> {
+pub(super) fn anchors_blob(anchors: &[Anchor]) -> Vec<u8> {
     anchors.iter().flat_map(|a| [a.beat.to_le_bytes(), a.time_s.to_le_bytes()]).flatten().collect()
 }
 
-fn anchors_of(blob: &[u8]) -> Vec<Anchor> {
+pub(super) fn anchors_of(blob: &[u8]) -> Vec<Anchor> {
     let number = |bytes: &[u8]| f64::from_le_bytes(bytes.try_into().unwrap_or_default());
     blob.chunks_exact(16).map(|a| Anchor { beat: number(&a[..8]), time_s: number(&a[8..]) }).collect()
 }
@@ -239,6 +245,7 @@ mod tests {
         TrackAnalysis {
             tempo: Some(Tempo { bpm: 62.0, first_beat_s: 0.4, confidence: 0.5, bars_sure: true }),
             key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.2, tuning_cents: -8.0 }),
+            anchors: None,
         }
     }
 
@@ -273,20 +280,20 @@ mod tests {
     fn edits_override_the_detected_values() {
         let edits =
             TrackEdits { grid: Some(GridEdit::new(124.0, 0.15)), key: Some(Key::new(0, Mode::Major)) };
-        let applied = edits.apply(detected(), Some(100.0));
+        let applied = edits.apply(&detected(), Some(100.0));
         assert_eq!(
             applied.tempo,
             Some(Tempo { bpm: 124.0, first_beat_s: 0.15, confidence: 1.0, bars_sure: true })
         );
         let key = applied.key.unwrap();
         assert_eq!((key.key, key.tuning_cents), (Key::new(0, Mode::Major), -8.0));
-        assert_eq!(TrackEdits::default().apply(detected(), Some(100.0)), detected());
+        assert_eq!(TrackEdits::default().apply(&detected(), Some(100.0)), detected());
     }
 
     #[test]
     fn an_imported_grid_keeps_its_tempo_and_bars_on_the_analysed_beats() {
         let applied = |grid: BeatGrid, bpm: f64, first_beat_s: f64| {
-            let detected = Some(Tempo { bpm, first_beat_s, confidence: 0.5, bars_sure: true });
+            let detected = Some(BeatGrid::steady(bpm, first_beat_s, true));
             let edits = TrackEdits { grid: Some(GridEdit::imported(grid)), key: None };
             let grid = edits.beat_grid(detected, Some(200.0)).unwrap();
             (grid.bpm(), (grid.first_beat_s() * 100.0).round() / 100.0)
@@ -301,8 +308,8 @@ mod tests {
         assert_eq!(applied(imported.clone(), 124.0, off_beats), (124.002, 2.03), "on other beats");
         assert_eq!(applied(imported.clone(), 126.0, on_two), (124.002, 2.03), "another tempo");
         let by_hand = TrackEdits { grid: Some(GridEdit::new(124.002, 2.031)), key: None };
-        let tempo = Some(Tempo { bpm: 124.0, first_beat_s: on_two, confidence: 0.5, bars_sure: true });
-        assert_eq!(by_hand.beat_grid(tempo, Some(200.0)).unwrap().first_beat_s(), 2.031, "set by hand");
+        let analysed = Some(BeatGrid::steady(124.0, on_two, true));
+        assert_eq!(by_hand.beat_grid(analysed, Some(200.0)).unwrap().first_beat_s(), 2.031, "set by hand");
     }
 
     #[test]
@@ -312,10 +319,13 @@ mod tests {
         let middle = analysed.nearest_beat_s(7.5);
         let detected = Some(Tempo { bpm: 96.0, first_beat_s: middle, confidence: 0.5, bars_sure: true });
         let edits = TrackEdits { grid: Some(GridEdit::imported(drifting())), key: None };
-        let grid = edits.beat_grid(detected, Some(15.0)).unwrap();
+        let grid = edits.beat_grid(Some(BeatGrid::steady(96.0, middle, true)), Some(15.0)).unwrap();
         assert!((grid.first_beat_s() - 0.97).abs() < 1e-9, "moved, its anchors with it");
         assert_eq!(grid.anchors().len(), 3);
-        let tempo = edits.apply(TrackAnalysis { tempo: detected, key: None }, Some(15.0)).tempo.unwrap();
+        let tempo = edits
+            .apply(&TrackAnalysis { tempo: detected, ..TrackAnalysis::default() }, Some(15.0))
+            .tempo
+            .unwrap();
         assert!((tempo.bpm - drifting().mean_bpm()).abs() < 1e-9, "shown at its tempo on average");
     }
 

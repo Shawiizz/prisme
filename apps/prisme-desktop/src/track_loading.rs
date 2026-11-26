@@ -191,13 +191,18 @@ impl Completion {
             let analysis = prisme_analysis::analyze(&audio, &options);
             let metadata = prisme_library::read_metadata(&self.path);
             if let Some(stamp) = stamp {
-                let analyzed =
-                    TrackRecord::analyzed(&self.path, stamp, audio.duration_s(), analysis, metadata.tags);
+                let analyzed = TrackRecord::analyzed(
+                    &self.path,
+                    stamp,
+                    audio.duration_s(),
+                    analysis.clone(),
+                    metadata.tags,
+                );
                 let edits = library.db.edits(&self.path).unwrap_or_default();
                 library.store(&TrackRecord { edits, ..analyzed }, metadata.cover.as_deref());
             }
             for (deck, _, grid) in state.change_loads_of(&audio, |t| {
-                t.detected = analysis;
+                t.detected = analysis.clone();
                 t.grid()
             }) {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });

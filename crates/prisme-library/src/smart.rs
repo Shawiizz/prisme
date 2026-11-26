@@ -112,6 +112,7 @@ mod tests {
                 confidence: 1.0,
                 tuning_cents: 0.0,
             }),
+            anchors: None,
         };
         let tags = TrackTags { genre: Some(genre.into()), year: Some(year), ..TrackTags::default() };
         TrackRecord::analyzed(

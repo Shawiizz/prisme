@@ -4,7 +4,7 @@
 //!   colored waveforms; [`envelope`]: the height and colour drawn of each slice.
 //! * [`tempo`]: BPM and beat grid, put on the kicks' attacks by [`grid`], on the beats and
 //!   the bars a small neural network hears ([`beat_model`]), bar 1 where the track's sections
-//!   start ([`sections`]).
+//!   start ([`sections`]), pinned on the kicks of a track whose tempo drifts ([`drift`]).
 //! * [`key`]: musical key, with its Camelot code.
 //! * [`loudness`]: loudness (LUFS), to play tracks at the same level.
 //! * [`stem_activity`]: where each part of a separated track plays.
@@ -13,6 +13,7 @@
 //! onset envelopes ([`onset`]).
 
 pub mod beat_model;
+pub mod drift;
 pub mod dsp;
 pub mod envelope;
 pub mod grid;
@@ -34,12 +35,14 @@ pub use waveform::{compute_waveform, Waveform, WaveformBuilder};
 
 use beat_model::{Excerpt, ExcerptTaker};
 
+use prisme_grid::{Anchor, BeatGrid};
 use prisme_media::{DecodeStream, MediaError, TrackAudio};
 use std::path::Path;
+use std::sync::Arc;
 
 /// Version of the tempo / key algorithms. Stored results from an older version are
 /// recomputed: bump it whenever a change can alter them.
-pub const ANALYSIS_VERSION: u32 = 7;
+pub const ANALYSIS_VERSION: u32 = 8;
 
 #[derive(Debug, Clone, Copy)]
 pub struct AnalysisOptions {
@@ -62,10 +65,27 @@ pub fn awaited_threads() -> usize {
     std::thread::available_parallelism().map_or(1, |cores| (cores.get() / 2).clamp(1, 4))
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct TrackAnalysis {
+    /// Its tempo, on average from the first anchor to the last if it drifts.
     pub tempo: Option<Tempo>,
     pub key: Option<KeyEstimate>,
+    /// Where its beats are pinned, a track whose tempo drifts (see [`drift`]); none for one tempo
+    /// throughout.
+    pub anchors: Option<Arc<[Anchor]>>,
+}
+
+impl TrackAnalysis {
+    /// Its beat grid: on its anchors, if its tempo drifts.
+    pub fn beat_grid(&self) -> Option<BeatGrid> {
+        let tempo = self.tempo?;
+        let pinned = self.anchors.as_deref().and_then(|anchors| {
+            let [.., before, last] = anchors else { return None };
+            let after = (last.beat - before.beat) / (last.time_s - before.time_s) * 60.0;
+            BeatGrid::anchored(anchors.to_vec(), after, tempo.bars_sure)
+        });
+        Some(pinned.unwrap_or_else(|| BeatGrid::steady(tempo.bpm, tempo.first_beat_s, tempo.bars_sure)))
+    }
 }
 
 /// The beats of a bar, as electronic music counts them.
@@ -112,7 +132,7 @@ pub fn analyze_file(path: &Path, options: &AnalysisOptions) -> Result<FileAnalys
     Ok(FileAnalysis { duration_s: frames as f64 / rate, analysis })
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileAnalysis {
     pub duration_s: f64,
     pub analysis: TrackAnalysis,
@@ -124,6 +144,7 @@ fn analyze_signal(
     options: &AnalysisOptions,
 ) -> TrackAnalysis {
     let envelopes = onset::onset_envelopes(signal);
+    let mut attacks = Vec::new();
     let tempo = tempo::estimate_tempo(&envelopes, options.min_bpm).map(|onsets| {
         let (first, then) = where_the_kick_plays(excerpts, &envelopes);
         let mut heard = beat_model::hear(&first, options.network_threads);
@@ -140,8 +161,9 @@ fn analyze_signal(
         }
         // the first kick, else the first sound: an intro's first notes or a riser before the
         // first bar may come a beat or two early
-        let first_kick =
-            grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).first().map(|a| a.time_s);
+        attacks =
+            grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).iter().map(|a| a.time_s).collect();
+        let first_kick = attacks.first().copied();
         let music_start_s = first_kick.unwrap_or_else(|| envelopes.first_onset_s());
         let bars = on_bars(fitted, &heard, music_start_s);
         // an intro's first kicks may be hits off the bars: the sections know better
@@ -150,7 +172,18 @@ fn analyze_signal(
         let downbeat_s = bars.first_beat_s + said.beat as f64 * bars.beat_period_s();
         Tempo { bars_sure: said.sure, ..first_bar(bars, downbeat_s, music_start_s) }
     });
-    TrackAnalysis { tempo, key: key::estimate_key(signal) }
+    // a tempo that drifts: the grid pinned on the kicks, its tempo theirs on average
+    let pinned = tempo.and_then(|steady| {
+        let anchors = drift::follow(signal, &steady, &attacks).anchors?;
+        let grid = BeatGrid::anchored(anchors.clone(), steady.bpm, steady.bars_sure)?;
+        let bpm = grid.mean_bpm();
+        Some((Tempo { bpm, first_beat_s: grid.first_beat_s(), ..steady }, Arc::from(anchors)))
+    });
+    let (tempo, anchors) = match pinned {
+        Some((tempo, anchors)) => (Some(tempo), Some(anchors)),
+        None => (tempo, None),
+    };
+    TrackAnalysis { tempo, key: key::estimate_key(signal), anchors }
 }
 
 /// Excerpts the network hears first: one tells where the beats are, the bars take three...

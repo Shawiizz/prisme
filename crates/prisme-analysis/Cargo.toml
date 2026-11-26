@@ -9,6 +9,7 @@ license.workspace = true
 
 [dependencies]
 prisme-media.workspace = true
+prisme-grid.workspace = true
 rustfft.workspace = true
 realfft.workspace = true
 anyhow.workspace = true

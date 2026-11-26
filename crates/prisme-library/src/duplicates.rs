@@ -41,7 +41,7 @@ mod tests {
             title: title.map(Into::into),
             ..TrackTags::default()
         };
-        let analysis = TrackAnalysis { tempo: None, key: None };
+        let analysis = TrackAnalysis::default();
         TrackRecord::analyzed(Path::new(path), FileStamp { size: 1, modified_ms: 1 }, 1.0, analysis, tags)
     }
 

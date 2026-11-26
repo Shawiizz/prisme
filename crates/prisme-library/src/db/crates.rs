@@ -156,7 +156,7 @@ mod tests {
 
     fn analysed(db: &LibraryDb, path: &str, genre: &str) {
         let tags = TrackTags { genre: Some(genre.into()), ..TrackTags::default() };
-        let analysis = TrackAnalysis { tempo: None, key: None };
+        let analysis = TrackAnalysis::default();
         let stamp = FileStamp { size: 1, modified_ms: 2 };
         db.save(&TrackRecord::analyzed(Path::new(path), stamp, 1.0, analysis, tags)).unwrap();
     }

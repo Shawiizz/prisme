@@ -110,7 +110,7 @@ impl TrackRecord {
             path: path_key(path),
             version: RecordVersion::current(stamp),
             duration_s: None,
-            analysis: TrackAnalysis { tempo: None, key: None },
+            analysis: TrackAnalysis::default(),
             edits: TrackEdits::default(),
             marks: TrackMarks::default(),
             play_count: 0,
@@ -125,12 +125,12 @@ impl TrackRecord {
 
     /// The grid with the corrections made by hand.
     pub fn beat_grid(&self) -> Option<prisme_grid::BeatGrid> {
-        self.edits.beat_grid(self.analysis.tempo, self.duration_s)
+        self.edits.beat_grid(self.analysis.beat_grid(), self.duration_s)
     }
 
     /// The analysis with the corrections made by hand.
     pub fn effective_analysis(&self) -> TrackAnalysis {
-        self.edits.apply(self.analysis, self.duration_s)
+        self.edits.apply(&self.analysis, self.duration_s)
     }
 
     /// The same record with tags read by the current code.
@@ -171,9 +171,9 @@ impl LibraryDb {
             .prepare_cached(
                 "INSERT OR REPLACE INTO tracks (path, size, modified_ms, analysis_version, duration_s, bpm,
                  first_beat_s, tempo_confidence, key_tonic, key_minor, key_confidence, tuning_cents, error,
-                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version, bars_sure)
+                 analyzed_at_ms, title, artist, album, genre, year, comment, tags_version, bars_sure, anchors)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19,
-                 ?20, ?21, ?22)",
+                 ?20, ?21, ?22, ?23)",
             )?
             .execute(params![
                 record.path,
@@ -198,6 +198,7 @@ impl LibraryDb {
                 tags.comment,
                 record.version.tags_version,
                 tempo.is_none_or(|t| t.bars_sure),
+                record.analysis.anchors.as_deref().map(super::edits::anchors_blob),
             ])?;
         Ok(())
     }
@@ -328,7 +329,13 @@ pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
             tags_version: r.get("tags_version")?,
         },
         duration_s: r.get("duration_s")?,
-        analysis: TrackAnalysis { tempo, key },
+        analysis: TrackAnalysis {
+            tempo,
+            key,
+            anchors: r
+                .get::<_, Option<Vec<u8>>>("anchors")?
+                .map(|blob| super::edits::anchors_of(&blob).into()),
+        },
         edits: TrackEdits::from_row(r)?,
         marks: TrackMarks::from_row(r)?,
         play_count: r.get::<_, i64>("play_count")? as usize,
@@ -347,6 +354,7 @@ pub(super) fn record_from_row(r: &Row<'_>) -> rusqlite::Result<TrackRecord> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use prisme_grid::Anchor;
 
     const STAMP: FileStamp = FileStamp { size: 1234, modified_ms: 99 };
 
@@ -358,6 +366,7 @@ mod tests {
             TrackAnalysis {
                 tempo: Some(Tempo { bpm: 124.0, first_beat_s: 0.212, confidence: 0.9, bars_sure: true }),
                 key: Some(KeyEstimate { key: Key::new(9, Mode::Minor), confidence: 0.3, tuning_cents: -4.0 }),
+                anchors: None,
             },
             TrackTags {
                 title: Some(title.into()),
@@ -400,6 +409,20 @@ mod tests {
             db.save(&with_genre(path, genre)).unwrap();
         }
         assert_eq!(db.genres().unwrap(), ["House", "Techno"]);
+    }
+
+    #[test]
+    fn the_anchors_of_a_tempo_that_drifts_are_kept_and_make_its_grid() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let mut record = sample("C:/Music/live.mp3", "Ten Years After", "I'd Love to Change the World");
+        let anchors = [(0.0, 0.5), (16.0, 8.4), (32.0, 16.5)].map(|(beat, time_s)| Anchor { beat, time_s });
+        record.analysis.anchors = Some(anchors.into());
+        db.save(&record).unwrap();
+        let back = db.get(Path::new("C:/Music/live.mp3")).unwrap().unwrap();
+        assert_eq!(back.analysis.anchors.as_deref(), Some(&anchors[..]));
+        let grid = back.beat_grid().unwrap();
+        assert_eq!(grid.anchors(), anchors);
+        assert!((grid.time_of(16.0) - 8.4).abs() < 1e-9);
     }
 
     #[test]

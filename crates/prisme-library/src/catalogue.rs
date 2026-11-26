@@ -62,8 +62,8 @@ impl Track {
             genre: lower(&genre),
         };
         let analysis = record.as_ref().map(TrackRecord::effective_analysis);
-        let bpm = analysis.and_then(|a| a.tempo).map(|t| t.bpm);
-        let key = analysis.and_then(|a| a.key).map(|k| k.key);
+        let bpm = analysis.as_ref().and_then(|a| a.tempo).map(|t| t.bpm);
+        let key = analysis.as_ref().and_then(|a| a.key).map(|k| k.key);
         Self { path, title, record, bpm, key, words, sorted }
     }
 
@@ -226,6 +226,7 @@ pub(crate) mod tests {
                 confidence: 1.0,
                 tuning_cents: 0.0,
             }),
+            anchors: None,
         };
         TrackRecord::analyzed(Path::new(path), FileStamp { size: 1, modified_ms: 1 }, 300.0, analysis, tags)
     }

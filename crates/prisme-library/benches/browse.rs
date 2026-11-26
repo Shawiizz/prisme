@@ -36,6 +36,7 @@ fn records() -> Vec<TrackRecord> {
                     bars_sure: true,
                 }),
                 key: Some(KeyEstimate { key: keys[i % keys.len()], confidence: 1.0, tuning_cents: 0.0 }),
+                anchors: None,
             };
             let path = PathBuf::from(format!("C:/Music/{}/{i}.mp3", word(i / 17)));
             TrackRecord::analyzed(&path, FileStamp { size: i as u64, modified_ms: 0 }, 300.0, analysis, tags)

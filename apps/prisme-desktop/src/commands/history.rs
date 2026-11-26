@@ -88,10 +88,11 @@ fn tracklist_csv(plays: &[HistoryPlay], format: CsvFormat) -> String {
             title,
             tags.and_then(|t| t.album.clone()).unwrap_or_default(),
             analysis
+                .as_ref()
                 .and_then(|a| a.tempo)
                 .map(|t| format!("{:.1}", t.bpm).replace('.', &format.decimal.to_string()))
                 .unwrap_or_default(),
-            analysis.and_then(|a| a.key).map(|k| k.key.camelot().to_string()).unwrap_or_default(),
+            analysis.as_ref().and_then(|a| a.key).map(|k| k.key.camelot().to_string()).unwrap_or_default(),
             p.path.clone(),
         ];
         let line: Vec<String> = fields.iter().map(|f| csv_field(f, format.separator)).collect();
@@ -133,7 +134,7 @@ mod tests {
         };
         let tempo =
             prisme_analysis::Tempo { bpm: 124.04, first_beat_s: 0.0, confidence: 1.0, bars_sure: true };
-        let analysis = prisme_analysis::TrackAnalysis { tempo: Some(tempo), key: None };
+        let analysis = prisme_analysis::TrackAnalysis { tempo: Some(tempo), ..Default::default() };
         let record = TrackRecord::analyzed(
             Path::new("C:/Music/yes.mp3"),
             FileStamp { size: 1, modified_ms: 1 },

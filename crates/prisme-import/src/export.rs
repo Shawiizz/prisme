@@ -91,9 +91,10 @@ mod tests {
     fn each_track_comes_once_with_its_cues() {
         let db = LibraryDb::open_in_memory().unwrap();
         let stamp = FileStamp { size: 1, modified_ms: 2 };
-        let analysis = prisme_analysis::TrackAnalysis { tempo: None, key: None };
+        let analysis = prisme_analysis::TrackAnalysis::default();
         for path in ["z.mp3", "b.mp3"] {
-            let record = TrackRecord::analyzed(Path::new(path), stamp, 100.0, analysis, Default::default());
+            let record =
+                TrackRecord::analyzed(Path::new(path), stamp, 100.0, analysis.clone(), Default::default());
             db.save(&record).unwrap();
         }
         db.save_cue(Path::new("x.mp3"), &Cue::point(CueSlot::Hot(3), 1.0)).unwrap();

@@ -185,6 +185,7 @@ mod tests {
                     bars_sure: true,
                 }),
                 key: Some(KeyEstimate { key, confidence: 1.0, tuning_cents: 0.0 }),
+                anchors: None,
             };
             save(&db, &format!("{i}.mp3"), BEFORE, analysis);
             db.tags_written(Path::new(&format!("{i}.mp3")), BEFORE, BEFORE).unwrap();

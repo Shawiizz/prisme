@@ -95,7 +95,7 @@ impl LoadedTrack {
             path: path.into(),
             audio: Arc::new(TrackAudio::from_interleaved(48_000, samples)),
             waveform: crate::track_waveform::TrackWaveform::growing(1),
-            detected: prisme_analysis::TrackAnalysis { tempo, key: None },
+            detected: prisme_analysis::TrackAnalysis { tempo, ..Default::default() },
             edits: Default::default(),
             tags: Default::default(),
             cues: Vec::new(),
@@ -136,11 +136,11 @@ impl LoadedTrack {
     }
 
     pub fn analysis(&self) -> TrackAnalysis {
-        self.edits.apply(self.detected, Some(self.audio.duration_s()))
+        self.edits.apply(&self.detected, Some(self.audio.duration_s()))
     }
 
     pub fn grid(&self) -> Option<BeatGrid> {
-        self.edits.beat_grid(self.detected.tempo, Some(self.audio.duration_s()))
+        self.edits.beat_grid(self.detected.beat_grid(), Some(self.audio.duration_s()))
     }
 
     /// Commands that put the track, with its beat grid, key shift and stems, on `deck`, at
