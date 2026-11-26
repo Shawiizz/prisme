@@ -309,18 +309,6 @@ impl Library {
         best.map(|(_, known)| known)
     }
 
-    /// The model of the controller with no mixer of its own whose sound card is `card`, of the
-    /// models known (a DDJ-SB2's card is `PIONEER DDJ-SB2`), plugged in or not.
-    pub fn all_in_one_of_card(&self, card: &str) -> Option<String> {
-        self.known
-            .iter()
-            .filter(|k| !k.profile.variant)
-            .filter_map(|k| crate::state::AllInOne::of(&k.profile))
-            .filter_map(|c| Some((c.fit(card)?, c)))
-            .max_by_key(|&(fit, _)| fit)
-            .map(|(_, c)| c.model)
-    }
-
     /// The profile of the controller on the MIDI port `port`, if Prisme knows its model.
     pub fn of(&self, port: &str) -> Option<&Known> {
         Self::fitting(&self.known, port)

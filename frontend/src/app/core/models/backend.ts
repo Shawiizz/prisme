@@ -246,7 +246,8 @@ export type CardAsked = { card: string; refused: boolean };
  */
 export type CardOffer = {
   /**
-   * The controller whose card it is, with no mixer of its own: Prisme mixes for it.
+   * A controller plugged in with no mixer of its own, that Prisme mixes for: its card is
+   * likely this one.
    */
   controller: string | null;
   name: string;
@@ -1861,8 +1862,8 @@ export type RoutingState = {
    */
   fallback: number | null;
   /**
-   * The controller whose sound card runs, with no mixer of its own: Prisme mixes for it
-   * (unless the DJ chose otherwise, `all_in_one_mixes`).
+   * A controller plugged in with no mixer of its own: Prisme mixes for it (unless the DJ
+   * chose otherwise, `all_in_one_mixes`).
    */
   allInOne: string | null;
   allInOneMixes: boolean;

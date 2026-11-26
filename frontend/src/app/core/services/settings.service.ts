@@ -70,11 +70,11 @@ export class SettingsService {
   /** A sound card plugged in, offered: used at once, or not offered again. */
   private offer({ controller, name, settings }: CardOffer) {
     this.notices.show({
-      text: controller
-        ? t('{controller} plugged in', { controller })
-        : t('New sound card: {name}', { name }),
+      text: t('New sound card: {name}', { name }),
       detail: controller
-        ? t('Play on its sound card? Prisme mixes for it: it has no mixer of its own.')
+        ? t('Play on it? Prisme mixes for {controller}: it has no mixer of its own.', {
+            controller,
+          })
         : settings.inputDevice
           ? t('Play on it and read the turntables from it?')
           : t('Play on it?'),

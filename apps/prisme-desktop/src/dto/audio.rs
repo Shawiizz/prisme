@@ -243,7 +243,8 @@ impl AudioSettings {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS))]
 pub struct CardOffer {
-    /// The controller whose card it is, with no mixer of its own: Prisme mixes for it.
+    /// A controller plugged in with no mixer of its own, that Prisme mixes for: its card is
+    /// likely this one.
     pub controller: Option<String>,
     pub name: String,
     pub settings: AudioSettings,

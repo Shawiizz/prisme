@@ -139,7 +139,7 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     label: () => t('Mix for an all-in-one controller'),
     description: () =>
       t(
-        'On the sound card of a controller with no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above.',
+        "With a controller that has no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above: its faders drive Prisme's.",
       ),
   },
   {

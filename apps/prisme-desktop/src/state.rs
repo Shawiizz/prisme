@@ -312,45 +312,6 @@ fn routed(p: &Preferences) -> impl PartialEq {
     (mode, all_in_one_mixes, headphones, booth, mic.input, aux.input, p.dj.decks())
 }
 
-/// A controller plugged in with no mixer of its own (a DDJ-SB2): its model, and the names its
-/// sound card may hold, in lower case letters and digits alone (`ddjsb2`).
-#[derive(Debug, Clone, PartialEq)]
-pub struct AllInOne {
-    pub model: String,
-    pub names: Vec<String>,
-}
-
-impl AllInOne {
-    pub fn new(model: &str, names: impl IntoIterator<Item = impl AsRef<str>>) -> Self {
-        let names = names.into_iter().map(|n| letters(n.as_ref())).filter(|n| n.len() >= 4).collect();
-        Self { model: model.to_owned(), names }
-    }
-
-    /// The controller of `profile`, if it has no mixer of its own; its card is named as its
-    /// ports, or as the model, its maker's name aside at times.
-    pub fn of(profile: &prisme_control::Profile) -> Option<Self> {
-        let unbranded = profile.name.split_once(' ').map(|(_, rest)| rest);
-        let names = profile.ports.iter().map(String::as_str).chain(unbranded);
-        profile.mixes_in_software().then(|| Self::new(&profile.name, names))
-    }
-
-    /// How closely the sound card `device` is this controller's: the length of its longest
-    /// name the card's holds.
-    pub fn fit(&self, device: &str) -> Option<usize> {
-        let device = letters(device);
-        self.names.iter().filter(|name| device.contains(name.as_str())).map(String::len).max()
-    }
-
-    #[cfg(test)]
-    fn owns(&self, device: &str) -> bool {
-        self.fit(device).is_some()
-    }
-}
-
-fn letters(name: &str) -> String {
-    name.chars().filter(char::is_ascii_alphanumeric).map(|c| c.to_ascii_lowercase()).collect()
-}
-
 /// What the interface is shown of the pads: each deck's slots of its effect chain, and whether
 /// the library takes the whole window.
 pub type PadsShown = ([DeckPadsDto; MAX_DECKS], bool);
@@ -385,9 +346,9 @@ pub struct AppState {
     /// The default output another application held as the audio started (a mixer such as
     /// VoiceMeeter takes the speakers for itself), until the DJ chooses devices.
     pub busy_output: Mutex<Option<String>>,
-    /// The controllers plugged in whose mixer is in messages, and the names their sound card
-    /// may go by (see [`AppState::all_in_one_on`]).
-    pub all_in_one: Mutex<Vec<AllInOne>>,
+    /// The models plugged in whose faders drive Prisme's channels: they have no mixer of their
+    /// own, Prisme mixes for them (see [`AppState::all_in_one`]).
+    pub all_in_one: Mutex<Vec<String>>,
     /// The tracks loaded on a deck whose analysis is awaited (see [`AppState::awaits_analysis`]).
     awaited_analyses: AtomicUsize,
     /// Where the decks were as the audio last stopped to start again: kept for the start
@@ -1027,18 +988,13 @@ impl AppState {
 
     /// The routing for the running device (see [`routing_for`]).
     pub fn routing(&self, info: &AudioInfo) -> OutputRouting {
-        routing_for(self.preferences.read(|p| p.mixer), info, self.all_in_one_on(&info.device).is_some())
+        routing_for(self.preferences.read(|p| p.mixer), info, self.all_in_one().is_some())
     }
 
-    /// The model of the controller plugged in whose sound card `device` is, if it has no mixer
-    /// of its own: Prisme mixes for it (a DDJ-SB2's faders are messages).
-    pub fn all_in_one_on(&self, device: &str) -> Option<String> {
-        let plugged = lock(&self.all_in_one);
-        plugged
-            .iter()
-            .filter_map(|c| Some((c.fit(device)?, c)))
-            .max_by_key(|&(fit, _)| fit)
-            .map(|(_, c)| c.model.clone())
+    /// The model of a controller plugged in with no mixer of its own, whose faders and crossfader
+    /// drive Prisme's (a DDJ-SB2): Prisme mixes for it, or they would do nothing.
+    pub fn all_in_one(&self) -> Option<String> {
+        lock(&self.all_in_one).first().cloned()
     }
 
     /// The first output the preview is heard on: the headphones, on the running device, if
@@ -1441,10 +1397,7 @@ mod tests {
     }
 
     #[test]
-    fn on_the_card_of_a_controller_with_no_mixer_of_its_own_prisme_mixes() {
-        let sb2 = AllInOne::new("Pioneer DDJ-SB2", ["DDJ-SB2", "DDJ-SB2"]);
-        assert!(sb2.owns("Haut-parleurs (PIONEER DDJ-SB2)") && sb2.owns("Pioneer DDJ-SB2 ASIO"));
-        assert!(!sb2.owns("Speakers (DDJ-SB3)") && !sb2.owns("Realtek(R) Audio"));
+    fn with_a_controller_that_has_no_mixer_of_its_own_prisme_mixes() {
         let info = AudioInfo {
             backend: BackendDto::Wasapi,
             device: "PIONEER DDJ-SB2".into(),

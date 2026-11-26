@@ -1052,10 +1052,9 @@
   "Prisme mixes for {controller}": "Prisme mixe pour {controller}",
   "It has no mixer of its own: its faders, crossfader and trims go through Prisme, the headphones too.": "Il n'a pas de table de mixage à lui : ses faders, son crossfader et ses trims passent par Prisme, le casque aussi.",
   "Mixing settings": "Réglages de mixage",
-  "{controller} plugged in": "{controller} branché",
-  "Play on its sound card? Prisme mixes for it: it has no mixer of its own.": "Jouer sur sa carte son ? Prisme mixe pour lui : il n'a pas de table de mixage à lui.",
+  "Play on it? Prisme mixes for {controller}: it has no mixer of its own.": "Jouer dessus ? Prisme mixe pour {controller} : il n'a pas de table de mixage à lui.",
   "Play on it": "Jouer dessus",
-  "{controller} has no mixer of its own: its faders and crossfader are messages, and its sound card plays what Prisme mixes.": "{controller} n'a pas de table de mixage à lui : ses faders et son crossfader sont des messages, et sa carte son joue ce que Prisme mixe.",
+  "{controller} is plugged in: its faders and crossfader are messages, Prisme mixes for it.": "{controller} est branché : ses faders et son crossfader sont des messages, Prisme mixe pour lui.",
   "Mix for an all-in-one controller": "Mixer pour un contrôleur tout-en-un",
-  "On the sound card of a controller with no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above.": "Sur la carte son d'un contrôleur sans table de mixage à lui (une DDJ-SB2, une Inpulse), Prisme mixe quel que soit le mode ci-dessus."
+  "With a controller that has no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above: its faders drive Prisme's.": "Avec un contrôleur sans table de mixage à lui (une DDJ-SB2, une Inpulse), Prisme mixe quel que soit le mode ci-dessus : ses faders pilotent ceux de Prisme."
 }

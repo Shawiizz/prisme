@@ -264,9 +264,10 @@ fn offer_cards_plugged(
     };
     let (output, input) = (of_kind(DeviceKind::Output), of_kind(DeviceKind::Input));
     let Some(name) = output.as_deref().or(input.as_deref()).map(|n| card_name(n).to_owned()) else { return };
-    // on the system's default output, only a controller's card is offered: any other plugged
-    // in may become the default, which the audio follows
-    let controller = crate::controller_profiles::current().all_in_one_of_card(&name);
+    // on the system's default output, a card is offered while a controller with no mixer of
+    // its own is plugged in (its own, most likely); any other may become the default, which
+    // the audio follows
+    let controller = state.all_in_one();
     if settings.output_device.is_none() && controller.is_none() {
         return;
     }
