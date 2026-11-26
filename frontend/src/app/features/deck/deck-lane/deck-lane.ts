@@ -1,16 +1,6 @@
-import {
-  Component,
-  ElementRef,
-  booleanAttribute,
-  computed,
-  inject,
-  input,
-  signal,
-} from '@angular/core';
-import { LibraryService } from '../../../core/services/library.service';
+import { Component, booleanAttribute, inject, input } from '@angular/core';
 import { MixerService } from '../../../core/services/mixer.service';
-import { fileDropAttribute } from '../../../core/services/file-drop.service';
-import { TRACKS_DRAG_TYPE } from '../../../shared/drag';
+import { DeckDropTarget } from '../deck-drop/deck-drop-target';
 import { ChannelSlot } from '../../mixer/channel-slot/channel-slot';
 import { DeckCard } from '../deck-card/deck-card';
 import { DeckDrop } from '../deck-drop/deck-drop';
@@ -91,14 +81,8 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       background: var(--pr-line);
     }
   `,
-  host: {
-    '[class.compact]': 'compact()',
-    '[class.dropping]': 'dropping()',
-    '[attr.data-file-drop]': 'fileDrop()',
-    '(dragover)': 'dragOver($event)',
-    '(dragleave)': 'dragLeave($event)',
-    '(drop)': 'drop($event)',
-  },
+  host: { '[class.compact]': 'compact()' },
+  hostDirectives: [{ directive: DeckDropTarget, inputs: ['appDeckDropTarget: deck'] }],
   imports: [ChannelSlot, DeckCard, DeckControls, DeckDrop, DeckPads, DeckWaveform, PitchFader],
 })
 export class DeckLane {
@@ -106,30 +90,4 @@ export class DeckLane {
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
   protected readonly mixer = inject(MixerService);
-  private readonly library = inject(LibraryService);
-  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
-  protected readonly dropping = signal(false);
-  protected readonly fileDrop = computed(() =>
-    fileDropAttribute({ kind: 'deck', deck: this.deck() }),
-  );
-
-  protected dragOver(event: DragEvent) {
-    if (!event.dataTransfer?.types.includes(TRACKS_DRAG_TYPE)) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
-    this.dropping.set(true);
-  }
-
-  protected dragLeave(event: DragEvent) {
-    if (!this.host.contains(event.relatedTarget as Node | null)) this.dropping.set(false);
-  }
-
-  /** The track dragged from the library: a deck plays one. */
-  protected drop(event: DragEvent) {
-    this.dropping.set(false);
-    const path = event.dataTransfer?.getData(TRACKS_DRAG_TYPE);
-    if (!path) return;
-    event.preventDefault();
-    this.library.load(path, this.deck());
-  }
 }

@@ -8,7 +8,7 @@
 
 // clipped: while the lanes change height, what does not fit yet stays inside
 .card {
-  container: deck-card / size;
+  container: deck-card / inline-size;
   height: 100%;
   overflow: clip;
   display: grid;
@@ -200,43 +200,42 @@
   }
 }
 
-// a tall lane (the decks on a screen of their own): the figures read from afar, the room
-// under the title theirs; the time remaining over the tempo and the key
-@container deck-card (min-height: 230px) and (min-width: 300px) {
+// a band across the decks' own window: the track at the left, the figures at the right
+:host(.band) {
+  .card {
+    container-type: inline-size;
+    grid-template-rows: none;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--pr-space-5);
+    padding: 10px var(--pr-space-4);
+  }
   .cover {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
   }
   .meta .title {
-    font-size: 17px;
+    font-size: 18px;
   }
   .meta .artist {
-    font-size: 13px;
+    font-size: 13.5px;
   }
   .readouts {
-    grid-template-columns: auto;
-    grid-template-rows: repeat(6, auto);
-    row-gap: 3px;
-  }
-  .readouts > .pr-readout {
-    margin-bottom: 14px;
+    grid-template-columns: auto auto;
+    column-gap: 30px;
   }
   .analysis {
-    column-gap: 34px;
+    column-gap: 30px;
   }
   .readouts > .pr-readout .pr-readout__value {
-    font-size: min(64px, 16cqi);
+    font-size: 46px;
   }
   .pr-readout__value--mid {
-    font-size: min(34px, 8.6cqi);
-  }
-  .pr-readout__sub,
-  .pr-label {
-    font-size: 12.5px;
+    font-size: 30px;
   }
   .pr-key--lg {
-    min-width: 72px;
-    height: 42px;
-    font-size: 22px;
+    min-width: 70px;
+    height: 40px;
+    font-size: 21px;
   }
 }

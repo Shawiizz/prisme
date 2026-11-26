@@ -77,18 +77,8 @@ app-phase-strip {
 // the decks' own window: the lanes share its height, their waveforms grow with it
 .layout.on-their-own {
   padding: var(--pr-space-2) 10px;
-  .decks {
+  app-stage {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    padding: 0;
-    --pr-lane-top: minmax(124px, 1fr);
-    --pr-lane-top-compact: minmax(44px, 1fr);
-    app-deck-lane {
-      flex: 1;
-      min-height: 0;
-    }
   }
 }
 

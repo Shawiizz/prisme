@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { PreviewService } from './core/services/preview.service';
 import { LibraryService } from './core/services/library.service';
+import { Stage } from './features/stage/stage';
 import { Titlebar } from './shell/titlebar/titlebar';
 import { DeckLane } from './features/deck/deck-lane/deck-lane';
 import { PhaseStrip } from './features/deck/phase-strip/phase-strip';
@@ -57,6 +58,7 @@ const WHOLE_LANES_PX = 420;
     CommandPalette,
     Phone,
     NowPlaying,
+    Stage,
     NoticeView,
     ModelsDialog,
   ],

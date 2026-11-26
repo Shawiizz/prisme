@@ -49,3 +49,18 @@ app-crossfader.live {
 :host-context(.phone) app-crossfader {
   display: none;
 }
+
+// across the decks' own window: as wide as the waveforms, its words on it at the left
+:host(.across) {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  height: 26px;
+  .info {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 1;
+    gap: var(--pr-space-3);
+    padding: 0 var(--pr-space-3);
+    background: linear-gradient(to right, var(--pr-void) 70%, transparent);
+  }
+}

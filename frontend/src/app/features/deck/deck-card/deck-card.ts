@@ -32,13 +32,20 @@ const SEND_SEGMENTS = 10;
   selector: 'app-deck-card',
   templateUrl: './deck-card.html',
   styleUrl: './deck-card.scss',
-  host: { '[class.compact]': 'compact()', '(contextmenu)': 'menu().openAt($event)' },
+  host: {
+    '[class.compact]': 'compact()',
+    '[class.band]': 'band()',
+    '(contextmenu)': 'menu().openAt($event)',
+  },
   imports: [Cover, DeckMenu, GridEditor, KeyChip, TPipe],
 })
 export class DeckCard {
   readonly deck = input.required<number>();
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
+  /** On one line across the decks' own window, over or under its waveform: the figures large,
+   * read from afar. */
+  readonly band = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
   protected readonly menu = viewChild.required(DeckMenu);

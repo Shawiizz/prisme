@@ -36,7 +36,6 @@ const METER_SEGMENTS = 24;
   `,
   styles: `
     :host {
-      container: channel / size;
       display: flex;
       align-items: stretch;
       gap: 6px;
@@ -73,27 +72,26 @@ const METER_SEGMENTS = 24;
     app-fader {
       height: auto;
     }
-    // a tall lane (the decks on a screen of their own): knobs as large as the room lets them
-    @container channel (min-height: 230px) {
-      .strip {
-        grid-template-columns: repeat(3, 54px);
-        gap: 14px 2px;
-        --knob-size: 38px;
-        --knob-label-width: 50px;
-      }
-      app-cue-button {
-        width: 36px;
-        height: 36px;
-      }
+    // beside the other channels, under the decks' own window: two knobs a row, smaller with
+    // four channels
+    :host(.narrow) .strip {
+      grid-template-columns: repeat(2, 44px);
+    }
+    :host(.narrow.compact) .strip {
+      grid-template-columns: repeat(2, 36px);
+      --knob-size: 24px;
+      --knob-label-width: 34px;
     }
   `,
-  host: { class: 'pr-panel', '[class.compact]': 'compact()' },
+  host: { class: 'pr-panel', '[class.compact]': 'compact()', '[class.narrow]': 'narrow()' },
   imports: [ChannelStrip, CueButton, Fader, TPipe],
 })
 export class ChannelSlot {
   readonly deck = input.required<number>();
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
+  /** Its knobs two a row, for a channel beside the others. */
+  readonly narrow = input(false, { transform: booleanAttribute });
 
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);

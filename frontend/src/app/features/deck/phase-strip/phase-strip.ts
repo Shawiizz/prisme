@@ -1,4 +1,13 @@
-import { Component, DestroyRef, ElementRef, computed, inject, viewChild } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  ElementRef,
+  booleanAttribute,
+  computed,
+  inject,
+  input,
+  viewChild,
+} from '@angular/core';
 import { beatsAt, timeOf } from '../../../core/beat-grid';
 import { EngineService } from '../../../core/services/engine.service';
 import { MixerService } from '../../../core/services/mixer.service';
@@ -21,9 +30,13 @@ import { Crossfader } from '../../mixer/crossfader/crossfader';
   selector: 'app-phase-strip',
   templateUrl: './phase-strip.html',
   styleUrl: './phase-strip.scss',
+  host: { '[class.across]': 'across()' },
   imports: [Crossfader, TPipe],
 })
 export class PhaseStrip {
+  /** Across the decks' own window, under waveforms as wide: its words over it, the crossfader
+   * with the channels. */
+  readonly across = input(false, { transform: booleanAttribute });
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
   private readonly lane = viewChild.required<ElementRef<HTMLCanvasElement>>('lane');

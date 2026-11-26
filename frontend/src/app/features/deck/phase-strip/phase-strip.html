@@ -3,6 +3,6 @@
   <span class="phase" [class.drift]="phase().drifting">{{ phase().words }}</span>
 </div>
 <div class="lane"><canvas #lane></canvas></div>
-@if (mixer.internal()) {
+@if (mixer.internal() && !across()) {
   <app-crossfader />
 }
