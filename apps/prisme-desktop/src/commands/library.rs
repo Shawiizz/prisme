@@ -248,7 +248,7 @@ pub async fn remove_from_library(app: AppHandle, paths: Option<Vec<String>>, ord
 /// the command palette's.
 #[tauri::command(async)]
 pub fn search_library(state: State<'_, AppState>, query: String) -> Vec<NamedTrackDto> {
-    lock(&state.library).browser.search(&query, SEARCH_LIMIT).map(NamedTrackDto::of).collect()
+    lock(&state.library).browser.search(&query, SEARCH_LIMIT).into_iter().map(NamedTrackDto::of).collect()
 }
 
 /// The genres of the library, the most common first (suggestions when tagging).

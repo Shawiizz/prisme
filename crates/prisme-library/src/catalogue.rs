@@ -4,6 +4,7 @@
 //! application runs, whatever becomes of its record.
 
 use crate::db::TrackRecord;
+use crate::fuzzy;
 use prisme_analysis::Key;
 use std::collections::HashMap;
 use std::path::Path;
@@ -25,6 +26,8 @@ pub struct Track {
     pub key: Option<Key>,
     /// Its file name and tags, folded (see [`folded`]): what a search looks into.
     pub(crate) words: String,
+    /// The words of `words`, each as its letters: what a search near what was typed reads.
+    letters: Box<[Box<[char]>]>,
     /// Its title, artist, album and genre as they are sorted.
     pub(crate) sorted: SortTexts,
 }
@@ -64,7 +67,8 @@ impl Track {
         let analysis = record.as_ref().map(TrackRecord::effective_analysis);
         let bpm = analysis.as_ref().and_then(|a| a.tempo).map(|t| t.bpm);
         let key = analysis.as_ref().and_then(|a| a.key).map(|k| k.key);
-        Self { path, title, record, bpm, key, words, sorted }
+        let letters = fuzzy::words_of(&words);
+        Self { path, title, record, bpm, key, words, letters, sorted }
     }
 
     /// Analysed, and readable: one of the library's tracks a search of the whole library finds.
@@ -75,6 +79,12 @@ impl Track {
     /// Its file could not be decoded.
     pub fn failed(&self) -> bool {
         self.record.as_ref().is_some_and(|r| r.error.is_some())
+    }
+
+    /// How many slips of the finger `words` (folded) are from its file name and tags: none if
+    /// they hold every one; none found if one is too far (see `fuzzy`).
+    pub(crate) fn slips(&self, words: &[String]) -> Option<usize> {
+        fuzzy::slips(words, &self.words, &self.letters)
     }
 
     /// Whether every one of `words` (folded) is in its file name or its tags.

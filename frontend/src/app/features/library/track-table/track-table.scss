@@ -84,6 +84,10 @@
   &.selected {
     background: var(--pr-raise-2);
   }
+  // the first found near what was typed, below those found as typed
+  &.near-first {
+    box-shadow: inset 0 1px 0 var(--pr-line-2);
+  }
   // already played tonight: dimmed, never hidden
   &.played {
     .text,

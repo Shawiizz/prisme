@@ -224,6 +224,9 @@ pub struct LibraryRowDto {
     pub played: bool,
     /// Under none of the music folders.
     pub elsewhere: bool,
+    /// Found by the search near what was typed, a slip of the finger away: after those found
+    /// as typed.
+    pub near: bool,
     /// In the headphones' preview, or about to be.
     pub previewing: bool,
     /// The decks holding it.

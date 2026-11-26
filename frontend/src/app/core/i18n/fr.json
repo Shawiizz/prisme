@@ -1056,5 +1056,6 @@
   "Play on it": "Jouer dessus",
   "{controller} is plugged in: its faders and crossfader are messages, Prisme mixes for it.": "{controller} est branché : ses faders et son crossfader sont des messages, Prisme mixe pour lui.",
   "Mix for an all-in-one controller": "Mixer pour un contrôleur tout-en-un",
-  "With a controller that has no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above: its faders drive Prisme's.": "Avec un contrôleur sans table de mixage à lui (une DDJ-SB2, une Inpulse), Prisme mixe quel que soit le mode ci-dessus : ses faders pilotent ceux de Prisme."
+  "With a controller that has no mixer of its own (a DDJ-SB2, an Inpulse), Prisme mixes whatever the mode above: its faders drive Prisme's.": "Avec un contrôleur sans table de mixage à lui (une DDJ-SB2, une Inpulse), Prisme mixe quel que soit le mode ci-dessus : ses faders pilotent ceux de Prisme.",
+  "Near what was typed: {path}": "Proche de ce qui est tapé : {path}"
 }

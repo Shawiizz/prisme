@@ -15,7 +15,7 @@ pub use lists::{Focus, Shelf};
 pub use selection::Pick;
 pub use sort::{Column, Sort};
 
-use crate::catalogue::{folded, search_words, Catalogue, Track, TrackId, Tracks};
+use crate::catalogue::{search_words, Catalogue, Track, TrackId, Tracks};
 use crate::db::{Crate, CrateId, HistorySession, SessionId, TrackRecord};
 use crate::mix::{MixReference, Rank};
 use lists::Elsewhere;
@@ -75,6 +75,9 @@ pub struct Row<'a> {
     pub played: bool,
     /// Under none of the music folders.
     pub elsewhere: bool,
+    /// Found by a search near what was typed, a slip of the finger away (see `fuzzy`): after
+    /// those found as typed.
+    pub near: bool,
 }
 
 #[derive(Default)]
@@ -100,8 +103,10 @@ pub struct Browser {
     ranks: Vec<Rank>,
     /// The rows of the scope in their sorted order, by index.
     sorted: Vec<u32>,
-    /// Those of them the search finds: the rows shown.
+    /// Those of them the search finds: the rows shown, those found as typed first, then those
+    /// found near it, from `near_from` on.
     shown: Vec<u32>,
+    near_from: usize,
     cursor: Option<Entry>,
     /// Where the cursor is among the rows shown, found again at each change.
     cursor_at: Option<usize>,
@@ -238,11 +243,15 @@ impl Browser {
     }
 
     /// The first `limit` tracks of the library a search for `text` finds, by the rule of the
-    /// lists' searches.
-    pub fn search(&self, text: &str, limit: usize) -> impl Iterator<Item = &Track> {
+    /// lists' searches: those that hold it as typed, then those near it.
+    pub fn search(&self, text: &str, limit: usize) -> Vec<&Track> {
         let words = search_words(text);
-        let tracks = self.catalogue.ids().map(|id| self.catalogue.get(id));
-        tracks.filter(move |track| track.analysed() && track.matches(&words)).take(limit)
+        let tracks = self.catalogue.ids().map(|id| self.catalogue.get(id)).filter(|track| track.analysed());
+        let mut found: Vec<(usize, &Track)> =
+            tracks.filter_map(|track| Some((track.slips(&words)?, track))).collect();
+        // stable: as typed (no slip) first, the library's order kept among those as far
+        found.sort_by_key(|&(slips, _)| slips);
+        found.into_iter().map(|(_, track)| track).take(limit).collect()
     }
 
     /// Rows of the tracks at `paths`, each played when it says (a set's).
@@ -338,19 +347,12 @@ impl Browser {
             && self.sort == Sort { column: Column::Order, descending: false }
     }
 
-    /// Searches the rows for every word of `text`. A search narrowing the one before looks
-    /// only into the rows it found.
+    /// Searches the rows for every word of `text`: those that hold it as typed, then those a
+    /// slip of the finger away (see [`Browser::found`]).
     pub fn set_filter(&mut self, text: &str) {
-        let before = folded(self.filter.trim());
-        let now = folded(text.trim());
         self.filter = text.to_owned();
         self.words = search_words(text);
-        self.shown = if !before.is_empty() && now.starts_with(&before) {
-            let shown = std::mem::take(&mut self.shown);
-            shown.into_iter().filter(|&row| self.visible(row)).collect()
-        } else {
-            self.sorted.iter().copied().filter(|&row| self.visible(row)).collect()
-        };
+        self.refind();
         self.listed += 1;
         self.changed();
     }
@@ -403,9 +405,11 @@ impl Browser {
         let last = (first + self.window.1).min(self.shown.len());
         let rows = self.rows();
         let ordered = self.scope == Scope::List && self.ordered();
-        self.shown[first..last].iter().map(move |&r| {
+        let near_from = self.near_from;
+        self.shown[first..last].iter().enumerate().map(move |(at, &r)| {
             let entry = rows[r as usize];
             Row {
+                near: first + at >= near_from,
                 entry,
                 track: self.catalogue.get(entry.track),
                 position: ordered.then_some(r as usize + 1),
@@ -469,8 +473,34 @@ impl Browser {
         }
     }
 
-    fn visible(&self, row: u32) -> bool {
-        let track = self.catalogue.get(self.rows()[row as usize].track);
-        track.matches(&self.words) && (self.scope == Scope::List || track.analysed())
+    /// The rows the search finds among the sorted ones (see [`Browser::found`]), shown.
+    pub(super) fn refind(&mut self) {
+        let (shown, near_from) = self.found(&self.sorted);
+        self.shown = shown;
+        self.near_from = near_from;
+    }
+
+    /// Of the rows `sorted`, those the search finds in the scope: those that hold every word
+    /// as typed, in their order, then those near it (see `fuzzy`), the fewest slips first; and
+    /// where those begin.
+    pub(super) fn found(&self, sorted: &[u32]) -> (Vec<u32>, usize) {
+        let mut typed = Vec::new();
+        let mut near = Vec::new();
+        for &row in sorted {
+            let track = self.catalogue.get(self.rows()[row as usize].track);
+            if self.scope == Scope::Library && !track.analysed() {
+                continue;
+            }
+            if track.matches(&self.words) {
+                typed.push(row);
+            } else if let Some(slips) = track.slips(&self.words) {
+                near.push((slips, row));
+            }
+        }
+        // stable: the rows as many slips away stay in their order
+        near.sort_by_key(|&(slips, _)| slips);
+        let near_from = typed.len();
+        typed.extend(near.into_iter().map(|(_, row)| row));
+        (typed, near_from)
     }
 }

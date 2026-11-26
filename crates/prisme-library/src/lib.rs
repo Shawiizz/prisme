@@ -18,6 +18,7 @@ pub mod covers;
 pub mod cues;
 pub mod db;
 pub mod duplicates;
+mod fuzzy;
 pub mod identity;
 pub mod metadata;
 pub mod mix;

@@ -46,11 +46,32 @@ fn entry(browser: &Browser, name: &str) -> Entry {
 #[test]
 fn the_library_is_searched_by_the_lists_rule() {
     let browser = folder();
-    let found = |text: &str| browser.search(text, 10).map(|t| t.title.clone()).collect::<Vec<_>>();
+    let found = |text: &str| browser.search(text, 10).into_iter().map(|t| t.title.clone()).collect::<Vec<_>>();
     assert_eq!(found("ouse"), ["Strobe", "Café Noir"]);
     assert_eq!(found("e.mp3"), Vec::<String>::new(), "not analysed");
     assert_eq!(found("o").len(), 4);
-    assert_eq!(browser.search("o", 2).count(), 2);
+    assert_eq!(browser.search("o", 2).len(), 2);
+}
+
+#[test]
+fn a_search_finds_what_holds_it_as_typed_then_what_a_slip_of_the_finger_away_does() {
+    let mut browser = folder();
+    let shown = |browser: &mut Browser| {
+        browser.set_window(0, 100);
+        browser.window().map(|row| (row.track.title.clone(), row.near)).collect::<Vec<_>>()
+    };
+    browser.set_filter("cafe nior");
+    assert_eq!(shown(&mut browser), [("Café Noir".into(), true)], "two letters swapped");
+    browser.set_filter("claptnoe");
+    assert_eq!(shown(&mut browser), [("Alone".into(), true)]);
+    browser.set_filter("strobe");
+    assert_eq!(shown(&mut browser), [("Strobe".into(), false)], "as typed: nothing near it shown");
+    browser.set_filter("hosue");
+    assert_eq!(shown(&mut browser), [("Café Noir".into(), true), ("Strobe".into(), true)], "in their order");
+    browser.set_filter("prog");
+    assert_eq!(shown(&mut browser), [("Strobe".into(), false)], "four letters: one slip allowed, none needed");
+    let found = |text: &str| browser.search(text, 10).into_iter().map(|t| t.title.clone()).collect::<Vec<_>>();
+    assert_eq!(found("deadmua5"), ["Strobe"], "the library's search too");
 }
 
 #[test]

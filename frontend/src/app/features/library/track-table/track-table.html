@@ -33,13 +33,14 @@
     <span class="load">{{ 'Load' | t }}</span>
   </div>
   <div [style.height.px]="shown().before"></div>
-  @for (t of shown().rows; track rowKey(t)) {
+  @for (t of shown().rows; track rowKey(t); let i = $index) {
     <div
       class="row"
       [attr.data-path]="t.path"
-      [title]="t.path"
+      [title]="t.near ? ('Near what was typed: {path}' | t: { path: t.path }) : t.path"
       [class.selected]="t.selected"
       [class.played]="t.played"
+      [class.near-first]="t.near && (i === 0 || !shown().rows[i - 1].near)"
       [class.insert]="insertBefore() === rowKey(t)"
       draggable="true"
       (dragstart)="dragStart($event, t)"

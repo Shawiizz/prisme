@@ -75,8 +75,8 @@ impl Browser {
                 sorted
             }
         };
-        self.shown = sorted.iter().copied().filter(|&row| self.visible(row)).collect();
         self.sorted = sorted;
+        self.refind();
     }
 
     /// The rows sorted by the text of their tracks' `field` (see `Track::sorted`), as
@@ -104,13 +104,7 @@ impl Browser {
         }
         let at = self.sorted.partition_point(|&r| self.compare(r, row) == Ordering::Less);
         self.sorted.insert(at, row);
-        if let Some(at) = self.shown.iter().position(|&r| r == row) {
-            self.shown.remove(at);
-        }
-        if self.visible(row) {
-            let at = self.shown.partition_point(|&r| self.compare(r, row) == Ordering::Less);
-            self.shown.insert(at, row);
-        }
+        self.refind();
     }
 
     /// The sorted order of two rows: by the sort's column (the tracks without a value last,

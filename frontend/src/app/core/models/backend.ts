@@ -1275,6 +1275,11 @@ export type LibraryRow = {
    */
   elsewhere: boolean;
   /**
+   * Found by the search near what was typed, a slip of the finger away: after those found
+   * as typed.
+   */
+  near: boolean;
+  /**
    * In the headphones' preview, or about to be.
    */
   previewing: boolean;

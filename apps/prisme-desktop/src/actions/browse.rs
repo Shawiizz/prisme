@@ -154,6 +154,7 @@ impl Library {
                 selected: row.selected,
                 played: row.played,
                 elsewhere: row.elsewhere,
+                near: row.near,
                 previewing: seen.previewing,
                 decks,
                 fits: seen.fits,
