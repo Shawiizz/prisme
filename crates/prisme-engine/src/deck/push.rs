@@ -1,14 +1,17 @@
-//! A deck pushed faster or held back by a key, as Serato's − and + keys do: held, the speed
-//! leaves the tempo a little at once, then more and more, faster up to twice the tempo, slower
-//! down to a stop and then backwards, up to the tempo backwards; let go, the deck is back at its
-//! tempo at once.
+//! A deck pushed faster or held back by a key, at the pace of Serato's − and + keys: held, the
+//! speed leaves the tempo a little at once, then more and more, slower down to a stop in ten
+//! seconds and then backwards, up to the tempo backwards, faster as much; let go, the deck is
+//! back at its tempo at once.
 
-/// The speed change as soon as a key is pressed (0.04 = 4 %)...
-const START: f64 = 0.04;
-/// ...growing with the square of the time it is held: a stop in two seconds.
-const GROWTH: f64 = 0.24;
-/// The furthest it goes: twice the tempo forwards, the tempo backwards.
-const FASTEST: f64 = 1.0;
+/// The speed change as soon as a key is pressed (0.02 = 2 %)...
+const START: f64 = 0.02;
+/// ...growing with the square of the time it is held, so that held back the deck stops after
+/// this long, as in Serato.
+const STOP_S: f64 = 10.0;
+const GROWTH: f64 = (1.0 - START) / (STOP_S * STOP_S);
+/// The furthest it goes: four times the tempo forwards (Serato has no end, this one is far),
+/// the tempo backwards.
+const FASTEST: f64 = 3.0;
 const SLOWEST: f64 = -2.0;
 
 #[derive(Debug, Default)]
@@ -50,21 +53,23 @@ mod tests {
         let mut push = Push::default();
         push.hold(-1.0);
         assert!((push.speed() + START).abs() < 1e-12, "a little at once");
-        push.step(2.0);
-        assert!((push.speed() + 1.0).abs() < 0.01, "stopped in two seconds");
-        push.step(2.0);
+        push.step(1.0);
+        assert!(push.speed() > -0.03, "a nudge, after a second");
+        push.step(9.0);
+        assert!((push.speed() + 1.0).abs() < 1e-9, "stopped in ten seconds");
+        push.step(10.0);
         assert_eq!(push.speed(), SLOWEST, "backwards at the tempo");
         push.hold(0.0);
         assert_eq!(push.speed(), 0.0, "let go: at its tempo at once");
     }
 
     #[test]
-    fn held_faster_it_goes_up_to_twice_the_tempo() {
+    fn held_faster_it_goes_as_fast_as_slower_then_on() {
         let mut push = Push::default();
         push.hold(1.0);
-        push.step(1.0);
-        assert!((push.speed() - 0.28).abs() < 1e-12);
         push.step(10.0);
+        assert!((push.speed() - 1.0).abs() < 1e-9, "twice the tempo in ten seconds");
+        push.step(60.0);
         assert_eq!(push.speed(), FASTEST);
     }
 }
