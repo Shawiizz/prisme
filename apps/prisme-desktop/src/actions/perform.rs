@@ -221,6 +221,8 @@ impl Performing<'_> {
             DeckAction::Eject => self.eject(deck),
             DeckAction::GridHere
             | DeckAction::GridBar
+            | DeckAction::GridPin
+            | DeckAction::GridUnpin
             | DeckAction::GridEarlier
             | DeckAction::GridLater
             | DeckAction::GridFaster

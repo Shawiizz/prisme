@@ -302,6 +302,7 @@ actions! {
             LoopClear = "loop.clear", ReloopStop = "reloop.stop", LoopInGoto = "loop.in.goto",
             LoopOutGoto = "loop.out.goto", LoopMoveBack = "loop.move.back",
             LoopMoveForward = "loop.move.forward", GridHere = "grid.here", GridBar = "grid.bar",
+            GridPin = "grid.pin", GridUnpin = "grid.unpin",
             GridEarlier = "grid.earlier", GridLater = "grid.later", GridFaster = "grid.faster",
             GridSlower = "grid.slower", Tap = "tap", SlipHeld = "slip.held",
             FilterToggle = "filter.toggle", FxPart = "fx.part", JogTouch = "jog.touch";

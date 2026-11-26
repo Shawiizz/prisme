@@ -116,6 +116,8 @@ fn grid_change(action: DeckAction, given: Given, bpm: impl FnOnce() -> Option<f6
         _ if !given.pressed() => None,
         (DeckAction::GridHere, _) => Some(GridChange::BeatHere),
         (DeckAction::GridBar, _) => Some(GridChange::BarHere),
+        (DeckAction::GridPin, _) => Some(GridChange::PinHere),
+        (DeckAction::GridUnpin, _) => Some(GridChange::Unpin),
         (DeckAction::GridEarlier, _) => Some(shift(-1.0)),
         (DeckAction::GridLater, _) => Some(shift(1.0)),
         (DeckAction::GridFaster, _) => stretch(1.0),

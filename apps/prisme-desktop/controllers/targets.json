@@ -1494,6 +1494,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.grid.pin",
+  "group": "Deck A",
+  "label": "Beat of the grid pinned here",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.grid.unpin",
+  "group": "Deck A",
+  "label": "Grid pin taken off",
+  "kind": "button"
+ },
+ {
   "id": "deck1.grid.earlier",
   "group": "Deck A",
   "label": "Beat grid earlier",
@@ -3633,6 +3645,18 @@
   "id": "deck2.grid.bar",
   "group": "Deck B",
   "label": "A bar of the grid starts here",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.pin",
+  "group": "Deck B",
+  "label": "Beat of the grid pinned here",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.grid.unpin",
+  "group": "Deck B",
+  "label": "Grid pin taken off",
   "kind": "button"
  },
  {
@@ -5778,6 +5802,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.grid.pin",
+  "group": "Deck C",
+  "label": "Beat of the grid pinned here",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.grid.unpin",
+  "group": "Deck C",
+  "label": "Grid pin taken off",
+  "kind": "button"
+ },
+ {
   "id": "deck3.grid.earlier",
   "group": "Deck C",
   "label": "Beat grid earlier",
@@ -7917,6 +7953,18 @@
   "id": "deck4.grid.bar",
   "group": "Deck D",
   "label": "A bar of the grid starts here",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.pin",
+  "group": "Deck D",
+  "label": "Beat of the grid pinned here",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.grid.unpin",
+  "group": "Deck D",
+  "label": "Grid pin taken off",
   "kind": "button"
  },
  {

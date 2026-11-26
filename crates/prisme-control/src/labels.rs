@@ -264,6 +264,8 @@ fn deck_label(action: DeckAction) -> Label {
         LoopMove => "Loop moved, a beat a step",
         GridHere => "A beat of the grid here",
         GridBar => "A bar of the grid starts here",
+        GridPin => "Beat of the grid pinned here",
+        GridUnpin => "Grid pin taken off",
         GridEarlier => "Beat grid earlier",
         GridLater => "Beat grid later",
         GridFaster => "Beat grid faster",

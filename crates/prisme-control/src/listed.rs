@@ -142,6 +142,8 @@ fn deck_actions() -> Vec<DeckAction> {
         LoopMove,
         GridHere,
         GridBar,
+        GridPin,
+        GridUnpin,
         GridEarlier,
         GridLater,
         GridFaster,

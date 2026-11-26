@@ -87,6 +87,8 @@ pub fn refuses(action: DeckAction, set: impl FnOnce(usize) -> bool) -> bool {
         | DeckAction::SizeDouble
         | DeckAction::GridHere
         | DeckAction::GridBar
+        | DeckAction::GridPin
+        | DeckAction::GridUnpin
         | DeckAction::GridEarlier
         | DeckAction::GridLater
         | DeckAction::GridFaster

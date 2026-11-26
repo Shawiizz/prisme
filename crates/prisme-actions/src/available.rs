@@ -80,6 +80,8 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::GridMove
         | DeckAction::GridHere
         | DeckAction::GridBar
+        | DeckAction::GridPin
+        | DeckAction::GridUnpin
         | DeckAction::GridEarlier
         | DeckAction::GridLater
         | DeckAction::GridFaster

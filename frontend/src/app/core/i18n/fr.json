@@ -33,6 +33,8 @@
   "Loop moved, a beat a step": "Boucle déplacée, un temps par cran",
   "A beat of the grid here": "Un temps de la grille ici",
   "A bar of the grid starts here": "Une mesure de la grille commence ici",
+  "Beat of the grid pinned here": "Temps de la grille épinglé ici",
+  "Grid pin taken off": "Épingle de la grille retirée",
   "Beat grid earlier": "Grille plus tôt",
   "Beat grid later": "Grille plus tard",
   "Beat grid faster": "Grille plus rapide",
