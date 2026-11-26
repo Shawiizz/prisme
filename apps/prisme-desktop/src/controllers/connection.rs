@@ -153,7 +153,7 @@ impl Controllers {
     pub(super) fn new_to_the_dj(&self, port: &str) -> bool {
         let base = base_port_name(port);
         let same = |d: &String| base_port_name(d) == base;
-        !base.starts_with("Midi Through")
+        !base.starts_with("midi through")
             && self.setup.read(|s| !s.enabled.iter().any(same) && !s.declined.iter().any(same))
     }
 

@@ -469,6 +469,13 @@ mod tests {
     }
 
     #[test]
+    fn the_port_linux_loops_midi_back_through_is_no_controller() {
+        let c = controllers();
+        assert!(!c.new_to_the_dj("Midi Through:Midi Through Port-0 14:0"));
+        assert!(c.new_to_the_dj("DDJ-400:DDJ-400 MIDI 1 28:0"));
+    }
+
+    #[test]
     fn a_controller_is_found_on_another_usb_port() {
         let names = ["2- DJControl Inpulse 200".to_owned(), "Other".to_owned()];
         assert_eq!(port_of(&names, "DJControl Inpulse 200", &[]), Some(0));
