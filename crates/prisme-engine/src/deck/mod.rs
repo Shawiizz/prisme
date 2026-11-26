@@ -6,6 +6,7 @@ mod cut;
 mod hand;
 mod jog;
 mod motor;
+mod push;
 mod search;
 mod transport;
 
@@ -60,6 +61,8 @@ pub(crate) struct Deck {
     pub(crate) pitch: f64,
     /// Temporary speed change while a bend key is held (0.04 = +4 %).
     pub(crate) bend: f64,
+    /// Pushed faster or held back by a key, more and more while it is held.
+    pub(crate) push: push::Push,
     pub(crate) vinyl: VinylControl,
     pub(crate) volume: f32,
     pub(crate) side: CrossfaderSide,
@@ -109,6 +112,7 @@ impl Deck {
             playing: false,
             pitch: 1.0,
             bend: 0.0,
+            push: push::Push::default(),
             vinyl: VinylControl::new(decoder, sample_rate),
             volume: 1.0,
             side: CrossfaderSide::Center,
@@ -236,6 +240,7 @@ impl Deck {
             }
         };
         self.jog.fade(seconds);
+        self.push.step(seconds);
         let ramp = by_motor && !self.motor.is_steady();
         let moved = if ramp { speed * self.motor.factor() } else { speed };
         if let Some(mix) = self.bar_mix.follow(playhead_s, seconds * moved.max(0.0), self.next_bar_s()) {
@@ -566,7 +571,7 @@ impl Deck {
             }
             None => self.sync.held_rate.unwrap_or(self.pitch),
         };
-        rate * (1.0 + self.bend + self.jog.nudge)
+        rate * (1.0 + self.bend + self.push.speed() + self.jog.nudge)
     }
 
     /// Locked: the platter's gestures around its steady speed, at the leader's tempo.

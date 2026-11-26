@@ -78,6 +78,7 @@ impl Deck {
         self.transport = Transport { slip_mode: self.transport.slip_mode, ..Transport::default() };
         self.playhead.set_loop(None);
         self.jog = Default::default();
+        self.push = Default::default();
         self.motor = Default::default();
         self.hand = None;
         self.jog_hand = None;

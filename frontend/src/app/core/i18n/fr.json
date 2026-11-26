@@ -1042,5 +1042,7 @@
   "In the main window": "Dans la fenêtre principale",
   "Full screen": "Plein écran",
   "Exit full screen": "Quitter le plein écran",
-  "Language, screens and window of Prisme.": "Langue, écrans et fenêtre de Prisme."
+  "Language, screens and window of Prisme.": "Langue, écrans et fenêtre de Prisme.",
+  "Slower and slower while held, then backwards": "De plus en plus lent tant que maintenu, puis en arrière",
+  "Faster and faster while held": "De plus en plus vite tant que maintenu"
 }

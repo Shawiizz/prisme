@@ -222,3 +222,23 @@
     }
   }
 }
+
+// pushed faster or held back, more and more while held, as Serato's − and +
+.push {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  .pr-btn {
+    width: 26px;
+    padding: 0;
+  }
+  svg {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+}

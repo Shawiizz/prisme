@@ -63,6 +63,8 @@ fn deck_actions() -> Vec<DeckAction> {
         Size,
         BendDown,
         BendUp,
+        PushSlower,
+        PushFaster,
         TempoReset,
         TempoRange,
         TempoRangePrevious,

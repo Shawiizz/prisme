@@ -149,6 +149,8 @@ impl Performing<'_> {
             DeckAction::BendUp => bend(PITCH_BEND),
             DeckAction::BendDownSmall => bend(-SMALL_BEND),
             DeckAction::BendUpSmall => bend(SMALL_BEND),
+            DeckAction::PushSlower => send(Command::Push { deck, way: if held { -1.0 } else { 0.0 } }),
+            DeckAction::PushFaster => send(Command::Push { deck, way: if held { 1.0 } else { 0.0 } }),
             DeckAction::EqKill(band) => mixer::set_eq_kill(state, deck, band, held),
             DeckAction::Fx(slot, FxAction::Held) => fx::set_fx_enabled(state, deck, slot, held),
             DeckAction::Cue => self.cue(deck, held),

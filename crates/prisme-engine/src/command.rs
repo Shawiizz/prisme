@@ -99,6 +99,12 @@ pub enum Command {
         deck: DeckId,
         amount: f64,
     },
+    /// Internal play: pushed faster (`way` above 0) or held back (below 0) more and more while
+    /// held, down to backwards; let go (0), at the tempo again (see `deck::push`).
+    Push {
+        deck: DeckId,
+        way: f64,
+    },
     /// Internal play: a playing deck slows to a stop in about a second, as a turntable
     /// switched off; a stopped one gets up to speed in half a second (a soft start).
     Brake {

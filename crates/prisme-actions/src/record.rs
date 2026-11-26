@@ -73,6 +73,8 @@ pub fn refuses(action: DeckAction, set: impl FnOnce(usize) -> bool) -> bool {
         | DeckAction::TempoRange
         | DeckAction::TempoRangePrevious
         | DeckAction::BendDown
+        | DeckAction::PushSlower
+        | DeckAction::PushFaster
         | DeckAction::BendUp
         | DeckAction::BendDownSmall
         | DeckAction::BendUpSmall

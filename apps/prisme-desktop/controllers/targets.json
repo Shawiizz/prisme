@@ -324,6 +324,18 @@
   "kind": "button"
  },
  {
+  "id": "deck1.push.slower",
+  "group": "Deck A",
+  "label": "Slower and slower while held, then backwards",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.push.faster",
+  "group": "Deck A",
+  "label": "Faster and faster while held",
+  "kind": "button"
+ },
+ {
   "id": "deck1.tempo.reset",
   "group": "Deck A",
   "label": "Tempo back to the track",
@@ -2475,6 +2487,18 @@
   "id": "deck2.bend.up",
   "group": "Deck B",
   "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.push.slower",
+  "group": "Deck B",
+  "label": "Slower and slower while held, then backwards",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.push.faster",
+  "group": "Deck B",
+  "label": "Faster and faster while held",
   "kind": "button"
  },
  {
@@ -4632,6 +4656,18 @@
   "kind": "button"
  },
  {
+  "id": "deck3.push.slower",
+  "group": "Deck C",
+  "label": "Slower and slower while held, then backwards",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.push.faster",
+  "group": "Deck C",
+  "label": "Faster and faster while held",
+  "kind": "button"
+ },
+ {
   "id": "deck3.tempo.reset",
   "group": "Deck C",
   "label": "Tempo back to the track",
@@ -6783,6 +6819,18 @@
   "id": "deck4.bend.up",
   "group": "Deck D",
   "label": "Speed up while held",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.push.slower",
+  "group": "Deck D",
+  "label": "Slower and slower while held, then backwards",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.push.faster",
+  "group": "Deck D",
+  "label": "Faster and faster while held",
   "kind": "button"
  },
  {

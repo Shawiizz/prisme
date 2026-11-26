@@ -297,6 +297,7 @@ impl Engine {
             SetStemMix { deck, mix, on_bar } if valid(deck) => self.decks[deck].set_stem_mix(mix, on_bar),
             SetPlaying { deck, playing } if valid(deck) => self.decks[deck].set_playing(playing),
             Brake { deck } if valid(deck) => self.decks[deck].brake(),
+            Push { deck, way } if valid(deck) && way.is_finite() => self.decks[deck].push.hold(way),
             SpinBack { deck, held } if valid(deck) => self.decks[deck].spin_back(held),
             SetRepeat { deck, enabled } if valid(deck) => self.decks[deck].playhead.set_repeat(enabled),
             SetPitch { deck, ratio } if valid(deck) && ratio.is_finite() => self.decks[deck].pitch = ratio,

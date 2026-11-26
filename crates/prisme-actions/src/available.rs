@@ -152,6 +152,8 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::TempoRangePrevious
         | DeckAction::BendDown
         | DeckAction::BendUp
+        | DeckAction::PushSlower
+        | DeckAction::PushFaster
         | DeckAction::BendDownSmall
         | DeckAction::BendUpSmall
         | DeckAction::Size

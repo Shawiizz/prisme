@@ -78,6 +78,27 @@
   SYNC
 </button>
 
+@if (!vinyl()) {
+  <div class="push">
+    <button
+      class="pr-btn pr-btn--lg"
+      (press)="engine.press(deck(), 'push.slower')"
+      (release)="engine.press(deck(), 'push.slower', false)"
+      [title]="'Slower and slower while held, then backwards' | t"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3L3 8l5 5M13 3L8 8l5 5" /></svg>
+    </button>
+    <button
+      class="pr-btn pr-btn--lg"
+      (press)="engine.press(deck(), 'push.faster')"
+      (release)="engine.press(deck(), 'push.faster', false)"
+      [title]="'Faster and faster while held' | t"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3l5 5-5 5M3 3l5 5-5 5" /></svg>
+    </button>
+  </div>
+}
+
 <div class="pitch">
   <div class="line">
     <span

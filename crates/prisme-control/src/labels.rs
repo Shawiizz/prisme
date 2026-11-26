@@ -218,6 +218,8 @@ fn deck_label(action: DeckAction) -> Label {
         Size => "Size of the jumps and the loop (a step halves or doubles it)",
         BendDown => "Slow down while held",
         BendUp => "Speed up while held",
+        PushSlower => "Slower and slower while held, then backwards",
+        PushFaster => "Faster and faster while held",
         TempoReset => "Tempo back to the track",
         TempoRange => "Tempo fader range: next",
         TempoRangePrevious => "Tempo fader range: previous",
