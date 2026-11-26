@@ -53,9 +53,9 @@ les mesures se comptent à rebours (−1, −2…).
 
 - L’analyse donne **un seul tempo pour tout le morceau**. Cela convient à la plupart des
   musiques électroniques. Un morceau qui accélère ou ralentit, ou joué par un batteur en live,
-  va dériver de sa grille. Une grille dont le tempo change, réglée dans Serato ou rekordbox,
-  peut être importée (voir [Import](/fr/docs/library/import/)) : la waveform la dessine et
-  **SYNC** la suit.
+  va dériver de sa grille. Épinglez sa grille sur les kicks à la main (voir plus bas), ou
+  importez la grille réglée dans Serato ou rekordbox (voir [Import](/fr/docs/library/import/)) :
+  la waveform la dessine et **SYNC** la suit.
 - Le tempo est donné **entre 88 et 176 BPM**. Cette plage couvre la house, la techno et la drum
   and bass à leur tempo habituel, mais un morceau de hip-hop à 85 BPM s’affiche à 170, et un
   morceau à 180 BPM à 90. Corrigez-le avec **÷2** ou **×2** (plus bas).
@@ -105,6 +105,8 @@ Les corrections se font sur un deck, avec le morceau chargé.
 | **◀** / **▶** | Déplace toute la grille 2 ms plus tôt ou plus tard |
 | **Temps ici** | Déplace la grille le moins possible pour qu’un temps tombe exactement là où est le deck, les mesures avec elle |
 | **Mesure ici** | La même chose, et une mesure commence sur ce temps : pour des mesures comptées depuis le mauvais temps |
+| **Épingler ici** | Épingle le temps le plus proche du deck là où est le deck, pour un morceau dont le tempo dérive (joué en live, un vieux disque) : les temps entre cette épingle et celles de part et d’autre s’étirent ou se resserrent pour tomber juste. Voir plus bas |
+| **Retirer l’épingle** | Retire l’épingle la plus proche du deck |
 | **Caler la grille sur l’autre deck** | Les deux decks jouent, la grille se cale sur les temps de l’autre deck : voir plus bas |
 | **Rétablir** | **Revenir à la grille analysée**. Affiché une fois la grille modifiée |
 
@@ -131,6 +133,28 @@ Une bonne méthode pour corriger une grille décalée :
 
 Si l’analyse n’a trouvé aucun tempo, en taper un crée une grille depuis le début du morceau :
 utilisez ensuite **Temps ici** pour la caler sur les temps.
+
+Un morceau joué par un groupe, ou un disque des années soixante-dix, peut accélérer et ralentir :
+aucun tempo unique ne garde sa grille sur les kicks. Épinglez-la dessus :
+
+<Steps>
+
+1. Calez d’abord la mesure 1, avec **Temps ici** ou **Mesure ici** au début du morceau.
+
+2. Continuez la lecture. Là où les traits quittent les kicks, mettez en pause sur un kick et
+   cliquez sur **Épingler ici** : ce temps va là où est le deck, et les temps depuis la mesure 1
+   se répartissent jusqu’à lui. Plus loin, de même : chaque épingle étire ou resserre les temps
+   depuis la précédente. Après la dernière épingle, la grille continue au tempo qu’elle avait
+   avant elle.
+
+3. Une épingle mal placée : mettez en pause près d’elle et cliquez sur **Retirer l’épingle**.
+   Avec une seule épingle, la grille retrouve un tempo unique.
+
+</Steps>
+
+Un point sur le trait d’un temps marque chaque épingle sur la waveform. Le BPM affiché est le
+tempo moyen de la première épingle à la dernière ; **SYNC** suit le tempo du moment de la grille,
+temps par temps (voir [Tempo, sync et tonalité](/fr/docs/decks/sync/)).
 
 Certains kicks ne s’entendent pas là où ils commencent : un kick long et saturé, ou dont le grave arrive en retard, sonne un peu avant ou après son trait. Deux morceaux de ce genre synchronisés sonnent alors légèrement décalés, alors que chaque grille est sur ses kicks. Corrigez à l’oreille : faites jouer les deux decks, calez-les au jog ou au pitch bend jusqu’à ce qu’ils sonnent comme un seul, puis ouvrez le panneau du deck que vous avez déplacé et cliquez sur **Caler la grille sur l’autre deck**. Sa grille se décale de l’écart que montrait la bande de phase ; rien de ce que vous entendez ne change, et **SYNC** garde ensuite les decks ainsi, avec n’importe quel morceau.
 

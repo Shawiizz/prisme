@@ -48,8 +48,8 @@ bars before bar 1 count down (−1, −2…).
 
 - The analysis gives **one tempo for the whole track**. That suits most electronic music. A
   track that speeds up or slows down, or was played by a live drummer, will drift off its grid.
-  A grid whose tempo changes, set in Serato or rekordbox, can be imported (see
-  [Import](/docs/library/import/)): the waveform draws it and **SYNC** follows it.
+  Pin its grid on the kicks by hand (see below), or import the grid set in Serato or rekordbox
+  (see [Import](/docs/library/import/)): the waveform draws it and **SYNC** follows it.
 - The tempo is reported **between 88 and 176 BPM**. That range holds house, techno and drum and
   bass at their usual tempo, but a hip-hop track at 85 BPM shows as 170, and a 180 BPM track as
   90. Fix it with **÷2** or **×2** (below).
@@ -95,6 +95,8 @@ Corrections are made on a deck, with the track loaded.
 | **◀** / **▶** | Moves the whole grid 2 ms earlier or later |
 | **Beat here** | Moves the grid the least so that a beat falls exactly where the deck is now, the bars with it |
 | **Bar here** | The same, and a bar starts on that beat: for bars counted from the wrong beat |
+| **Pin here** | Pins the beat nearest the deck where the deck is now, for a track whose tempo drifts (played live, an old record): the beats between this pin and those either side stretch or squeeze to fit. See below |
+| **Unpin** | Takes off the pin nearest the deck |
 | **Grid onto the other deck** | Both decks playing, the grid moves onto the beats of the other deck: see below |
 | **Reset** | **Back to the analysed grid**. Shown once you changed it |
 
@@ -119,6 +121,27 @@ A good way to fix a grid that is off:
 
 If the analysis found no tempo at all, typing one creates a grid from the start of the track:
 then use **Beat here** to put it on the beats.
+
+A track played by a band, or a record of the seventies, may speed up and slow down: no single
+tempo keeps its grid on the kicks. Pin it on them:
+
+<Steps>
+
+1. Put bar 1 right first, with **Beat here** or **Bar here** at the start of the track.
+
+2. Play on. Where the lines leave the kicks, pause on a kick and click **Pin here**: that beat
+   goes where the deck is, and the beats since bar 1 spread evenly up to it. Further on, the same
+   again: each pin stretches or squeezes the beats since the one before. Past the last pin, the
+   grid goes on at the tempo it had before it.
+
+3. A pin in the wrong place: pause near it and click **Unpin**. With a single pin left, the grid
+   has one tempo again.
+
+</Steps>
+
+A dot on a beat's line marks each pin on the waveform. The BPM shown is the tempo on average from
+the first pin to the last; **SYNC** follows the grid's tempo of the moment, beat by beat (see
+[Tempo, sync and key](/docs/decks/sync/)).
 
 Some kicks are not heard where they start: a long, distorted kick, or one whose low end comes in late, sounds a little before or after its line. Two such tracks in sync then sound slightly off, although each grid is on its kicks. Set it right by ear: play both decks, bring them together with the jog wheel or the pitch bend until they sound as one, then open the panel of the deck you moved and click **Grid onto the other deck**. Its grid moves by the gap the phase strip showed; nothing you hear changes, and **SYNC** keeps the decks that way from then on, with any track.
 
