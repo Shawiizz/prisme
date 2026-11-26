@@ -8,6 +8,12 @@ export interface Notice {
   text: string;
   detail?: string;
   actions?: { label: string; run: () => void }[];
+  /** Something the DJ must see: at the top of the screen, bigger. */
+  prominent?: boolean;
+  /** Something wrong the DJ must see: prominent, and marked so. */
+  warning?: boolean;
+  /** Stays until closed or followed by another, not gone after a while. */
+  stays?: boolean;
 }
 
 /** How long a notice stays, unless closed. */
@@ -23,7 +29,7 @@ export class NoticeService {
   show(notice: Notice) {
     clearTimeout(this.timer);
     this.shown.set(notice);
-    this.timer = setTimeout(() => this.shown.set(null), SHOWN_MS);
+    if (!notice.stays) this.timer = setTimeout(() => this.shown.set(null), SHOWN_MS);
   }
 
   close() {
@@ -41,10 +47,18 @@ export class NoticeService {
       <div
         class="pr-popover notice"
         [class.phone]="PHONE"
-        role="status"
+        [class.prominent]="n.prominent || n.warning"
+        [class.warning]="n.warning"
+        [attr.role]="n.warning ? 'alert' : 'status'"
         animate.enter="pr-fade-in"
         animate.leave="pr-fade-out"
       >
+        @if (n.warning) {
+          <svg class="sign" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M8 1.8l6.6 11.7H1.4z" />
+            <path d="M8 6.3v3.4M8 11.6v.1" />
+          </svg>
+        }
         <div class="words">
           <span class="text">{{ n.text }}</span>
           @if (n.detail) {
@@ -90,6 +104,37 @@ export class NoticeService {
       max-width: calc(100vw - 32px);
       padding: var(--pr-space-2) var(--pr-space-2) var(--pr-space-2) var(--pr-space-4);
       box-shadow: 0 16px 48px rgb(0 0 0 / 0.5);
+    }
+    // to be seen: bigger, at the top of the screen where the eyes are
+    .prominent {
+      top: calc(var(--pr-titlebar, 40px) + var(--pr-space-3));
+      bottom: auto;
+      max-width: min(720px, calc(100vw - 32px));
+      padding-left: var(--pr-space-3);
+      // the keys on the line of what is asked, not between the two lines
+      align-items: end;
+      .text {
+        font-size: var(--pr-size);
+      }
+      .detail {
+        color: var(--pr-text-2);
+      }
+    }
+    // something wrong: marked
+    .warning {
+      border-color: var(--pr-warn);
+      box-shadow:
+        inset 3px 0 0 var(--pr-warn),
+        0 16px 48px rgb(0 0 0 / 0.5);
+    }
+    .sign {
+      flex: none;
+      align-self: center;
+      width: 20px;
+      height: 20px;
+      color: var(--pr-warn);
+      stroke-width: 1.4;
+      stroke-linejoin: round;
     }
     // over the tabs, under the thumb
     .phone {

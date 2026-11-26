@@ -114,6 +114,29 @@ pub fn start<C: AudioCallback>(
     }
 }
 
+/// Whether the output of `settings` opens now, tried and closed at once, the audio running
+/// elsewhere untouched: another application holding it, it does not. A USB card, and an ASIO
+/// one while another ASIO driver plays (one at a time), are not tried.
+pub fn output_opens(settings: &StreamSettings) -> bool {
+    if settings.backend == Backend::Usb {
+        return false;
+    }
+    let _drivers = drivers();
+    let Ok(device) = find(settings.backend, DeviceKind::Output, settings.output_device.as_deref()) else {
+        return false;
+    };
+    let Ok(config) = device.default_output_config() else { return false };
+    device
+        .build_output_stream_raw(
+            config.config(),
+            config.sample_format(),
+            |_: &mut cpal::Data, _: &cpal::OutputCallbackInfo| {},
+            |_| {},
+            None,
+        )
+        .is_ok()
+}
+
 fn start_with<C: AudioCallback>(
     settings: &StreamSettings,
     out_device: &cpal::Device,

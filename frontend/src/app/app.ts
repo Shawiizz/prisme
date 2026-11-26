@@ -28,6 +28,7 @@ import { MixerService } from './core/services/mixer.service';
 import { NavigationService } from './core/services/navigation.service';
 import { RecordingService } from './core/services/recording.service';
 import { FileDropService } from './core/services/file-drop.service';
+import { SoundCardNoticesService } from './core/services/sound-card-notices.service';
 import { NoticeView } from './shared/notice/notice';
 import { ModelsDialog } from './features/stems/models-dialog';
 
@@ -67,6 +68,7 @@ export class App implements OnInit {
   private readonly preview = inject(PreviewService);
   private readonly library = inject(LibraryService);
   private readonly settings = inject(SettingsService);
+  private readonly soundCardNotices = inject(SoundCardNoticesService);
   /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
@@ -110,6 +112,7 @@ export class App implements OnInit {
               this.preview.init(),
               this.library.init(),
               this.settings.init(),
+              this.soundCardNotices.start(),
               this.keyboard.start(),
               this.controllers.start(),
               this.screens.init(),

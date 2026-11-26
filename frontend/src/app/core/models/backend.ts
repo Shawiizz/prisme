@@ -245,6 +245,10 @@ export type CardAsked = { card: string; refused: boolean };
  * A sound card just plugged in, offered to the DJ with the settings that use it.
  */
 export type CardOffer = {
+  /**
+   * The controller whose card it is, with no mixer of its own: Prisme mixes for it.
+   */
+  controller: string | null;
   name: string;
   settings: AudioSettings;
 };

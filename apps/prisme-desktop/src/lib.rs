@@ -558,6 +558,12 @@ fn start_saved_audio(state: &AppState) {
     let start = |settings: &AudioSettings| commands::audio::start_audio_unless_running(state, settings);
     let Err(e) = start(&settings) else { return };
     warn!("saved audio settings unusable ({e}), using the default devices");
+    // the card chosen is there but does not open: another application holds it
+    let held = settings.output_device.clone().filter(|_| audio_host::devices_available(&settings));
+    if let Some(card) = held {
+        *lock(&state.busy_output) = Some(audio_watchdog::card_name(&card).to_owned());
+        state.moved(Section::Audio);
+    }
     let defaults = settings.on_default_devices();
     let e = match start(&defaults) {
         Ok(_) => return,

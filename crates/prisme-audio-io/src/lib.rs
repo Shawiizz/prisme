@@ -15,7 +15,7 @@ pub use devices::{
     base_device_name, default_output_name, is_available, list_devices, system_devices, Backend, DeviceInfo,
     DeviceKind,
 };
-pub use stream::{start, RunningStream, StreamFormat, StreamSettings, StreamStats};
+pub use stream::{output_opens, start, RunningStream, StreamFormat, StreamSettings, StreamStats};
 pub use usb::{asks as usb_asks, set_usb_host, OpenedCard, UsbCard, UsbHost};
 
 /// Called on the audio thread once per period. Must be real-time safe.

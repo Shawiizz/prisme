@@ -6,7 +6,7 @@
 //! Prisme listen to their inputs or open their USB card. A sound card plugged in meanwhile is
 //! offered to the DJ.
 
-use crate::audio_host::devices_available;
+use crate::audio_host::{devices_available, stream_settings};
 use crate::commands::audio::{restart_saved_audio, start_audio_instead_of, start_audio_unless_running};
 use crate::dto::AudioSettings;
 use crate::dto::BackendDto;
@@ -14,7 +14,8 @@ use crate::dto::CardOffer;
 use crate::input_access;
 use crate::state::{lock, AppState};
 use prisme_audio_io::{
-    base_device_name, default_output_name, list_devices, system_devices, usb_asks, Backend, DeviceKind,
+    base_device_name, default_output_name, list_devices, output_opens, system_devices, usb_asks, Backend,
+    DeviceKind,
 };
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
@@ -92,6 +93,10 @@ pub fn start(app: AppHandle) {
                     let saved =
                         AudioSettings { simulate: settings.simulate, ..state.preferences.get().audio };
                     offer_cards_plugged(&state, &app, &settings, &saved, &device, &mut plugged);
+                    if take_the_card_let_go(&state, id, &saved, &settings) {
+                        last_periods = None;
+                        continue;
+                    }
                     if saved == settings {
                         devices = None;
                     } else if move_to_saved(&state, id, &saved, &settings, &mut devices, &mut looks_left) {
@@ -138,6 +143,25 @@ pub extern "system" fn Java_com_shawiizz_prisme_MainActivity_shown(
             .hidden
             .store(shown == jni::sys::JNI_FALSE, std::sync::atomic::Ordering::Relaxed);
     }
+}
+
+/// The card chosen, that another application held as the audio started, taken as soon as it
+/// lets go of it (tried without stopping the audio meanwhile). True once the audio of session
+/// `id` moved to it.
+fn take_the_card_let_go(state: &AppState, id: u64, saved: &AudioSettings, current: &AudioSettings) -> bool {
+    let held = lock(&state.busy_output).is_some() && saved.output_device.is_some();
+    if !held || saved.same_devices(current) || !output_opens(&stream_settings(saved)) {
+        return false;
+    }
+    info!("the sound card held by another application is free, moving to it");
+    match start_audio_instead_of(state, id, saved) {
+        Ok(_) => {
+            *lock(&state.busy_output) = None;
+            state.moved(crate::state::Section::Audio);
+        }
+        Err(e) => warn!("the sound card let go does not open yet: {e}"),
+    }
+    true
 }
 
 /// While the audio runs on other devices than the saved ones, looks for these whenever
@@ -231,7 +255,7 @@ fn offer_cards_plugged(
         .filter(|name| !before.contains(name) && *name != device)
         .filter(|name| !declined.contains(&base_device_name(card_name(name))))
         .collect();
-    if fresh.is_empty() || settings.output_device.is_none() {
+    if fresh.is_empty() {
         return;
     }
     let devices = list_devices(Backend::SYSTEM).unwrap_or_default();
@@ -240,7 +264,14 @@ fn offer_cards_plugged(
     };
     let (output, input) = (of_kind(DeviceKind::Output), of_kind(DeviceKind::Input));
     let Some(name) = output.as_deref().or(input.as_deref()).map(|n| card_name(n).to_owned()) else { return };
+    // on the system's default output, only a controller's card is offered: any other plugged
+    // in may become the default, which the audio follows
+    let controller = crate::controller_profiles::current().all_in_one_of_card(&name);
+    if settings.output_device.is_none() && controller.is_none() {
+        return;
+    }
     let offer = CardOffer {
+        controller,
         name,
         settings: AudioSettings {
             backend: Backend::SYSTEM.into(),

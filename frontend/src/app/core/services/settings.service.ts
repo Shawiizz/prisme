@@ -68,15 +68,21 @@ export class SettingsService {
   }
 
   /** A sound card plugged in, offered: used at once, or not offered again. */
-  private offer({ name, settings }: CardOffer) {
+  private offer({ controller, name, settings }: CardOffer) {
     this.notices.show({
-      text: t('New sound card: {name}', { name }),
-      detail: settings.inputDevice
-        ? t('Play on it and read the turntables from it?')
-        : t('Play on it?'),
+      text: controller
+        ? t('{controller} plugged in', { controller })
+        : t('New sound card: {name}', { name }),
+      detail: controller
+        ? t('Play on its sound card? Prisme mixes for it: it has no mixer of its own.')
+        : settings.inputDevice
+          ? t('Play on it and read the turntables from it?')
+          : t('Play on it?'),
+      stays: controller !== null,
+      prominent: controller !== null,
       actions: [
         {
-          label: t('Use'),
+          label: controller ? t('Play on it') : t('Use'),
           run: () => attempt(this.engine.error, () => this.apply(settings)),
         },
         {
