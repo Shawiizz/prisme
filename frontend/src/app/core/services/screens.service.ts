@@ -26,7 +26,7 @@ export class ScreensService {
     this.screens.set(await invoke<Screen[]>('list_screens'));
   }
 
-  /** The decks on `screen` (its name), or back in the main window (`null`). */
+  /** The decks on `screen` (its id), or back in the main window (`null`). */
   async putDecksOn(screen: string | null): Promise<void> {
     await invoke('set_decks_screen', { screen });
     await this.look();

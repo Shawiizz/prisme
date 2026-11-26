@@ -108,7 +108,7 @@ export class SettingsDialog implements OnInit {
   protected readonly decksScreenGone = computed(() => {
     const chosen = this.decksScreen();
     const screens = this.screens.screens();
-    return chosen !== null && screens.length > 0 && !screens.some((s) => s.name === chosen);
+    return chosen !== null && screens.length > 0 && !screens.some((s) => s.id === chosen);
   });
   /** The screens as the system lays them out, drawn in [`SCREEN_MAP_PX`] at most. */
   protected readonly screenMap = computed(() => {

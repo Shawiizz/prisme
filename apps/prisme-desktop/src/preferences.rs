@@ -56,7 +56,7 @@ pub struct UiPreferences {
     pub phone_touch: Option<bool>,
     /// The main window full screen at the start, not only filling its screen.
     pub start_fullscreen: bool,
-    /// The screen the decks are on in a window of their own (its system name), else in the main
+    /// The screen the decks are on in a window of their own (its id, see `list_screens`), else in the main
     /// window.
     pub decks_screen: Option<String>,
 }

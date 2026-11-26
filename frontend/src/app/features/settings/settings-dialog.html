@@ -803,12 +803,12 @@
                       [style.width.px]="screenMap().width"
                       [style.height.px]="screenMap().height"
                     >
-                      @for (box of screenMap().boxes; track box.screen.name) {
+                      @for (box of screenMap().boxes; track box.screen.id) {
                         <button
                           class="screen"
                           role="radio"
-                          [class.is-on]="decksScreen() === box.screen.name"
-                          [attr.aria-checked]="decksScreen() === box.screen.name"
+                          [class.is-on]="decksScreen() === box.screen.id"
+                          [attr.aria-checked]="decksScreen() === box.screen.id"
                           [disabled]="box.screen.main"
                           [style.left.px]="box.left"
                           [style.top.px]="box.top"
@@ -825,10 +825,10 @@
                                       height: box.screen.height,
                                     })
                           "
-                          (click)="putDecksOn(box.screen.name)"
+                          (click)="putDecksOn(box.screen.id)"
                         >
                           <span class="number pr-num">{{ box.number }}</span>
-                          @if (decksScreen() === box.screen.name) {
+                          @if (decksScreen() === box.screen.id) {
                             <span class="what">{{ 'Decks' | t }}</span>
                           } @else if (box.screen.main) {
                             <span class="what">Prisme</span>

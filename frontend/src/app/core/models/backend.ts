@@ -1952,7 +1952,11 @@ export type Rule =
  */
 export type Screen = {
   /**
-   * The system's name of it, by which it is chosen.
+   * What the system knows the screen itself by (see `screen_id`), by which it is chosen.
+   */
+  id: string;
+  /**
+   * The system's name of where it is plugged (`\\.\DISPLAY2`).
    */
   name: string;
   /**
@@ -2404,7 +2408,7 @@ export type UiPreferences = {
    */
   startFullscreen: boolean;
   /**
-   * The screen the decks are on in a window of their own (its system name), else in the main
+   * The screen the decks are on in a window of their own (its id, see `list_screens`), else in the main
    * window.
    */
   decksScreen: string | null;

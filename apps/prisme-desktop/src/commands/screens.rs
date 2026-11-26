@@ -18,7 +18,9 @@ pub const APART_EVENT: &str = "decks-apart";
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(test, derive(ts_rs::TS), ts(rename = "Screen"))]
 pub struct ScreenDto {
-    /// The system's name of it, by which it is chosen.
+    /// What the system knows the screen itself by (see `screen_id`), by which it is chosen.
+    pub id: String,
+    /// The system's name of where it is plugged (`\\.\DISPLAY2`).
     pub name: String,
     /// Its place and size on the desktop (physical px).
     pub x: i32,
@@ -48,7 +50,7 @@ pub fn decks_apart(app: AppHandle) -> bool {
     app.get_webview_window(DECKS).is_some()
 }
 
-/// The decks on the screen `screen` (its name), or back in the main window (`None`). Not on the
+/// The decks on the screen `screen` (its id), or back in the main window (`None`). Not on the
 /// main thread: a window opened there would wait on it.
 #[tauri::command]
 pub async fn set_decks_screen(
@@ -81,15 +83,16 @@ mod desktop {
 
     pub fn screens(app: &AppHandle) -> Vec<ScreenDto> {
         let main = app.get_webview_window("main").and_then(|w| w.current_monitor().ok().flatten());
-        let main = main.and_then(|m| m.name().cloned());
+        let main = main.as_ref().and_then(screen_id);
         monitors(app)
             .into_iter()
             .filter_map(|m| {
-                let name = m.name()?.clone();
+                let id = screen_id(&m)?;
                 let (position, size) = (m.position(), m.size());
                 Some(ScreenDto {
-                    main: main.as_ref() == Some(&name),
-                    name,
+                    main: main.as_ref() == Some(&id),
+                    id,
+                    name: m.name()?.clone(),
                     x: position.x,
                     y: position.y,
                     width: size.width,
@@ -97,6 +100,17 @@ mod desktop {
                 })
             })
             .collect()
+    }
+
+    /// What the system knows `monitor` by: on Windows the monitor's device (its model and the
+    /// port it is on, kept as the displays are numbered anew), elsewhere the name of its output
+    /// (`HDMI-1`), as it is told apart there.
+    fn screen_id(monitor: &Monitor) -> Option<String> {
+        let name = monitor.name()?;
+        #[cfg(windows)]
+        return super::windows_screens::device_of(name);
+        #[cfg(not(windows))]
+        Some(name.clone())
     }
 
     fn monitors(app: &AppHandle) -> Vec<Monitor> {
@@ -129,12 +143,13 @@ mod desktop {
     /// in, else in the main window.
     pub fn place(app: &AppHandle) -> AppResult<()> {
         let chosen = app.state::<AppState>().preferences.read(|p| p.ui.decks_screen.clone());
-        let screen = chosen.and_then(|name| monitors(app).into_iter().find(|m| m.name() == Some(&name)));
+        let screen =
+            chosen.and_then(|id| monitors(app).into_iter().find(|m| screen_id(m) == Some(id.clone())));
         let failed = |e: tauri::Error| AppError::Other(e.to_string());
         match (screen, app.get_webview_window(DECKS)) {
             (Some(screen), Some(window)) => {
-                let on = window.current_monitor().map_err(failed)?.and_then(|m| m.name().cloned());
-                if on.as_ref() != screen.name() {
+                let on = window.current_monitor().map_err(failed)?.as_ref().and_then(screen_id);
+                if on != screen_id(&screen) {
                     fill(&window, &screen).map_err(failed)?;
                 }
             }
@@ -180,5 +195,28 @@ mod desktop {
     pub fn closed_by_the_dj(app: &AppHandle) {
         app.state::<AppState>().update_settings(|p| p.ui.decks_screen = None);
         tell(app, false);
+    }
+}
+
+#[cfg(windows)]
+mod windows_screens {
+    use windows_sys::Win32::Graphics::Gdi::{EnumDisplayDevicesW, DISPLAY_DEVICEW};
+    use windows_sys::Win32::UI::WindowsAndMessaging::EDD_GET_DEVICE_INTERFACE_NAME;
+
+    /// The monitor shown on the display `display` (`\\.\DISPLAY2`): its device's interface,
+    /// which holds its model and the port it is on (`\\?\DISPLAY#GSM5B7F#5&…&UID4353#{…}`).
+    pub fn device_of(display: &str) -> Option<String> {
+        let display: Vec<u16> = display.encode_utf16().chain(Some(0)).collect();
+        // SAFETY: the name is terminated and outlives the call, and the structure is the size
+        // it says it is
+        let device = unsafe {
+            let mut device: DISPLAY_DEVICEW = std::mem::zeroed();
+            device.cb = std::mem::size_of::<DISPLAY_DEVICEW>() as u32;
+            (EnumDisplayDevicesW(display.as_ptr(), 0, &mut device, EDD_GET_DEVICE_INTERFACE_NAME) != 0)
+                .then_some(device)?
+        };
+        let id = &device.DeviceID;
+        let end = id.iter().position(|&c| c == 0).unwrap_or(id.len());
+        (end > 0).then(|| String::from_utf16_lossy(&id[..end]))
     }
 }
