@@ -235,7 +235,8 @@
       font-size: 10px;
       color: var(--pr-text-3);
     }
-    &:hover:not(:disabled) {
+    // the screen chosen stays lit under the pointer
+    &:hover:not(:disabled, .is-on) {
       background: var(--pr-raise-2);
       color: var(--pr-text);
     }
