@@ -19,20 +19,25 @@ const METER_SEGMENTS = 24;
   template: `
     <div class="strip">
       <app-channel-strip [deck]="deck()" />
-      <app-cue-button [deck]="deck()" />
+      <div class="cue">
+        <app-cue-button [deck]="deck()" />
+        <span class="pr-label">CUE</span>
+      </div>
     </div>
     <div class="pr-meter pr-meter--vertical">
       @for (segment of level(); track $index) {
         <i [class]="segment"></i>
       }
     </div>
-    <app-fader
-      orientation="vertical"
-      [value]="volume()"
-      [defaultValue]="1"
-      (valueChange)="mixer.setVolume(deck(), $event)"
-      [label]="'Volume of deck {deck}' | t: { deck: letter() }"
-    />
+    <div class="fader">
+      <app-fader
+        orientation="vertical"
+        [value]="volume()"
+        [defaultValue]="1"
+        (valueChange)="mixer.setVolume(deck(), $event)"
+        [label]="'Volume of deck {deck}' | t: { deck: letter() }"
+      />
+    </div>
   `,
   styles: `
     :host {
@@ -56,9 +61,49 @@ const METER_SEGMENTS = 24;
         display: contents;
       }
     }
+    .cue {
+      display: grid;
+      justify-items: center;
+      gap: 3px;
+      .pr-label {
+        font-size: var(--pr-size-label);
+        letter-spacing: 0.06em;
+      }
+    }
     app-cue-button {
       width: 28px;
       height: 28px;
+    }
+    // marks along the travel, a quarter apart, beside the track (whose ends are the cap's
+    // centres at either end)
+    .fader {
+      position: relative;
+      display: flex;
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        top: 7px;
+        bottom: 7px;
+        width: 4px;
+        --mark: linear-gradient(var(--pr-line-2), var(--pr-line-2));
+        background:
+          var(--mark) 0 0 / 100% 1px no-repeat,
+          var(--mark) 0 25% / 100% 1px no-repeat,
+          var(--mark) 0 50% / 100% 1px no-repeat,
+          var(--mark) 0 75% / 100% 1px no-repeat,
+          var(--mark) 0 100% / 100% 1px no-repeat;
+        pointer-events: none;
+      }
+      &::before {
+        left: 0;
+      }
+      &::after {
+        right: 0;
+      }
+      app-fader {
+        flex: 1;
+      }
     }
     :host(.compact) {
       padding-block: 4px;
