@@ -7,7 +7,7 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-L’écran principal s’adapte à votre façon de jouer : le nombre de decks, qui mixe et ce qui pilote chaque deck changent ce que montre chaque couloir. Vous pouvez aussi donner toute la fenêtre à la bibliothèque, ou étendre Prisme sur deux écrans.
+L’écran principal s’adapte à votre façon de jouer : le nombre de decks, qui mixe et ce qui pilote chaque deck changent ce que montre chaque couloir. Vous pouvez aussi donner toute la fenêtre à la bibliothèque, ou mettre les decks sur un écran à part.
 
 ## Deux decks ou quatre
 
@@ -80,23 +80,25 @@ Pour préparer un set, ou pour fouiller pendant qu’un long morceau joue, donne
 
 Un contrôleur peut le faire avec une touche : assignez **La bibliothèque sur toute la fenêtre**, dans le groupe **Général**, avec le [MIDI learn](/fr/docs/controllers/learn/).
 
-## Decks sur l’écran du bas
+## Decks sur un écran à part
 
-Sur un portable à deux écrans, ou avec un écran posé sous le principal, Prisme peut s’étendre sur les deux : la bibliothèque sur l’écran principal, les decks sur l’écran du bas, sous vos doigts.
+Sur un portable à deux écrans, ou avec un écran tactile à côté de l’ordinateur, les decks peuvent avoir un écran à eux : une fenêtre sans bordure, en plein écran sur cet écran, avec les couloirs seuls, leurs formes d’onde grandissant avec sa hauteur. La fenêtre principale garde la bibliothèque, avec la ligne de ce qui joue au-dessus, et va où vous voulez : déplacez-la, redimensionnez-la, mettez-la en plein écran.
 
 <Steps>
 
-1. Placez le second écran sous l’écran principal dans les réglages d’affichage de votre système.
+1. Ouvrez **Réglages** > **Interface**. Sous **Decks sur un écran à part**, vos écrans sont dessinés comme votre système les dispose, numérotés depuis le haut à gauche.
 
-2. Ouvrez **Réglages** > **Interface** et activez **Decks sur l’écran du bas**.
+2. Cliquez sur l’écran des decks. Celui où est la fenêtre principale ne peut pas être choisi : déplacez d’abord la fenêtre principale sur un autre écran.
 
 </Steps>
 
-La fenêtre couvre alors les deux écrans. L’écran principal montre la ligne de ce qui joue au-dessus de la bibliothèque ; les decks remplissent l’écran du bas, à l’échelle propre à cet écran, leurs formes d’onde grandissant avec sa hauteur. Quand l’écran du bas est trop bas pour des couloirs entiers, ils deviennent compacts, comme avec quatre decks.
+**Dans la fenêtre principale** ramène les decks. Fermer leur fenêtre avec <kbd>Alt</kbd> <kbd>F4</kbd> aussi.
 
-Le réglage est grisé, avec **Aucun écran sous celui-ci.**, quand le système ne connaît aucun écran en dessous. Prisme retient votre choix et s’étend à nouveau au prochain démarrage si l’écran est là.
+Débranchez leur écran et les decks reviennent dans la fenêtre principale ; rebranchez-le et ils y retournent. Prisme retient l’écran pour le prochain démarrage. Les touches pressées avec la fenêtre des decks au premier plan marchent comme dans la fenêtre principale.
 
 ## Taille de la fenêtre
+
+Prisme s’ouvre en remplissant son écran. Pour l’ouvrir sans les barres du système, activez **Démarrer en plein écran** dans **Réglages** > **Interface**. Le bouton plein écran de la barre de titre, à côté de réduire, ou <kbd>F11</kbd>, bascule à tout moment.
 
 La fenêtre demande au moins 1280 × 640 pixels : un écran de portable 1080p à 150 % de mise à l’échelle. En dessous de 1400 pixels de large, le rail de chaque deck se resserre : touches plus étroites, boutons de stems et noms des pads plus petits. Tout reste à l’écran.
 

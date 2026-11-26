@@ -7,7 +7,7 @@ sidebar:
 
 import { Steps, Aside } from '@astrojs/starlight/components';
 
-The main screen follows how you play: the number of decks, who mixes, and what drives each deck change what each lane shows. You can also give the whole window to the library, or spread Prisme over two screens.
+The main screen follows how you play: the number of decks, who mixes, and what drives each deck change what each lane shows. You can also give the whole window to the library, or put the decks on a screen of their own.
 
 ## Two decks or four
 
@@ -80,23 +80,25 @@ To prepare a set, or to browse while a long track plays, give the whole window t
 
 A controller can do it with a key: map **The library over the whole window**, in the **General** group, with [MIDI learn](/docs/controllers/learn/).
 
-## Decks on the screen below
+## Decks on a screen of their own
 
-On a laptop with two screens, or with a screen set under the main one, Prisme can spread over both: the library on the main screen, the decks on the screen below, under your fingers.
+On a laptop with two screens, or with a touch screen beside the computer, the decks can have a screen of their own: a window without borders, full screen on that screen, with the lanes alone, their waveforms growing with its height. The main window keeps the library, with the line of what plays above it, and goes wherever you like: move it, resize it, put it full screen.
 
 <Steps>
 
-1. Set the second screen under the main one in your system's display settings.
+1. Open **Settings** > **Interface**. Under **Decks on a screen of their own**, your screens are drawn as your system lays them out, numbered from the top left.
 
-2. Open **Settings** > **Interface** and turn on **Decks on the screen below**.
+2. Click the screen for the decks. The one the main window is on cannot be chosen: move the main window to another screen first.
 
 </Steps>
 
-The window then covers both screens. The main screen shows the line of what plays over the library; the decks fill the screen below, at that screen's own scale, their waveforms growing with its height. When the screen below is too low for whole lanes, they become compact, as with four decks.
+**In the main window** brings the decks back. So does closing their window with <kbd>Alt</kbd> <kbd>F4</kbd>.
 
-The setting is greyed out, with **No screen under this one.**, when the system knows no screen below. Prisme remembers your choice and spreads again at the next start if the screen is there.
+Unplug their screen and the decks come back into the main window; plug it in again and they go back to it. Prisme remembers the screen for the next start. Keys pressed with the decks' window in front work as in the main window.
 
 ## Window size
+
+Prisme opens filling its screen. To open it without the system's bars, turn on **Start in full screen** in **Settings** > **Interface**. The full-screen button in the title bar, next to minimize, or <kbd>F11</kbd>, switches at any time.
 
 The window needs at least 1280 × 640 pixels: a 1080p laptop screen at 150 % scaling. Below 1400 pixels wide, the rail of each deck tightens: narrower keys, smaller stem knobs and pad labels. Everything stays on screen.
 
