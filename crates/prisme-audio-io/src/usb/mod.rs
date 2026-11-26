@@ -95,13 +95,17 @@ pub(crate) fn find(wanted: Option<&str>) -> Option<UsbCard> {
 fn pick(mut cards: Vec<UsbCard>, wanted: Option<&str>) -> Option<UsbCard> {
     let Some(wanted) = wanted.map(str::to_lowercase) else { return cards.into_iter().next() };
     let names: Vec<String> = cards.iter().map(|c| c.name.to_lowercase()).collect();
-    let product = wanted.trim_end_matches(|c: char| c.is_ascii_digit()).trim_end();
+    // a second card's name, its product's and the number `told_apart` gave it
+    let product = wanted
+        .rsplit_once(' ')
+        .filter(|(_, number)| number.parse::<u32>().is_ok_and(|n| n >= 2))
+        .map(|(product, _)| product);
     let at = names
         .iter()
         .position(|n| *n == wanted)
         .or_else(|| names.iter().position(|n| n.contains(&wanted)))
         .or_else(|| names.iter().position(|n| wanted.contains(n.as_str())))
-        .or_else(|| names.iter().position(|n| !product.is_empty() && n.starts_with(product)))?;
+        .or_else(|| names.iter().position(|n| Some(n.as_str()) == product))?;
     Some(cards.swap_remove(at))
 }
 
@@ -260,6 +264,12 @@ mod tests {
     fn a_card_is_found_by_the_name_android_gives_its_audio() {
         let cards = vec![card("a", "DJControl"), card("b", "UMC404HD 192k")];
         assert_eq!(pick(cards, Some("USB-Audio - UMC404HD 192k")).map(|c| c.id).as_deref(), Some("b"));
+    }
+
+    #[test]
+    fn a_card_of_another_model_of_the_maker_is_not_taken() {
+        let other = vec![card("b", "DDJ-FLX4")];
+        assert!(pick(other, Some("DDJ-400")).is_none());
     }
 
     #[test]
