@@ -65,18 +65,22 @@ export class NoticeService {
             <span class="detail">{{ n.detail }}</span>
           }
         </div>
-        @for (action of n.actions ?? []; track action.label) {
-          <button
-            class="pr-btn pr-btn--sm"
-            [class.pr-btn--light]="$first && n.actions!.length > 1"
-            [class.pr-reach]="PHONE"
-            (click)="run(action.run)"
-          >
-            {{ action.label }}
-          </button>
+        @if (n.actions?.length) {
+          <div class="actions">
+            @for (action of n.actions; track action.label) {
+              <button
+                class="pr-btn pr-btn--sm"
+                [class.pr-btn--light]="$first && n.actions!.length > 1"
+                [class.pr-reach]="PHONE"
+                (click)="run(action.run)"
+              >
+                {{ action.label }}
+              </button>
+            }
+          </div>
         }
         <button
-          class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon"
+          class="pr-btn pr-btn--sm pr-btn--ghost pr-btn--icon close"
           [class.pr-reach]="PHONE"
           (click)="service.close()"
           [attr.aria-label]="'Close' | t"
@@ -110,9 +114,29 @@ export class NoticeService {
       top: calc(var(--pr-titlebar, 40px) + var(--pr-space-3));
       bottom: auto;
       max-width: min(720px, calc(100vw - 32px));
-      padding-left: var(--pr-space-3);
-      // the keys on the line of what is asked, not between the two lines
-      align-items: end;
+      padding: var(--pr-space-3) var(--pr-space-2) var(--pr-space-3) var(--pr-space-4);
+      // the words, the close key beside the first line, what can be done under them
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: var(--pr-space-2) var(--pr-space-3);
+      .actions {
+        grid-row: 2;
+        grid-column: 1 / -1;
+      }
+      // the keys under the words, not under the sign
+      &:has(.sign) {
+        grid-template-columns: auto 1fr auto;
+        padding-left: var(--pr-space-3);
+        .actions {
+          grid-column: 2 / -1;
+        }
+      }
+      .close {
+        grid-row: 1;
+        grid-column: -2;
+        margin-top: -3px;
+      }
       .text {
         font-size: var(--pr-size);
       }
@@ -127,9 +151,12 @@ export class NoticeService {
         inset 3px 0 0 var(--pr-warn),
         0 16px 48px rgb(0 0 0 / 0.5);
     }
+    .actions {
+      display: flex;
+      gap: var(--pr-space-2);
+    }
     .sign {
       flex: none;
-      align-self: center;
       width: 20px;
       height: 20px;
       color: var(--pr-warn);
