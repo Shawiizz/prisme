@@ -321,3 +321,70 @@
     display: none;
   }
 }
+
+// under the decks' own window, a controller's pads: the modes on a line over them, the pads on
+// two rows of four as tall as the room, what goes with the mode beside them
+:host-context(app-stage) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 6px 10px;
+  .modes {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    > button {
+      height: 26px;
+    }
+  }
+  .pads {
+    grid-area: 2 / 1 / span 2;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 6px;
+    .pr-pad {
+      width: auto;
+      height: auto;
+      min-height: 44px;
+      font-size: var(--pr-size-small);
+    }
+  }
+  // the keys of the mode in columns of two, a key as tall as a row of pads
+  .keys {
+    grid-area: 2 / 2 / span 2;
+    > .side {
+      display: grid;
+      grid-template: repeat(2, minmax(0, 1fr)) / none;
+      grid-auto-flow: column;
+      grid-auto-columns: 72px;
+      align-items: stretch;
+      gap: 6px;
+      > *,
+      &.loop .pr-btn {
+        grid-column: auto;
+        height: auto;
+      }
+    }
+  }
+  .widest {
+    display: none;
+  }
+  // the effects' slots over the row of the pads above, their knobs beside the row below
+  .slots {
+    grid-area: 2 / 2;
+    align-self: end;
+    justify-self: start;
+    > button {
+      height: 36px;
+      min-width: 40px;
+    }
+  }
+  .side.knobs {
+    grid-area: 3 / 2;
+    align-self: start;
+  }
+}

@@ -200,42 +200,73 @@
   }
 }
 
-// a band across the decks' own window: the track at the left, the figures at the right
+// a band over a waveform of the decks' own window, on one line: the track at the left, the
+// figures at the right with their names before them
 :host(.band) {
   .card {
-    container-type: inline-size;
     grid-template-rows: none;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     gap: var(--pr-space-5);
-    padding: 10px var(--pr-space-4);
+    padding: 5px var(--pr-space-3);
+  }
+  .head {
+    gap: 10px;
+  }
+  .pr-tile {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
   }
   .cover {
-    width: 44px;
-    height: 44px;
+    width: 28px;
+    height: 28px;
   }
-  .meta .title {
-    font-size: 18px;
+  .meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    .title {
+      font-size: 14.5px;
+    }
+    .artist {
+      font-size: 12.5px;
+    }
   }
-  .meta .artist {
-    font-size: 13.5px;
+  .vinyl .pr-seg {
+    display: none;
   }
-  .readouts {
-    grid-template-columns: auto auto;
-    column-gap: 30px;
+  .modes-narrow {
+    display: block;
   }
+  .readouts,
   .analysis {
-    column-gap: 30px;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+  }
+  .readouts > .pr-readout,
+  .analysis > .pr-readout {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+  }
+  .pr-readout__sub {
+    display: none;
   }
   .readouts > .pr-readout .pr-readout__value {
-    font-size: 46px;
+    font-size: 26px;
   }
   .pr-readout__value--mid {
-    font-size: 30px;
+    font-size: 19px;
+  }
+  // the key's chip says what it is
+  .analysis > .pr-readout:last-child .pr-label {
+    display: none;
   }
   .pr-key--lg {
-    min-width: 70px;
-    height: 40px;
-    font-size: 21px;
+    min-width: 50px;
+    height: 26px;
+    font-size: 14px;
   }
 }

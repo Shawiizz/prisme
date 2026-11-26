@@ -15,10 +15,11 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
 
 /**
  * The decks in a window of their own, full screen on a screen of their own: the waveforms
- * across it, one over the other around the phase strip, each with its deck's band of figures;
- * under them what the hands play, each side's decks at its end and the channels between them.
- * The left side of the crossfader (A, C) above and at the left, the right side (B, D) under and
- * at the right; with two decks, B's band under its waveform, as A's is over its own.
+ * across it, one over the other around the phase strip, each with its deck's band of figures
+ * on one line (over it, but under B's with two decks: the two waveforms together); under them
+ * what the hands play, each side's decks at its end and the channels between them. The left
+ * side of the crossfader (A, C) above and at the left, the right side (B, D) under and at the
+ * right.
  */
 @Component({
   selector: 'app-stage',
@@ -28,7 +29,7 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
         <app-phase-strip across />
       }
       <section class="deck" [class.under]="!four() && deck === 1" [appDeckDropTarget]="deck">
-        <app-deck-card [deck]="deck" [band]="!four()" [compact]="four()" />
+        <app-deck-card [deck]="deck" band />
         <app-deck-waveform [deck]="deck" [compact]="four()" />
         <app-deck-drop [deck]="deck" />
       </section>
@@ -41,23 +42,23 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
               <app-pitch-fader [deck]="deck" compact />
             }
           </div>
-          <div class="lines">
+          <div class="decks">
             @for (deck of side; track deck) {
-              <div class="line">
+              <div class="deck-hands">
                 @if (four()) {
                   <span class="pr-tile letter">{{ letter(deck) }}</span>
                 }
                 <div class="rail"><app-deck-controls [deck]="deck" /></div>
-                <div class="rail"><app-deck-pads [deck]="deck" /></div>
+                <div class="rail pads"><app-deck-pads [deck]="deck" /></div>
               </div>
             }
           </div>
         </div>
         @if ($first && mixer.internal()) {
-          <div class="mixer">
+          <div class="mixer pr-panel">
             <div class="channels">
               @for (deck of order(); track deck) {
-                <app-channel-slot [deck]="deck" narrow [compact]="four()" />
+                <app-channel-slot [deck]="deck" column [mirror]="right(deck)" [compact]="four()" />
               }
             </div>
             <app-crossfader />
@@ -67,23 +68,31 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
     </footer>
   `,
   styles: `
+    // the waveforms as tall as the room the hands leave them, up to what mixing asks: past
+    // it, the room goes to the pads
     :host {
       display: flex;
       flex-direction: column;
       gap: 6px;
       min-height: 0;
       height: 100%;
+      --wave-least: 90px;
+      --wave-most: 250px;
+    }
+    :host(.four) {
+      --wave-least: 56px;
+      --wave-most: 120px;
     }
     .deck {
       position: relative;
-      flex: 1;
-      min-height: 0;
+      flex: 100 1 0;
+      max-height: calc(var(--wave-most) + 48px);
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto minmax(var(--wave-least), 1fr);
       gap: 4px;
-      // B's band under its waveform, as A's is over its own
+      // with two decks, B's band under its waveform: the two waveforms together
       &.under {
-        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-rows: minmax(var(--wave-least), 1fr) auto;
         app-deck-card {
           order: 1;
         }
@@ -97,8 +106,9 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
     app-deck-card {
       height: auto;
     }
+    // the room past the waveforms' most only
     .hands {
-      flex: none;
+      flex: 1 0 auto;
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
       gap: 6px;
@@ -106,12 +116,13 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       }
     }
+    // a deck's side as on a controller, the right one in a mirror: the pitch faders at the
+    // outer edge, the transport over the pads
     .side {
       display: flex;
-      gap: 8px;
-      padding: 8px;
+      gap: 10px;
+      padding: 10px;
       min-width: 0;
-      // the pitch faders at the outer ends, where a turntable has them
       &.right {
         flex-direction: row-reverse;
       }
@@ -123,22 +134,25 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
         width: 32px;
       }
     }
-    .lines {
+    .decks {
       flex: 1;
       min-width: 0;
       display: grid;
-      align-content: center;
-      gap: 8px;
+      grid-auto-rows: minmax(0, 1fr);
+      gap: 10px;
     }
-    .line {
+    .deck-hands {
+      min-height: 0;
       display: grid;
       grid-template-columns: minmax(0, 1fr);
-      gap: 6px;
-      &:has(.letter) {
-        grid-template-columns: auto minmax(0, 1fr);
-        .rail:last-child {
-          grid-column: 2;
-        }
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 10px;
+    }
+    :host(.four) .deck-hands {
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 6px 8px;
+      .rail {
+        grid-column: 2;
       }
     }
     .letter {
@@ -153,17 +167,29 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
       gap: 5px;
       height: 44px;
       min-width: 0;
+      &.pads {
+        height: 100%;
+      }
     }
+    // one mixer: its channels side by side on one panel, the crossfader under them
     .mixer {
       display: grid;
       grid-template-rows: minmax(0, 1fr) auto;
-      gap: 6px;
+      gap: 10px;
+      padding: 10px 14px 8px;
     }
     .channels {
       display: flex;
-      gap: 6px;
+      justify-content: center;
+      gap: 12px;
+      min-height: 0;
+      app-channel-slot {
+        background: none;
+        border: none;
+      }
     }
   `,
+  host: { '[class.four]': 'four()' },
   imports: [
     ChannelSlot,
     Crossfader,
@@ -193,4 +219,8 @@ export class Stage {
       : [[0], [1]],
   );
   protected readonly letter = deckLetter;
+  /** A deck of the right side of the crossfader. */
+  protected right(deck: number): boolean {
+    return deck % 2 === 1;
+  }
 }

@@ -1,4 +1,5 @@
 import { Component, inject, input } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { BANDS } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
@@ -11,6 +12,18 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
 @Component({
   selector: 'app-channel-strip',
   template: `
+    <ng-template #trimKnob>
+      <app-knob
+        label="TRIM"
+        [labelTitle]="'Gain before the EQ (±12 dB)' | t"
+        bipolar
+        [state]="knobs().trim"
+        (valueChange)="setTrim($event)"
+      />
+    </ng-template>
+    @if (trim() && trimFirst()) {
+      <ng-container [ngTemplateOutlet]="trimKnob" />
+    }
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
@@ -22,14 +35,8 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
         (labelClick)="toggleKill(b.band)"
       />
     }
-    @if (trim()) {
-      <app-knob
-        label="TRIM"
-        [labelTitle]="'Gain before the EQ (±12 dB)' | t"
-        bipolar
-        [state]="knobs().trim"
-        (valueChange)="setTrim($event)"
-      />
+    @if (trim() && !trimFirst()) {
+      <ng-container [ngTemplateOutlet]="trimKnob" />
     }
     <app-knob
       label="FILTER"
@@ -50,12 +57,14 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
       --knob-readout-width: 9ch;
     }
   `,
-  imports: [Knob, TPipe],
+  imports: [Knob, NgTemplateOutlet, TPipe],
 })
 export class ChannelStrip {
   readonly deck = input.required<number>();
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
+  /** The trim before the bands, as at the top of a mixer's channel. */
+  readonly trimFirst = input(false);
   protected readonly mixer = inject(MixerService);
   protected readonly bands: { band: Band; label: string; killTitle: Text }[] = [
     {

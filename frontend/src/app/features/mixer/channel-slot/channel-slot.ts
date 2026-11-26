@@ -18,7 +18,7 @@ const METER_SEGMENTS = 24;
   selector: 'app-channel-slot',
   template: `
     <div class="strip">
-      <app-channel-strip [deck]="deck()" />
+      <app-channel-strip [deck]="deck()" [trimFirst]="column()" />
       <app-cue-button [deck]="deck()" />
     </div>
     <div class="pr-meter pr-meter--vertical">
@@ -72,26 +72,58 @@ const METER_SEGMENTS = 24;
     app-fader {
       height: auto;
     }
-    // beside the other channels, under the decks' own window: two knobs a row, smaller with
-    // four channels
-    :host(.narrow) .strip {
-      grid-template-columns: repeat(2, 44px);
+    // a channel of the mixer under the decks' own window: the trim, the bands from the highs
+    // down, the filter and the headphones one over the other, the fader along them as tall as
+    // they are, its meter on the side of the other channels (\`mirror\` for a right one)
+    :host(.column) {
+      display: grid;
+      grid-template-columns: auto auto auto;
+      grid-template-areas: 'strip fader meter';
+      gap: 8px;
+      padding: 0;
+      .strip {
+        grid-area: strip;
+        margin: 0;
+        align-self: start;
+        grid-template-columns: 48px;
+        gap: 2px 0;
+        --knob-size: 30px;
+        --knob-label-width: 46px;
+      }
+      app-fader {
+        grid-area: fader;
+      }
+      .pr-meter {
+        grid-area: meter;
+      }
     }
-    :host(.narrow.compact) .strip {
-      grid-template-columns: repeat(2, 36px);
+    :host(.column.mirror) {
+      grid-template-areas: 'meter fader strip';
+    }
+    :host(.column.compact) .strip {
+      grid-template-columns: 42px;
+      gap: 0;
       --knob-size: 24px;
-      --knob-label-width: 34px;
+      --knob-label-width: 40px;
     }
   `,
-  host: { class: 'pr-panel', '[class.compact]': 'compact()', '[class.narrow]': 'narrow()' },
+  host: {
+    class: 'pr-panel',
+    '[class.compact]': 'compact()',
+    '[class.column]': 'column()',
+    '[class.mirror]': 'mirror()',
+  },
   imports: [ChannelStrip, CueButton, Fader, TPipe],
 })
 export class ChannelSlot {
   readonly deck = input.required<number>();
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
-  /** Its knobs two a row, for a channel beside the others. */
-  readonly narrow = input(false, { transform: booleanAttribute });
+  /** Its knobs one over the other as on a mixer, its fader along them, for a channel beside
+   * the others. */
+  readonly column = input(false, { transform: booleanAttribute });
+  /** A right channel of them: its meter at the left of its fader. */
+  readonly mirror = input(false, { transform: booleanAttribute });
 
   private readonly engine = inject(EngineService);
   protected readonly mixer = inject(MixerService);
