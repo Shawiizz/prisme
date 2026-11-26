@@ -298,6 +298,6 @@ export class TrackTable {
     if (!this.library.reorderable() || !event.dataTransfer?.getData(TRACKS_DRAG_TYPE)) return;
     event.preventDefault();
     event.stopPropagation();
-    this.library.placeInPrepare(null, before?.path ?? null);
+    this.library.placeInList(null, before?.path ?? null);
   }
 }

@@ -40,7 +40,8 @@ pub enum List {
 }
 
 impl List {
-    /// Whether the list has an order of its own, shown in its rows.
+    /// Whether the list has an order of its own, shown in its rows; a crate's depends on it
+    /// (`Browser::ordered`).
     pub fn ordered(&self) -> bool {
         matches!(self, List::History(_) | List::Prepare | List::Duplicates)
     }
@@ -263,7 +264,7 @@ impl Browser {
         self.scope = Scope::List;
         self.filter.clear();
         self.words.clear();
-        if self.source.ordered() {
+        if self.ordered() {
             self.sort = Sort { column: Column::Order, descending: false };
         } else if self.sort.column == Column::Order {
             self.sort = Sort { column: Column::Title, descending: false };
@@ -319,9 +320,20 @@ impl Browser {
             }
     }
 
-    /// Whether the rows may be dragged to another place: the prepare list's, in its order.
+    /// Whether the list shown has an order of its own, shown in its rows: a crate filled by hand
+    /// has the one the DJ gives it.
+    pub fn ordered(&self) -> bool {
+        match self.source {
+            List::Crate(id) => self.crate_rules(id).is_none(),
+            _ => self.source.ordered(),
+        }
+    }
+
+    /// Whether the rows may be dragged to another place: the prepare list's or a crate's filled
+    /// by hand, in its order.
     pub fn reorderable(&self) -> bool {
-        self.source == List::Prepare
+        matches!(self.source, List::Prepare | List::Crate(_))
+            && self.ordered()
             && self.scope == Scope::List
             && self.sort == Sort { column: Column::Order, descending: false }
     }
@@ -390,7 +402,7 @@ impl Browser {
         let first = self.window_first();
         let last = (first + self.window.1).min(self.shown.len());
         let rows = self.rows();
-        let ordered = self.scope == Scope::List && self.source.ordered();
+        let ordered = self.scope == Scope::List && self.ordered();
         self.shown[first..last].iter().map(move |&r| {
             let entry = rows[r as usize];
             Row {

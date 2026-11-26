@@ -2,7 +2,7 @@
 //! smart crate holds no tracks of its own: its rules pick them from the library.
 
 use super::tracks::entry_from_row;
-use super::{path_key, DbError, LibraryDb, TrackEntry};
+use super::{path_key, placed_before, DbError, LibraryDb, TrackEntry};
 use crate::smart::SmartRules;
 use rusqlite::{params, OptionalExtension};
 use std::path::Path;
@@ -87,15 +87,17 @@ impl LibraryDb {
         Ok(())
     }
 
-    /// Adds tracks to a crate (those already in it are left as they are); returns how
-    /// many were added.
+    /// Adds tracks at the end of a crate (those already in it are left where they are);
+    /// returns how many were added.
     pub fn add_to_crate(&self, id: CrateId, paths: &[&Path]) -> Result<usize, DbError> {
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
         let mut added = 0;
         {
             let mut insert = tx.prepare_cached(
-                "INSERT OR IGNORE INTO crate_tracks (crate_id, path, added_at_ms) VALUES (?1, ?2, ?3)",
+                "INSERT OR IGNORE INTO crate_tracks (crate_id, path, added_at_ms, position)
+                 VALUES (?1, ?2, ?3,
+                     (SELECT COALESCE(MAX(position), 0) + 1 FROM crate_tracks WHERE crate_id = ?1))",
             )?;
             let now = super::now_ms();
             for path in paths {
@@ -104,6 +106,35 @@ impl LibraryDb {
         }
         tx.commit()?;
         Ok(added)
+    }
+
+    /// Puts `paths` in the crate before `before` (`None`: at its end), in their order, those not
+    /// in it added: one change. Nothing moves when `before` is one of them.
+    pub fn place_in_crate(&self, id: CrateId, paths: &[&Path], before: Option<&Path>) -> Result<(), DbError> {
+        let conn = self.conn();
+        let tx = conn.unchecked_transaction()?;
+        let order: Vec<String> = {
+            let mut stmt =
+                tx.prepare_cached("SELECT path FROM crate_tracks WHERE crate_id = ?1 ORDER BY position")?;
+            let rows = stmt.query_map([id.0], |r| r.get(0))?;
+            rows.collect::<Result<_, _>>()?
+        };
+        let placed = paths.iter().map(|path| path_key(path)).collect();
+        let Some(order) = placed_before(order, placed, before.map(path_key)) else {
+            return Ok(());
+        };
+        {
+            let mut place = tx.prepare_cached(
+                "INSERT INTO crate_tracks (crate_id, path, added_at_ms, position) VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT (crate_id, path) DO UPDATE SET position = excluded.position",
+            )?;
+            let now = super::now_ms();
+            for (position, path) in order.iter().enumerate() {
+                place.execute(params![id.0, path, now, position as i64 + 1])?;
+            }
+        }
+        tx.commit()?;
+        Ok(())
     }
 
     pub fn remove_from_crate(&self, id: CrateId, paths: &[&Path]) -> Result<(), DbError> {
@@ -120,7 +151,7 @@ impl LibraryDb {
         Ok(())
     }
 
-    /// The tracks of a crate: in the order they were added, or those its rules pick.
+    /// The tracks of a crate: in the order the DJ gave them, or those its rules pick.
     pub fn crate_tracks(&self, id: CrateId) -> Result<Vec<TrackEntry>, DbError> {
         if let Some(rules) = self.crate_rules(id)? {
             let library = self.analysed_records()?;
@@ -134,7 +165,7 @@ impl LibraryDb {
         let mut stmt = conn.prepare_cached(
             "SELECT crate_tracks.path AS entry_path, track_view.* FROM crate_tracks
              LEFT JOIN track_view ON track_view.path = crate_tracks.path
-             WHERE crate_tracks.crate_id = ?1 ORDER BY crate_tracks.added_at_ms, crate_tracks.rowid",
+             WHERE crate_tracks.crate_id = ?1 ORDER BY crate_tracks.position",
         )?;
         let rows = stmt.query_map([id.0], entry_from_row)?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -180,6 +211,28 @@ mod tests {
 
         let names: Vec<_> = db.crates().unwrap().into_iter().map(|c| (c.name, c.track_count)).collect();
         assert_eq!(names, [("peak time".to_string(), 0), ("Warm-up".to_string(), 2)]);
+    }
+
+    #[test]
+    fn a_crate_keeps_the_order_its_tracks_are_placed_in() {
+        let db = LibraryDb::open_in_memory().unwrap();
+        let id = db.create_crate("Set").unwrap();
+        let other = db.create_crate("Other").unwrap();
+        let path = Path::new;
+        let order = |id| db.crate_tracks(id).unwrap().into_iter().map(|e| e.path).collect::<Vec<_>>();
+        db.add_to_crate(id, &[path("a.mp3"), path("b.mp3"), path("c.mp3")]).unwrap();
+        db.add_to_crate(other, &[path("c.mp3")]).unwrap();
+
+        db.place_in_crate(id, &[path("c.mp3"), path("b.mp3")], Some(path("a.mp3"))).unwrap();
+        assert_eq!(order(id), ["c.mp3", "b.mp3", "a.mp3"]);
+        db.place_in_crate(id, &[path("d.mp3")], Some(path("b.mp3"))).unwrap();
+        assert_eq!(order(id), ["c.mp3", "d.mp3", "b.mp3", "a.mp3"], "one added on the way");
+        db.add_to_crate(id, &[path("e.mp3")]).unwrap();
+        assert_eq!(order(id).last().map(String::as_str), Some("e.mp3"), "added at the end");
+        db.remove_from_crate(id, &[path("d.mp3")]).unwrap();
+        db.place_in_crate(id, &[path("a.mp3")], None).unwrap();
+        assert_eq!(order(id), ["c.mp3", "b.mp3", "e.mp3", "a.mp3"]);
+        assert_eq!(order(other), ["c.mp3"], "another crate untouched");
     }
 
     #[test]

@@ -1,7 +1,7 @@
 //! The prepare list: the tracks lined up for the next minutes of the set, in order.
 
 use super::tracks::entry_from_row;
-use super::{path_key, DbError, LibraryDb, TrackEntry};
+use super::{path_key, placed_before, DbError, LibraryDb, TrackEntry};
 use rusqlite::params;
 use std::path::Path;
 
@@ -53,20 +53,17 @@ impl LibraryDb {
     /// Puts `paths` in the list before `before` (`None`: at its end), in their order, those not
     /// in it added: one change. Nothing moves when `before` is one of them.
     pub fn place_in_prepare(&self, paths: &[&Path], before: Option<&Path>) -> Result<(), DbError> {
-        let placed: Vec<String> = paths.iter().map(|path| path_key(path)).collect();
-        let before = before.map(path_key);
-        if before.as_ref().is_some_and(|before| placed.contains(before)) {
-            return Ok(());
-        }
         let conn = self.conn();
         let tx = conn.unchecked_transaction()?;
-        let mut order: Vec<String> = {
+        let order: Vec<String> = {
             let mut stmt = tx.prepare_cached("SELECT path FROM prepare ORDER BY position")?;
             let rows = stmt.query_map([], |r| r.get(0))?;
-            rows.collect::<Result<Vec<String>, _>>()?.into_iter().filter(|p| !placed.contains(p)).collect()
+            rows.collect::<Result<_, _>>()?
         };
-        let at = before.and_then(|before| order.iter().position(|p| *p == before)).unwrap_or(order.len());
-        order.splice(at..at, placed);
+        let placed = paths.iter().map(|path| path_key(path)).collect();
+        let Some(order) = placed_before(order, placed, before.map(path_key)) else {
+            return Ok(());
+        };
         tx.prepare_cached("DELETE FROM prepare")?.execute([])?;
         {
             let mut insert = tx.prepare_cached("INSERT INTO prepare (path, position) VALUES (?1, ?2)")?;

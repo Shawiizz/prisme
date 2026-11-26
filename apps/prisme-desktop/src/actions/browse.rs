@@ -89,7 +89,7 @@ impl Library {
             scope: browser.scope().into(),
             filter: browser.filter().to_owned(),
             sort: SortDto { column: sort.column.into(), descending: sort.descending },
-            ordered: browser.source().ordered(),
+            ordered: browser.ordered(),
             reorderable: browser.reorderable(),
             count: browser.count(),
             cursor: browser.cursor_index(),
@@ -531,6 +531,27 @@ pub fn place_in_prepare(
     db.place_in_prepare(&as_paths(paths), before.map(Path::new))?;
     prepare_changed(state, db);
     Ok(())
+}
+
+/// Puts `paths` before `before` in the list shown (`None`: at its end), the prepare list or a
+/// crate filled by hand, adding those not in it.
+pub fn place_in_list(
+    state: &AppState,
+    db: &LibraryDb,
+    paths: &[String],
+    before: Option<&str>,
+) -> AppResult<()> {
+    let source = state.browse(|l| l.browser.source().clone());
+    match source {
+        List::Crate(id) => {
+            filled_by_hand(db, id)?;
+            db.place_in_crate(id, &as_paths(paths), before.map(Path::new))?;
+            crates_changed(state, db, Some(id))
+        }
+        List::Prepare => place_in_prepare(state, db, paths, before),
+        // a list without an order of its own: nowhere to put them
+        _ => Ok(()),
+    }
 }
 
 /// The prepare list read again: a track was put in it, played, or taken out.

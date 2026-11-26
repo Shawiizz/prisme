@@ -210,10 +210,10 @@ export class LibraryService {
     return this.attempt(() => this.engine.ordered('add_to_prepare', { paths }));
   }
 
-  /** Puts the tracks at `paths` (`null`: those selected) before `before` in the prepare list
-   * (`null`: at its end), adding them if needed. */
-  placeInPrepare(paths: string[] | null, before: string | null) {
-    return this.attempt(() => this.engine.ordered('place_in_prepare', { paths, before }));
+  /** Puts the tracks at `paths` (`null`: those selected) before `before` in the list shown, the
+   * prepare list or a crate filled by hand (`null`: at its end), adding them if needed. */
+  placeInList(paths: string[] | null, before: string | null) {
+    return this.attempt(() => this.engine.ordered('place_in_list', { paths, before }));
   }
 
   addToCrate(id: number, paths: string[] | null) {

@@ -20,9 +20,10 @@ pub async fn add_to_prepare(app: AppHandle, paths: Option<Vec<String>>, order: O
 }
 
 /// Puts the tracks at `paths` (else those selected) before the track at `before` (`None`: at the
-/// end), in their order, adding those not in the list.
+/// end) of the list shown, the prepare list or a crate filled by hand, in their order, adding
+/// those not in it.
 #[tauri::command]
-pub async fn place_in_prepare(
+pub async fn place_in_list(
     app: AppHandle,
     paths: Option<Vec<String>>,
     before: Option<String>,
@@ -30,7 +31,7 @@ pub async fn place_in_prepare(
 ) -> AppResult<()> {
     in_turn(app, order, move |state, db| {
         let paths = browse::tracks(state, paths);
-        browse::place_in_prepare(state, db, &paths, before.as_deref())
+        browse::place_in_list(state, db, &paths, before.as_deref())
     })
     .await
 }

@@ -466,7 +466,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::preferences::set_keys,
         commands::preferences::set_preference,
         commands::prepare::add_to_prepare,
-        commands::prepare::place_in_prepare,
+        commands::prepare::place_in_list,
         commands::preview::preview_waveform,
         commands::preview::seek_preview,
         commands::preview::toggle_preview,

@@ -106,6 +106,24 @@ fn a_list_with_an_order_of_its_own_opens_in_it_and_numbers_its_rows() {
 }
 
 #[test]
+fn a_crate_filled_by_hand_opens_in_its_own_order_and_is_reordered_in_it() {
+    let mut browser = folder();
+    let rules = SmartRules { match_all: true, rules: vec![] };
+    let hand = Crate { id: CrateId(1), name: "Hand".into(), rules: None, track_count: 2 };
+    let smart = Crate { id: CrateId(2), name: "Smart".into(), rules: Some(rules), track_count: 0 };
+    browser.set_crates(vec![hand, smart]);
+    let rows = browser.entries(["b", "a"].map(|name| (format!("C:/Music/{name}.mp3"), None)));
+    browser.show(List::Crate(CrateId(1)), rows);
+    assert_eq!(titles(&mut browser), ["Alone", "Strobe"]);
+    assert!(browser.ordered() && browser.reorderable());
+    browser.sort_by(Column::Title, None);
+    assert!(browser.ordered() && !browser.reorderable(), "sorted otherwise: numbered, not moved");
+    let rows = browser.rows_of(&List::Crate(CrateId(2))).unwrap();
+    browser.show(List::Crate(CrateId(2)), rows);
+    assert!(!browser.ordered() && !browser.reorderable(), "a smart crate has no order");
+}
+
+#[test]
 fn a_track_played_twice_in_a_set_is_two_rows_picked_apart() {
     let mut browser = folder();
     let rows = browser.entries([1, 2].map(|at| ("C:/Music/a.mp3".to_string(), Some(at))));

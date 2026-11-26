@@ -201,10 +201,29 @@ const MIGRATIONS: &[&str] = &[
          FROM tracks
          LEFT JOIN track_edits ON track_edits.path = tracks.path
          LEFT JOIN track_marks ON track_marks.path = tracks.path;",
+    // a crate's tracks in the order the DJ gives them, at first the order they were added in
+    "ALTER TABLE crate_tracks ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+     UPDATE crate_tracks SET position = (
+         SELECT COUNT(*) FROM crate_tracks AS earlier
+         WHERE earlier.crate_id = crate_tracks.crate_id
+             AND (earlier.added_at_ms, earlier.rowid) <= (crate_tracks.added_at_ms, crate_tracks.rowid)
+     );",
 ];
 
 pub fn now_ms() -> i64 {
     std::time::SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64)
+}
+
+/// `order` with `placed` taken out of it and put back before `before` (`None`: at the end), in
+/// their order; `None` when `before` is one of them, nothing to move.
+fn placed_before(order: Vec<String>, placed: Vec<String>, before: Option<String>) -> Option<Vec<String>> {
+    if before.as_ref().is_some_and(|before| placed.contains(before)) {
+        return None;
+    }
+    let mut order: Vec<String> = order.into_iter().filter(|p| !placed.contains(p)).collect();
+    let at = before.and_then(|before| order.iter().position(|p| *p == before)).unwrap_or(order.len());
+    order.splice(at..at, placed);
+    Some(order)
 }
 
 /// The key a path is stored under.
