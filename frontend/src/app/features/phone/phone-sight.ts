@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { EFFECT_NAMES } from '../../core/effects';
-import type { PadMode } from '../deck/deck-pads/deck-pads';
+import type { PadMode } from '../../core/services/pads.service';
 import type { Band, StemPart } from '../../core/models/backend';
 
 /** What a knob of an effect slot sets: its level, its main and second knobs, its period, the

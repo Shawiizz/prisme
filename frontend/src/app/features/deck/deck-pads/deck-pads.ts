@@ -12,11 +12,10 @@ import { Text, labelText, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
 import { AssignTarget, deckAction } from '../../../shared/assign/assign';
+import { PadMode, PadsService } from '../../../core/services/pads.service';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
 import type { EffectKind, PageLights } from '../../../core/models/backend';
-
-export type PadMode = 'cues' | 'loops' | 'roll' | 'jump' | 'slice' | 'cut' | 'fx' | 'sampler';
 
 interface Pad {
   label: string;
@@ -96,9 +95,11 @@ export class DeckPads {
   protected readonly fx = inject(FxService);
   protected readonly sampler = inject(SamplerService);
   protected readonly modes = MODES;
-  readonly mode = signal<PadMode>('cues');
+  private readonly shown = inject(PadsService);
+  /** Their tab, the same wherever the deck is shown. */
+  readonly mode = computed(() => this.shown.mode(this.deck()));
   /** The page of hot cues and sounds on the pads: 1 to 8, or 9 to 16. */
-  protected readonly page = signal(0);
+  protected readonly page = computed(() => this.shown.page(this.deck()));
   /** Hot cues and sounds have two pages. */
   protected readonly paged = computed(() => this.mode() === 'cues' || this.mode() === 'sampler');
   private readonly first = computed(() => this.page() * PADS);
@@ -304,10 +305,12 @@ export class DeckPads {
     }
   }
 
-  /** The slicer is put on the bar the deck plays in as its mode is chosen. */
   choose(mode: PadMode) {
-    this.mode.set(mode);
-    if (mode === 'slice') this.performance.anchorSlicer(this.deck());
+    this.shown.choose(this.deck(), mode);
+  }
+
+  protected turnPage() {
+    this.shown.turnPage(this.deck());
   }
 
   /** Right click deletes a hot cue, stops a sound playing, or else takes it off its pad. */

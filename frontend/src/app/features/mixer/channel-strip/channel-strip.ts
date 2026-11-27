@@ -16,7 +16,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     <ng-template #trimKnob>
       <app-knob
         label="TRIM"
-        [appAssign]="action('trim')"
+        [appAssignControl]="action('trim')"
         [labelTitle]="'Gain before the EQ (±12 dB)' | t"
         bipolar
         [state]="knobs().trim"
@@ -29,7 +29,8 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
-        [appAssign]="action('eq.' + b.band)"
+        [appAssign]="action('eq.' + b.band + '.kill.toggle')"
+        [appAssignControl]="action('eq.' + b.band)"
         [labelTitle]="b.killTitle()"
         bipolar
         [state]="eq(b.band)"
@@ -43,7 +44,8 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     }
     <app-knob
       label="FILTER"
-      [appAssign]="action('filter')"
+      [appAssign]="action('filter.toggle')"
+      [appAssignControl]="action('filter')"
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
       class="filter"

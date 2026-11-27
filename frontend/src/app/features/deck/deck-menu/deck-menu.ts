@@ -5,6 +5,7 @@ import { TPipe } from '../../../core/i18n/t.pipe';
 import { Dismiss, overlay } from '../../../shared/overlay';
 import { Popover, popoverAt } from '../../../shared/popover';
 import { DeckOptions } from '../deck-options/deck-options';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 
 /** Between the menu and its key (CSS px). */
 const MENU_GAP_PX = 6;
@@ -18,6 +19,7 @@ const MENU_GAP_PX = 6;
     @if (reversed()) {
       <button
         class="pr-btn pr-btn--sm is-on"
+        [appAssign]="action('reverse')"
         [title]="'The track plays backwards: press to play it forwards' | t"
         (click)="performance.setReverse(deck(), false)"
       >
@@ -27,6 +29,7 @@ const MENU_GAP_PX = 6;
     @if (muted()) {
       <button
         class="pr-btn pr-btn--sm is-on"
+        [appAssign]="action('mute')"
         [title]="'The channel is muted: press to hear it again' | t"
         (click)="engine.setMute(deck(), false)"
       >
@@ -37,6 +40,7 @@ const MENU_GAP_PX = 6;
       class="pr-btn pr-btn--sm pr-btn--icon"
       [class.is-on]="at()"
       [class.pr-over-veil]="at()"
+      data-assign-ui
       (click)="toggle($any($event.currentTarget))"
       [title]="'Deck options: motor, reverse, mute, repeat, tempo range, fader start, eject' | t"
       [attr.aria-label]="
@@ -46,8 +50,10 @@ const MENU_GAP_PX = 6;
       ⋯
     </button>
     @if (at(); as at) {
+      <!-- the menu opened while assigning, its keys given theirs; the veil closes it -->
       <div
         class="pr-veil"
+        data-assign-ui
         (dismiss)="close()"
         (contextmenu)="$event.preventDefault(); close()"
       ></div>
@@ -91,10 +97,14 @@ const MENU_GAP_PX = 6;
       box-shadow: 0 16px 40px rgb(0 0 0 / 0.5);
     }
   `,
-  imports: [DeckOptions, Dismiss, TPipe],
+  imports: [DeckOptions, Dismiss, TPipe, AssignTarget],
 })
 export class DeckMenu {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
   /** Where the menu is open. */
   protected readonly at = signal<Popover | null>(null);
   protected readonly performance = inject(PerformanceService);

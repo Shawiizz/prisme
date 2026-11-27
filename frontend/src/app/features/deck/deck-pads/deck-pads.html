@@ -1,6 +1,11 @@
 <div class="pr-seg pr-seg--lg modes" role="radiogroup" [attr.aria-label]="'Pad mode' | t">
   @for (m of modes; track m.id) {
-    <button role="radio" [attr.aria-checked]="mode() === m.id" (click)="choose(m.id)">
+    <button
+      role="radio"
+      [attr.aria-checked]="mode() === m.id"
+      [appAssign]="action('pads.' + m.id)"
+      (click)="choose(m.id)"
+    >
       {{ m.label }}
     </button>
   }
@@ -75,7 +80,7 @@
     <app-knob
       small
       label="MIX"
-      [appAssign]="action(fxSlot() + '.mix')"
+      [appAssignControl]="action(fxSlot() + '.mix')"
       [labelTitle]="'Level of the effect' | t"
       [readout]="percent(effect().mix)"
       [value]="effect().mix"
@@ -84,7 +89,7 @@
     <app-knob
       small
       label="AMOUNT"
-      [appAssign]="action(fxSlot() + '.amount')"
+      [appAssignControl]="action(fxSlot() + '.amount')"
       [labelTitle]="'Main knob of the effect (see each pad)' | t"
       [readout]="percent(effect().amount)"
       [value]="effect().amount"
@@ -94,7 +99,7 @@
     <app-knob
       small
       [label]="second.label"
-      [appAssign]="action(fxSlot() + '.param2')"
+      [appAssignControl]="action(fxSlot() + '.param2')"
       [labelTitle]="second.name"
       [defaultValue]="0.5"
       [readout]="percent(effect().param2)"
@@ -122,7 +127,8 @@
         <button
           class="pr-btn pr-btn--sm page"
           [title]="'The other page of pads' | t"
-          (click)="page.set(1 - page())"
+          [appAssign]="action('pads.page')"
+          (click)="turnPage()"
         >
           {{ page() === 0 ? '1–8' : '9–16' }}
         </button>
@@ -132,7 +138,7 @@
           <app-knob
             small
             label="VOL"
-            [appAssign]="action('sampler.gain')"
+            [appAssignControl]="action('sampler.gain')"
             [labelTitle]="'Level of the sampler' | t"
             [defaultValue]="1"
             [readout]="percent(samplerGain())"

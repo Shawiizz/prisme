@@ -34,6 +34,7 @@ import { SoundCardNoticesService } from './core/services/sound-card-notices.serv
 import { NoticeView } from './shared/notice/notice';
 import { ModelsDialog } from './features/stems/models-dialog';
 import { AssignService } from './core/assign/assign.service';
+import { PadsService } from './core/services/pads.service';
 import { AssignBar } from './shell/assign/assign-bar';
 import { AssignLayer } from './shell/assign/assign-layer';
 
@@ -87,6 +88,7 @@ export class App implements OnInit {
   private readonly stageZoom = inject(StageZoomService);
   /** The mode giving the buttons their keys, in every window at once. */
   protected readonly assign = inject(AssignService);
+  private readonly pads = inject(PadsService);
   /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
@@ -142,7 +144,7 @@ export class App implements OnInit {
       // the decks' own window: their keys, the rest is the main window's
       await Promise.all(
         DECKS_WINDOW
-          ? [this.keyboard.start(), this.stageZoom.start(), this.assign.start()]
+          ? [this.keyboard.start(), this.stageZoom.start(), this.assign.start(), this.pads.start()]
           : [
               this.preview.init(),
               this.library.init(),
@@ -150,6 +152,7 @@ export class App implements OnInit {
               this.soundCardNotices.start(),
               this.keyboard.start(),
               this.assign.start(),
+              this.pads.start(),
               this.controllers.start(),
               this.screens.init(),
               this.window.init(),

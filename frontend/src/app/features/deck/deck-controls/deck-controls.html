@@ -40,6 +40,7 @@
       <app-knob
         small
         [appAssign]="action(k.part)"
+        [appAssignControl]="action(k.part + '.level')"
         [class.waiting]="k.waiting"
         [dimmed]="!k.on"
         [disabled]="!k.ready"

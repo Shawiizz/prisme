@@ -29,7 +29,7 @@ const METER_SEGMENTS = 24;
     </div>
     <app-fader
       orientation="vertical"
-      [appAssign]="action('volume')"
+      [appAssignControl]="action('volume')"
       [value]="volume()"
       [defaultValue]="1"
       (valueChange)="mixer.setVolume(deck(), $event)"

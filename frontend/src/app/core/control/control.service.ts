@@ -10,9 +10,13 @@ import { WindowService } from '../services/window.service';
 import { DECKS_WINDOW } from '../platform';
 import { Control } from './controls';
 import { AssignService } from '../assign/assign.service';
+import { PadsService } from '../services/pads.service';
 import type { Target } from '../models/backend';
 
 /** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
+/** A deck's pads on the screen: a tab (`deck1.pads.roll`), or the other page. */
+const PADS_ACTION = /^deck(\d)\.pads\.(\w+)$/;
+
 const pressed =
   (run: () => void) =>
   (value: number): void => {
@@ -91,7 +95,20 @@ export class ControlService {
   /** The action `id` given `value` (a key's 1 pressed and 0 let go, a fader's position, an
    * encoder's steps): the app's own here, the others the backend's (which does nothing for one
    * of a deck not in use, or a light). */
+  /** The pads of `deck` on the tab `shown`, or their other page (`page`). */
+  private showPads(deck: number, shown: string) {
+    const pads = this.injector.get(PadsService);
+    if (shown === 'page') pads.turnPage(deck);
+    else if (PadsService.isMode(shown)) pads.choose(deck, shown);
+  }
+
   act(id: string, value: number) {
+    // the windows show the pads alike: done where asked, and told to the others
+    const pads = PADS_ACTION.exec(id);
+    if (pads) {
+      if (value > 0) this.showPads(Number(pads[1]) - 1, pads[2]);
+      return;
+    }
     const own = id in this.own ? this.own[id] : undefined;
     // the decks' own window has no library, dialogs or title bar: the main one does those, but
     // closes what is open over the decks

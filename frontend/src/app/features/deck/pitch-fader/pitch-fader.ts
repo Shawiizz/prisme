@@ -34,7 +34,7 @@ import { AssignTarget, deckAction } from '../../../shared/assign/assign';
       <app-fader
         orientation="vertical"
         centered
-        [appAssign]="action('pitch')"
+        [appAssignControl]="action('pitch')"
         [value]="1 - tempo.position()"
         [defaultValue]="0.5"
         (valueChange)="engine.moveTempo(deck(), 1 - $event)"

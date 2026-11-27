@@ -6,6 +6,7 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { PerformanceService } from '../../../core/services/performance.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 
 /**
  * What a deck does now and then rather than all the time, a row each: its motor (a brake, a
@@ -24,6 +25,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!movable()"
           [title]="'Brake: the deck slows to a stop; stopped, it starts softly' | t"
+          [appAssign]="action('brake')"
           (click)="performance.brake(deck())"
         >
           BRAKE
@@ -33,6 +35,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!movable()"
           [title]="'Spinback: the record spun back while held, then it plays on' | t"
+          [appAssign]="action('spinback')"
           (press)="spinBack(true)"
           (release)="spinBack(false)"
         >
@@ -48,6 +51,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!placeable()"
           [title]="'To the start of the track, playing or not as it was' | t"
+          [appAssign]="action('start.keep')"
           (click)="engine.press(deck(), 'start.keep')"
         >
           {{ 'START' | t }}
@@ -57,6 +61,7 @@ import { Press } from '../../../shared/press';
           [class.pr-reach]="PHONE"
           [disabled]="!placeable()"
           [title]="'To the very end of the track' | t"
+          [appAssign]="action('end')"
           (click)="engine.press(deck(), 'end')"
         >
           {{ 'END' | t }}
@@ -71,6 +76,7 @@ import { Press } from '../../../shared/press';
         [attr.aria-checked]="reversed()"
         [attr.aria-label]="'Reverse' | t"
         [title]="'The track plays backwards; with slip, it comes back where it would be' | t"
+        [appAssign]="action('reverse')"
         (click)="performance.setReverse(deck(), !reversed())"
       >
         <span></span>
@@ -84,6 +90,7 @@ import { Press } from '../../../shared/press';
         [attr.aria-checked]="settings().mute"
         [attr.aria-label]="'Mute the channel' | t"
         [title]="'Silent in the master, still heard in the headphones' | t"
+        [appAssign]="action('mute')"
         (click)="engine.setMute(deck(), !settings().mute)"
       >
         <span></span>
@@ -97,6 +104,7 @@ import { Press } from '../../../shared/press';
         [attr.aria-checked]="settings().repeat"
         [attr.aria-label]="'Repeat the track' | t"
         [title]="'At the end, the track plays on from its start' | t"
+        [appAssign]="action('repeat')"
         (click)="engine.setRepeat(deck(), !settings().repeat)"
       >
         <span></span>
@@ -126,6 +134,7 @@ import { Press } from '../../../shared/press';
           [attr.aria-checked]="settings().faderStart"
           [attr.aria-label]="'Fader start' | t"
           [title]="'The channel fader raised plays the deck; closed, it stops it on its cue' | t"
+          [appAssign]="action('faderStart')"
           (click)="engine.setFaderStart(deck(), !settings().faderStart)"
         >
           <span></span>
@@ -139,6 +148,7 @@ import { Press } from '../../../shared/press';
         [class.pr-reach]="PHONE"
         [disabled]="!loaded()"
         [title]="'The deck left empty; playing, it asks first' | t"
+        [appAssign]="action('eject')"
         (click)="eject()"
       >
         {{ 'EJECT' | t }}
@@ -176,10 +186,14 @@ import { Press } from '../../../shared/press';
       min-height: 60px;
     }
   `,
-  imports: [Press, TPipe],
+  imports: [Press, TPipe, AssignTarget],
 })
 export class DeckOptions {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
   /** The track was taken off the deck. */
   readonly ejected = output<void>();
 
