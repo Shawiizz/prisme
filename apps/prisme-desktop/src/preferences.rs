@@ -467,6 +467,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_file_of_0_6_keeps_its_settings_its_sound_card_chosen_again() {
+        let p: Preferences = serde_json::from_str(
+            r#"{
+                "audio": { "outputDevice": "Speakers", "inputDevice": "Line In", "bufferFrames": 256 },
+                "declinedCards": ["A card"],
+                "dj": { "vinylSync": "locked" },
+                "ui": { "language": "fr", "screenBelow": true }
+            }"#,
+        )
+        .unwrap();
+        assert_eq!((p.audio.output, p.audio.input, p.audio.buffer_frames), (None, None, Some(256)));
+        assert!(p.declined_sound_cards.is_empty());
+        assert_eq!(p.dj.vinyl_sync, VinylSync::Locked);
+        assert_eq!(p.ui.language.as_deref(), Some("fr"));
+    }
+
+    #[test]
     fn a_partial_file_keeps_the_other_defaults() {
         let p: Preferences = serde_json::from_str(r#"{ "dj": { "vinylSync": "locked" } }"#).unwrap();
         assert_eq!(p.dj.vinyl_sync, VinylSync::Locked);
