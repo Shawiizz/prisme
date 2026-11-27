@@ -9144,6 +9144,12 @@
   "kind": "button"
  },
  {
+  "id": "general.assign",
+  "group": "General",
+  "label": "Assign keys and controls",
+  "kind": "button"
+ },
+ {
   "id": "general.close",
   "group": "General",
   "label": "Close what is open (Escape)",

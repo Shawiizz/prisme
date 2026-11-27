@@ -2504,6 +2504,7 @@
             "general.palette",
             "general.settings",
             "general.fullscreen",
+            "general.assign",
             "general.close"
           ],
           "enumDescriptions": [
@@ -4031,6 +4032,7 @@
             "General: Command palette (button)",
             "General: Settings (button)",
             "General: Full screen (button)",
+            "General: Assign keys and controls (button)",
             "General: Close what is open (Escape) (button)"
           ]
         },

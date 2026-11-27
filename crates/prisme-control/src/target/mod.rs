@@ -398,7 +398,7 @@ actions! {
         Button: Library = "general.library", Record = "general.record",
             TempoRange = "general.tempoRange", TempoRangePrevious = "general.tempoRange.previous",
             Help = "general.help", Palette = "general.palette", Settings = "general.settings",
-            FullScreen = "general.fullscreen", Close = "general.close";
+            FullScreen = "general.fullscreen", Assign = "general.assign", Close = "general.close";
     }
     {
         Quantize(Turn),
@@ -463,6 +463,7 @@ impl Target {
                 | GeneralAction::Palette
                 | GeneralAction::Settings
                 | GeneralAction::FullScreen
+                | GeneralAction::Assign
                 | GeneralAction::Close,
             ) => Owner::Interface,
             Target::Shift(_) | Target::Mode { .. } => Owner::Reader,
@@ -627,6 +628,7 @@ mod tests {
             "general.palette",
             "general.settings",
             "general.fullscreen",
+            "general.assign",
             "general.close",
         ];
         assert_eq!("shift".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));

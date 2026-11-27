@@ -1058,6 +1058,7 @@ mod tests {
                 "general.palette",
                 "general.settings",
                 "general.fullscreen",
+                "general.assign",
                 "general.close"
             ]
         );

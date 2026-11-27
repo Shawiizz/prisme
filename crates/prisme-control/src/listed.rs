@@ -270,6 +270,7 @@ const GLOBAL: &[Global] = {
         One(Target::General(GeneralAction::Palette)),
         One(Target::General(GeneralAction::Settings)),
         One(Target::General(GeneralAction::FullScreen)),
+        One(Target::General(GeneralAction::Assign)),
         One(Target::General(GeneralAction::Close)),
     ]
 };
