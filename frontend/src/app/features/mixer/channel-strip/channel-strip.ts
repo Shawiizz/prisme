@@ -3,6 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { BANDS } from '../../../core/models/engine';
 import { MixerService } from '../../../core/services/mixer.service';
 import { Knob } from '../../../shared/knob/knob';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 import { Text, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
@@ -15,6 +16,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     <ng-template #trimKnob>
       <app-knob
         label="TRIM"
+        [appAssign]="action('trim')"
         [labelTitle]="'Gain before the EQ (±12 dB)' | t"
         bipolar
         [state]="knobs().trim"
@@ -27,6 +29,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     @for (b of bands; track b.band) {
       <app-knob
         [label]="b.label"
+        [appAssign]="action('eq.' + b.band)"
         [labelTitle]="b.killTitle()"
         bipolar
         [state]="eq(b.band)"
@@ -40,6 +43,7 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
     }
     <app-knob
       label="FILTER"
+      [appAssign]="action('filter')"
       [labelTitle]="'Left: low-pass, right: high-pass' | t"
       bipolar
       class="filter"
@@ -57,10 +61,14 @@ import type { Band, KnobState, StripKnobs } from '../../../core/models/backend';
       --knob-readout-width: 9ch;
     }
   `,
-  imports: [Knob, NgTemplateOutlet, TPipe],
+  imports: [Knob, NgTemplateOutlet, TPipe, AssignTarget],
 })
 export class ChannelStrip {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
   /** With its trim knob (a phone leaves it out). */
   readonly trim = input(true);
   /** The trim before the bands, as at the top of a mixer's channel. */

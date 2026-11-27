@@ -1,4 +1,4 @@
-import { computed, effect, Injectable, inject, signal, untracked } from '@angular/core';
+import { computed, effect, Injectable, Injector, inject, signal, untracked } from '@angular/core';
 import { invoke } from '@tauri-apps/api/core';
 import { emitTo } from '@tauri-apps/api/event';
 import { EngineService } from '../services/engine.service';
@@ -9,6 +9,7 @@ import { OverlayService } from '../../shared/overlay';
 import { WindowService } from '../services/window.service';
 import { DECKS_WINDOW } from '../platform';
 import { Control } from './controls';
+import { AssignService } from '../assign/assign.service';
 import type { Target } from '../models/backend';
 
 /** A key's action, done as it is pressed: a pad hit softly is hit all the same. */
@@ -38,6 +39,8 @@ export class ControlService {
   private readonly navigation = inject(NavigationService);
   private readonly overlays = inject(OverlayService);
   private readonly window = inject(WindowService);
+  /** For the assigning mode, which asks the actions what they are: got once asked for. */
+  private readonly injector = inject(Injector);
 
   /** What the app does of the actions it keeps, given a key's value. */
   private readonly own: Record<string, (value: number) => void> = {
@@ -49,6 +52,7 @@ export class ControlService {
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
     'general.fullscreen': pressed(() => void this.window.toggleFullscreen()),
+    'general.assign': pressed(() => this.injector.get(AssignService).toggle()),
     'general.close': pressed(() => this.overlays.closeTop()),
   };
 

@@ -4,6 +4,7 @@ import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { CueButton } from '../../../shared/cue-button/cue-button';
 import { Fader } from '../../../shared/fader/fader';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 import { meterSegments } from '../../../shared/meter';
 import { deckLetter } from '../../../shared/time';
 import { ChannelStrip } from '../channel-strip/channel-strip';
@@ -28,6 +29,7 @@ const METER_SEGMENTS = 24;
     </div>
     <app-fader
       orientation="vertical"
+      [appAssign]="action('volume')"
       [value]="volume()"
       [defaultValue]="1"
       (valueChange)="mixer.setVolume(deck(), $event)"
@@ -113,10 +115,14 @@ const METER_SEGMENTS = 24;
     '[class.column]': 'column()',
     '[class.mirror]': 'mirror()',
   },
-  imports: [ChannelStrip, CueButton, Fader, TPipe],
+  imports: [ChannelStrip, CueButton, Fader, TPipe, AssignTarget],
 })
 export class ChannelSlot {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
   /** Its knobs one over the other as on a mixer, its fader along them, for a channel beside

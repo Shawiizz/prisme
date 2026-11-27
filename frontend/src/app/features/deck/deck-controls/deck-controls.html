@@ -2,6 +2,7 @@
   <div class="transport">
     <button
       class="pr-btn pr-btn--lg key"
+      [appAssign]="action('cue')"
       [class.is-on]="cue() !== 'off'"
       [class.paused]="cue() === 'paused'"
       (press)="cueDown()"
@@ -11,6 +12,7 @@
     </button>
     <button
       class="pr-btn pr-btn--lg key"
+      [appAssign]="action('play')"
       [class.is-on]="status()?.playing"
       (press)="engine.togglePlay(deck())"
     >
@@ -37,6 +39,7 @@
     @for (k of stemKnobs(); track k.part) {
       <app-knob
         small
+        [appAssign]="action(k.part)"
         [class.waiting]="k.waiting"
         [dimmed]="!k.on"
         [disabled]="!k.ready"
@@ -68,6 +71,7 @@
 
 <button
   class="pr-btn pr-btn--lg key sync"
+  [appAssign]="action('sync')"
   [class.is-on]="syncState() === 'locked'"
   [class.matched]="syncState() === 'matched'"
   (press)="engine.press(deck(), 'sync')"
@@ -82,6 +86,7 @@
   <div class="push">
     <button
       class="pr-btn pr-btn--lg"
+      [appAssign]="action('push.slower')"
       (press)="engine.press(deck(), 'push.slower')"
       (release)="engine.press(deck(), 'push.slower', false)"
       [title]="'Slower and slower while held, then backwards' | t"
@@ -90,6 +95,7 @@
     </button>
     <button
       class="pr-btn pr-btn--lg"
+      [appAssign]="action('push.faster')"
       (press)="engine.press(deck(), 'push.faster')"
       (release)="engine.press(deck(), 'push.faster', false)"
       [title]="'Faster and faster while held' | t"
@@ -119,6 +125,7 @@
   <div class="line">
     <button
       class="pr-btn pr-btn--sm key-lock"
+      [appAssign]="action('keylock')"
       [class.is-on]="settings().keyLock"
       (click)="engine.setKeyLock(deck(), !settings().keyLock)"
       [title]="'Key lock: the pitch stays when the tempo changes' | t"

@@ -2,6 +2,7 @@ import { Component, inject } from '@angular/core';
 import { MixerService } from '../../../core/services/mixer.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
+import { AssignTarget } from '../../../shared/assign/assign';
 import { MixerMenu } from '../mixer-menu/mixer-menu';
 
 /** The crossfader of the software mixer, between its two sides, the microphone's key when one
@@ -12,6 +13,7 @@ import { MixerMenu } from '../mixer-menu/mixer-menu';
     <span class="pr-label">A</span>
     <app-fader
       centered
+      appAssign="mixer.crossfader"
       [value]="mixer.knobs().crossfader.at"
       [defaultValue]="mixer.knobs().crossfader.home"
       (valueChange)="mixer.setCrossfader($event)"
@@ -52,7 +54,7 @@ import { MixerMenu } from '../mixer-menu/mixer-menu';
     }
   `,
   host: { class: 'pr-panel', '[class.live]': 'mic().inUse' },
-  imports: [Fader, MixerMenu, TPipe],
+  imports: [Fader, MixerMenu, TPipe, AssignTarget],
 })
 export class Crossfader {
   protected readonly mixer = inject(MixerService);

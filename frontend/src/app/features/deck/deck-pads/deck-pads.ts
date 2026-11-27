@@ -11,6 +11,7 @@ import { percent } from '../../../shared/readout';
 import { Text, labelText, t } from '../../../core/i18n/i18n';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Press } from '../../../shared/press';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 import { deckStems } from '../../../core/deck-stems';
 import { EFFECT_NAMES, PARAM2 } from '../../../core/effects';
 import type { EffectKind, PageLights } from '../../../core/models/backend';
@@ -85,7 +86,7 @@ const bit = (bits: number, pad: number) => (bits & (1 << pad)) !== 0;
   selector: 'app-deck-pads',
   templateUrl: './deck-pads.html',
   styleUrl: './deck-pads.scss',
-  imports: [Knob, NgTemplateOutlet, Press, TPipe],
+  imports: [Knob, NgTemplateOutlet, Press, TPipe, AssignTarget],
 })
 export class DeckPads {
   readonly deck = input.required<number>();
@@ -119,6 +120,8 @@ export class DeckPads {
   /** The slot of the chain the pads and knobs act on, and its effect. */
   protected readonly slot = computed(() => this.fx.chosen(this.deck()));
   protected readonly effect = computed(() => this.chain().slots[this.slot()]);
+  /** The actions' name of the effect's slot shown: `fx`, `fx2`, `fx3`. */
+  protected readonly fxSlot = computed(() => (this.slot() === 0 ? 'fx' : `fx${this.slot() + 1}`));
   /** A key per slot of the chain: chosen in the light, marked while its effect is on, framed
    * while a controller's effect knobs are focused on it. */
   protected readonly slotKeys = computed(() => {
@@ -275,6 +278,30 @@ export class DeckPads {
     const release = this.held.get(event.pointerId);
     this.held.delete(event.pointerId);
     release?.();
+  }
+
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
+
+  /** The action of pad `index` of the page shown, for the assigning mode. */
+  protected padAction(index: number): string | null {
+    const slot = this.first() + index;
+    switch (this.mode()) {
+      case 'cues':
+        return this.action(`hotcue${slot + 1}`);
+      case 'sampler':
+        return this.action(`sample${slot + 1}`);
+      case 'fx': {
+        const effect = this.named()?.[index]?.effect;
+        return effect ? this.action(`${this.fxSlot()}.${effect}`) : null;
+      }
+      default: {
+        const action = this.named()?.[index]?.action;
+        return action ? this.action(action) : null;
+      }
+    }
   }
 
   /** The slicer is put on the bar the deck plays in as its mode is chosen. */

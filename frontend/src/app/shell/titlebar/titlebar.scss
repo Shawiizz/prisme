@@ -164,6 +164,23 @@
   .update {
     margin-right: var(--pr-space-2);
   }
+  // the assigning mode's key, lit while it is on
+  .assign {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    svg {
+      width: 15px;
+      height: 15px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.4;
+    }
+    &.is-on {
+      background: var(--pr-light);
+      color: var(--pr-on-light);
+    }
+  }
 }
 
 .rec {

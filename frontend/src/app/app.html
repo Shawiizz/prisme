@@ -7,6 +7,11 @@
     }
   } @else if (DECKS_WINDOW) {
     <main class="layout on-their-own">
+      @if (assign.on()) {
+        @defer {
+          <app-assign-bar />
+        }
+      }
       @if (stage()) {
         <app-stage />
       } @else {
@@ -15,6 +20,11 @@
     </main>
   } @else {
     <app-titlebar />
+    @if (assign.on()) {
+      @defer {
+        <app-assign-bar />
+      }
+    }
 
     <main class="layout" [class.library-only]="libraryOnly()">
       @if (libraryOnly()) {
@@ -69,6 +79,12 @@
 <app-select-picker />
 <app-confirm />
 <app-notice />
+<!-- loaded when first assigning -->
+@if (!PHONE) {
+  @defer (when assign.on()) {
+    <app-assign-layer />
+  }
+}
 @if (!PHONE) {
   <app-tooltip />
 }

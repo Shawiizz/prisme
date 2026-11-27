@@ -35,6 +35,8 @@ export class KeyboardService {
   private readonly layout = signal(new Map<string, string>());
   /** The action of each key held, by its code. */
   private readonly held = new Map<string, string>();
+  /** The shortcuts play nothing: the keys are being given (`AssignService`). */
+  readonly asleep = signal(false);
   /** Given the next key pressed, while one is waited for (`capture`). */
   private captured: ((key: Key | null) => void) | null = null;
 
@@ -96,6 +98,7 @@ export class KeyboardService {
   }
 
   private onKeyDown(event: KeyboardEvent) {
+    if (this.asleep()) return;
     const key = keyOf(event);
     const shortcut = key && this.table().get(keyName(key));
     if (!shortcut) return;

@@ -33,6 +33,9 @@ import { StageZoomService } from './core/services/stage-zoom.service';
 import { SoundCardNoticesService } from './core/services/sound-card-notices.service';
 import { NoticeView } from './shared/notice/notice';
 import { ModelsDialog } from './features/stems/models-dialog';
+import { AssignService } from './core/assign/assign.service';
+import { AssignBar } from './shell/assign/assign-bar';
+import { AssignLayer } from './shell/assign/assign-layer';
 
 /** The height whole lanes for two decks take in the decks' own window (CSS px). */
 const WHOLE_LANES_PX = 420;
@@ -68,6 +71,8 @@ const WIDE_AND_SHORT = 2.6;
     Stage,
     NoticeView,
     ModelsDialog,
+    AssignBar,
+    AssignLayer,
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -80,6 +85,8 @@ export class App implements OnInit {
   private readonly settings = inject(SettingsService);
   private readonly soundCardNotices = inject(SoundCardNoticesService);
   private readonly stageZoom = inject(StageZoomService);
+  /** The mode giving the buttons their keys, in every window at once. */
+  protected readonly assign = inject(AssignService);
   /** Follows the preferences the backend tells from the start. */
   private readonly preferences = inject(PreferencesService);
   private readonly keyboard = inject(KeyboardService);
@@ -135,13 +142,14 @@ export class App implements OnInit {
       // the decks' own window: their keys, the rest is the main window's
       await Promise.all(
         DECKS_WINDOW
-          ? [this.keyboard.start(), this.stageZoom.start()]
+          ? [this.keyboard.start(), this.stageZoom.start(), this.assign.start()]
           : [
               this.preview.init(),
               this.library.init(),
               this.settings.init(),
               this.soundCardNotices.start(),
               this.keyboard.start(),
+              this.assign.start(),
               this.controllers.start(),
               this.screens.init(),
               this.window.init(),

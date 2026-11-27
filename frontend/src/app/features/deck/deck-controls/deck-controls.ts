@@ -8,6 +8,7 @@ import { deckStems } from '../../../core/deck-stems';
 import { Knob } from '../../../shared/knob/knob';
 import { percent } from '../../../shared/readout';
 import { Press } from '../../../shared/press';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 
 /**
  * What plays a deck, at the start of its rail: the transport (a record has its own), the
@@ -17,11 +18,15 @@ import { Press } from '../../../shared/press';
   selector: 'app-deck-controls',
   templateUrl: './deck-controls.html',
   styleUrl: './deck-controls.scss',
-  imports: [Knob, TPipe, Press],
+  imports: [Knob, TPipe, Press, AssignTarget],
   host: { '[class.plays]': '!vinyl()' },
 })
 export class DeckControls {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
 
   protected readonly engine = inject(EngineService);
   private readonly tempo = deckTempo(this.deck);

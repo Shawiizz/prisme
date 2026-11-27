@@ -979,3 +979,31 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
+
+/* ---------- Assigning: what can take a key outlined, the rest asleep ---------- */
+
+/* inside the button: a rail or a panel clips what goes past it */
+.pr-assignable {
+  outline: 1.5px solid rgb(243 241 235 / 0.8);
+  outline-offset: -1.5px;
+  cursor: pointer;
+}
+.pr-assignable:hover {
+  outline-color: var(--pr-light);
+}
+.pr-assign-chosen,
+.pr-assign-chosen:hover {
+  outline: 2px solid var(--pr-light);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 5px rgb(243 241 235 / 0.16);
+}
+/* the action whose key the one pressed would take */
+.pr-assign-pointed {
+  outline: 2px solid var(--pr-warn);
+  outline-offset: -2px;
+}
+.pr-assigning :is(app-deck-waveform, app-phase-strip, app-library, app-now-playing) {
+  opacity: 0.3;
+  filter: saturate(0.4);
+  transition: opacity 160ms;
+}

@@ -137,7 +137,12 @@
     }
   </div>
 
-  <button class="palette" (click)="navigation.togglePalette()" [title]="'Command palette' | t">
+  <button
+    class="palette"
+    appAssign="general.palette"
+    (click)="navigation.togglePalette()"
+    [title]="'Command palette' | t"
+  >
     <svg viewBox="0 0 16 16" aria-hidden="true">
       <circle cx="7" cy="7" r="5" />
       <path d="M11 11l4 4" />
@@ -199,6 +204,7 @@
       } @else {
         <button
           class="pr-btn pr-btn--ghost pr-btn--rec"
+          appAssign="general.record"
           [class.pr-over-veil]="recordMenu()"
           (click)="recordMenu.set(!recordMenu())"
           [title]="lastTitle()"
@@ -221,7 +227,22 @@
       }
     </div>
     <button
+      class="pr-btn pr-btn--ghost assign"
+      [class.is-on]="assign.on()"
+      [attr.aria-pressed]="assign.on()"
+      data-assign-ui
+      (click)="assign.toggle()"
+      [title]="assignTitle()"
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <rect x="1.5" y="4" width="13" height="8.5" rx="1.5" />
+        <path d="M4 7h1M7 7h1M10 7h1M5 10h6" />
+      </svg>
+      {{ 'Assign' | t }}
+    </button>
+    <button
       class="pr-btn pr-btn--ghost"
+      appAssign="general.settings"
       (click)="navigation.openSettings()"
       [title]="settingsTitle()"
     >
@@ -233,6 +254,7 @@
     <div class="window">
       <button
         class="win"
+        appAssign="general.fullscreen"
         (click)="window.toggleFullscreen()"
         [attr.aria-label]="(window.fullscreen() ? 'Exit full screen' : 'Full screen') | t"
         [title]="fullscreenTitle()"

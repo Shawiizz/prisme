@@ -10,6 +10,7 @@
   @for (pad of pads(); track $index) {
     <button
       class="pr-pad"
+      [appAssign]="padAction($index)"
       [class.pr-pad--set]="pad.set"
       [class.is-hot]="pad.active"
       [style.--tag]="pad.color"
@@ -52,6 +53,7 @@
   <div class="side knobs">
     <button
       class="pr-btn pr-btn--sm chain"
+      [appAssign]="action('fx.chain')"
       [class.is-on]="chainOn()"
       [attr.aria-pressed]="chainOn()"
       [title]="chainTitle()"
@@ -62,6 +64,7 @@
     @let on = effectPart();
     <button
       class="pr-btn pr-btn--sm part"
+      [appAssign]="action('fx.part')"
       [class.is-on]="on.on"
       [disabled]="!on.choice"
       [title]="on.title"
@@ -72,6 +75,7 @@
     <app-knob
       small
       label="MIX"
+      [appAssign]="action(fxSlot() + '.mix')"
       [labelTitle]="'Level of the effect' | t"
       [readout]="percent(effect().mix)"
       [value]="effect().mix"
@@ -80,6 +84,7 @@
     <app-knob
       small
       label="AMOUNT"
+      [appAssign]="action(fxSlot() + '.amount')"
       [labelTitle]="'Main knob of the effect (see each pad)' | t"
       [readout]="percent(effect().amount)"
       [value]="effect().amount"
@@ -89,6 +94,7 @@
     <app-knob
       small
       [label]="second.label"
+      [appAssign]="action(fxSlot() + '.param2')"
       [labelTitle]="second.name"
       [defaultValue]="0.5"
       [readout]="percent(effect().param2)"
@@ -126,6 +132,7 @@
           <app-knob
             small
             label="VOL"
+            [appAssign]="action('sampler.gain')"
             [labelTitle]="'Level of the sampler' | t"
             [defaultValue]="1"
             [readout]="percent(samplerGain())"
@@ -137,8 +144,20 @@
         }
         @case ('jump') {
           <div class="beats" [title]="'Size of the jumps and of the sized loop, in beats' | t">
-            <button class="pr-btn pr-btn--sm" (click)="performance.resize(deck(), -1)">½</button>
-            <button class="pr-btn pr-btn--sm" (click)="performance.resize(deck(), 1)">×2</button>
+            <button
+              class="pr-btn pr-btn--sm"
+              [appAssign]="action('size.halve')"
+              (click)="performance.resize(deck(), -1)"
+            >
+              ½
+            </button>
+            <button
+              class="pr-btn pr-btn--sm"
+              [appAssign]="action('size.double')"
+              (click)="performance.resize(deck(), 1)"
+            >
+              ×2
+            </button>
             <span class="pr-num">{{ beats(size()) }}</span>
           </div>
           <ng-container [ngTemplateOutlet]="slipKey" />
@@ -147,6 +166,7 @@
         @case ('loop') {
           <button
             class="pr-btn pr-btn--sm"
+            [appAssign]="action('loop.in')"
             [class.is-on]="loopInSet()"
             (click)="loopIn()"
             [disabled]="!canMove()"
@@ -156,6 +176,7 @@
           </button>
           <button
             class="pr-btn pr-btn--sm"
+            [appAssign]="action('loop.out')"
             (click)="loopOut()"
             [disabled]="!canMove()"
             [title]="'Loop out: the loop ends here and plays' | t"
@@ -164,6 +185,7 @@
           </button>
           <button
             class="pr-btn pr-btn--sm"
+            [appAssign]="action('loop.halve')"
             (click)="scaleLoop(0.5)"
             [disabled]="!canMove()"
             [title]="'Halve the loop' | t"
@@ -172,6 +194,7 @@
           </button>
           <button
             class="pr-btn pr-btn--sm"
+            [appAssign]="action('loop.double')"
             (click)="scaleLoop(2)"
             [disabled]="!canMove()"
             [title]="'Double the loop' | t"
@@ -195,6 +218,7 @@
 <ng-template #loopKey>
   <button
     class="pr-btn loop-key"
+    [appAssign]="action('reloop')"
     [class.is-on]="loopActive()"
     (click)="toggleLoop()"
     [disabled]="!canMove()"
@@ -206,6 +230,7 @@
 <ng-template #censorKey>
   <button
     class="pr-btn censor"
+    [appAssign]="action('censor')"
     [disabled]="!canMove()"
     [title]="'Plays backwards while held, then lands where the track would have been' | t"
     (press)="censor()"
@@ -218,6 +243,7 @@
 <ng-template #slipKey>
   <button
     class="pr-btn slip"
+    [appAssign]="action('slip')"
     [class.is-on]="slip()"
     (click)="toggleSlip()"
     [disabled]="!canMove()"

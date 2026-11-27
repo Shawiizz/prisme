@@ -2,6 +2,7 @@ import { Component, booleanAttribute, computed, inject, input } from '@angular/c
 import { EngineService } from '../../core/services/engine.service';
 import { MixerService } from '../../core/services/mixer.service';
 import { TPipe } from '../../core/i18n/t.pipe';
+import { AssignTarget, deckAction } from '../assign/assign';
 
 /** The headphones of a deck's channel: lit while the deck is heard in them; a double click
  * leaves it alone in them. Sized by its host; `touch` reaches a finger beyond it. */
@@ -13,6 +14,7 @@ import { TPipe } from '../../core/i18n/t.pipe';
       [class.pr-reach]="touch()"
       [class.is-on]="cued()"
       [attr.aria-pressed]="cued()"
+      [appAssign]="deckAction(deck(), 'headphones')"
       (click)="mixer.setDeckCue(deck(), !cued())"
       (dblclick)="engine.soloCue(deck())"
       [title]="'Hear this deck in the headphones · double-click: this deck alone' | t"
@@ -47,10 +49,11 @@ import { TPipe } from '../../core/i18n/t.pipe';
       height: auto;
     }
   `,
-  imports: [TPipe],
+  imports: [TPipe, AssignTarget],
 })
 export class CueButton {
   readonly deck = input.required<number>();
+  protected readonly deckAction = deckAction;
   readonly touch = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);

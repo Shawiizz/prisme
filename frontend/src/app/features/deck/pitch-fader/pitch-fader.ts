@@ -4,6 +4,7 @@ import { EngineService } from '../../../core/services/engine.service';
 import { TPipe } from '../../../core/i18n/t.pipe';
 import { Fader } from '../../../shared/fader/fader';
 import { Press } from '../../../shared/press';
+import { AssignTarget, deckAction } from '../../../shared/assign/assign';
 
 /**
  * The tempo fader at the end of a deck's lane, where a turntable has it and the same way
@@ -21,6 +22,7 @@ import { Press } from '../../../shared/press';
         [title]="'Tempo down 0.1 % (held, on down)' | t"
         [attr.aria-label]="'Tempo down 0.1 % (held, on down)' | t"
         [disabled]="tempo.held()"
+        [appAssign]="action('tempo.down')"
         (press)="engine.press(deck(), 'tempo.down')"
         (release)="engine.release(deck(), 'tempo.down', $event)"
       >
@@ -32,6 +34,7 @@ import { Press } from '../../../shared/press';
       <app-fader
         orientation="vertical"
         centered
+        [appAssign]="action('pitch')"
         [value]="1 - tempo.position()"
         [defaultValue]="0.5"
         (valueChange)="engine.moveTempo(deck(), 1 - $event)"
@@ -54,6 +57,7 @@ import { Press } from '../../../shared/press';
         [title]="'Tempo up 0.1 % (held, on up)' | t"
         [attr.aria-label]="'Tempo up 0.1 % (held, on up)' | t"
         [disabled]="tempo.held()"
+        [appAssign]="action('tempo.up')"
         (press)="engine.press(deck(), 'tempo.up')"
         (release)="engine.release(deck(), 'tempo.up', $event)"
       >
@@ -135,10 +139,14 @@ import { Press } from '../../../shared/press';
     }
   `,
   host: { '[class.compact]': 'compact()' },
-  imports: [Fader, TPipe, Press],
+  imports: [Fader, TPipe, Press, AssignTarget],
 })
 export class PitchFader {
   readonly deck = input.required<number>();
+  /** The action `name` of this deck, for the assigning mode. */
+  protected action(name: string): string {
+    return deckAction(this.deck(), name);
+  }
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
 
