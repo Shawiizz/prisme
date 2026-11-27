@@ -255,7 +255,9 @@ fn data_dir<R: tauri::Runtime>(app: &impl Manager<R>) -> Option<PathBuf> {
         .or_else(|| app.path().app_data_dir().inspect_err(|e| warn!("no data folder: {e}")).ok())
 }
 
-/// The window as the platform needs it, before anything shows in it.
+/// The window as the platform needs it, before anything shows in it. Linux needs nothing of
+/// the app.
+#[cfg_attr(target_os = "linux", allow(unused_variables))]
 fn prepare_window(app: &tauri::App) {
     #[cfg(windows)]
     browser_keys_off(app);
