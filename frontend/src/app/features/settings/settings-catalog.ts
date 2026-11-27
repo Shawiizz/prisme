@@ -386,7 +386,7 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
     label: () => t('Decks window layout'),
     description: () =>
       t(
-        'As a controller, the waveforms across the screen and the pads and mixer under them; or a lane per deck, as in the main window. Auto takes the lanes on a screen far wider than high.',
+        'As a controller, the waveforms across the screen and the pads and mixer under them; or a lane per deck, as in the main window. Automatic takes the lanes on a screen far wider than high.',
       ),
   },
   {

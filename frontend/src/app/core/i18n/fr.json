@@ -1058,7 +1058,7 @@
   "Keep": "Garder",
   "another action": "une autre action",
   "Decks window layout": "Disposition des decks à part",
-  "As a controller, the waveforms across the screen and the pads and mixer under them; or a lane per deck, as in the main window. Auto takes the lanes on a screen far wider than high.": "Comme un contrôleur, les waveforms sur toute la largeur et les pads et le mixer dessous ; ou un couloir par deck, comme dans la fenêtre principale. Auto prend les couloirs sur un écran bien plus large que haut.",
+  "As a controller, the waveforms across the screen and the pads and mixer under them; or a lane per deck, as in the main window. Automatic takes the lanes on a screen far wider than high.": "Comme un contrôleur, les waveforms sur toute la largeur et les pads et le mixer dessous ; ou un couloir par deck, comme dans la fenêtre principale. Automatique prend les couloirs sur un écran bien plus large que haut.",
   "Lanes": "Couloirs",
   "Without the system's bars. Else Prisme opens filling its screen. F11 switches at any time.": "Sans les barres du système. Sinon Prisme s'ouvre en remplissant son écran. F11 bascule à tout moment.",
   "Their screen is not plugged in: the decks are in the main window until it is.": "Leur écran n'est pas branché : les decks sont dans la fenêtre principale en attendant.",
