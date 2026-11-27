@@ -37,22 +37,16 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
     <footer class="hands" [class.mixing]="mixer.internal()">
       @for (side of sides(); track $index) {
         <div class="side pr-panel" [class.right]="$index === 1">
-          <div class="pitches">
-            @for (deck of side; track deck) {
+          @for (deck of side; track deck) {
+            <div class="deck-hands">
               <app-pitch-fader [deck]="deck" compact />
-            }
-          </div>
-          <div class="decks">
-            @for (deck of side; track deck) {
-              <div class="deck-hands">
-                @if (four()) {
-                  <span class="pr-tile letter">{{ letter(deck) }}</span>
-                }
-                <div class="rail"><app-deck-controls [deck]="deck" /></div>
-                <div class="rail pads"><app-deck-pads [deck]="deck" /></div>
-              </div>
-            }
-          </div>
+              @if (four()) {
+                <span class="pr-tile letter">{{ letter(deck) }}</span>
+              }
+              <div class="rail"><app-deck-controls [deck]="deck" /></div>
+              <div class="rail pads"><app-deck-pads [deck]="deck" /></div>
+            </div>
+          }
         </div>
         @if ($first && mixer.internal()) {
           <div class="mixer pr-panel">
@@ -116,48 +110,64 @@ import { PitchFader } from '../deck/pitch-fader/pitch-fader';
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
       }
     }
-    // a deck's side as on a controller, the right one in a mirror: the pitch faders at the
-    // outer edge, the transport over the pads
+    // a deck's side as on a controller, the right one in a mirror: its pitch fader at the
+    // outer edge, the transport over the pads; with four decks, a deck a row, its letter
+    // between its pitch fader and the rest, a line between the two
     .side {
-      display: flex;
-      gap: 10px;
-      padding: 10px;
-      min-width: 0;
-      &.right {
-        flex-direction: row-reverse;
-      }
-    }
-    .pitches {
-      display: flex;
-      gap: 4px;
-      app-pitch-fader {
-        width: 32px;
-      }
-    }
-    .decks {
-      flex: 1;
-      min-width: 0;
       display: grid;
       grid-auto-rows: minmax(0, 1fr);
-      gap: 10px;
+      padding: 10px;
+      min-width: 0;
     }
     .deck-hands {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr);
+      grid-template-columns: 32px minmax(0, 1fr);
       grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        'pitch rail'
+        'pitch pads';
       gap: 10px;
-    }
-    :host(.four) .deck-hands {
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 6px 8px;
-      .rail {
-        grid-column: 2;
+      & + & {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid var(--pr-line);
       }
     }
+    .right .deck-hands {
+      grid-template-columns: minmax(0, 1fr) 32px;
+      grid-template-areas:
+        'rail pitch'
+        'pads pitch';
+    }
+    :host(.four) {
+      .deck-hands {
+        grid-template-columns: 32px auto minmax(0, 1fr);
+        grid-template-areas:
+          'pitch letter rail'
+          'pitch letter pads';
+        gap: 6px 8px;
+      }
+      .right .deck-hands {
+        grid-template-columns: minmax(0, 1fr) auto 32px;
+        grid-template-areas:
+          'rail letter pitch'
+          'pads letter pitch';
+      }
+    }
+    app-pitch-fader {
+      grid-area: pitch;
+      min-height: 0;
+    }
     .letter {
-      grid-row: span 2;
+      grid-area: letter;
       align-self: center;
+    }
+    .rail {
+      grid-area: rail;
+    }
+    .rail.pads {
+      grid-area: pads;
     }
     // the transport and the pads as on a lane's rail, sized by its width
     .rail {
