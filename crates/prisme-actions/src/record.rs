@@ -135,7 +135,9 @@ pub fn refuses(action: DeckAction, set: impl FnOnce(usize) -> bool) -> bool {
         | DeckAction::Phase
         | DeckAction::PhaseAhead
         | DeckAction::PhaseBehind
-        | DeckAction::LoopAny => false,
+        | DeckAction::LoopAny
+        | DeckAction::Pads(_)
+        | DeckAction::PadsPage => false,
     }
 }
 

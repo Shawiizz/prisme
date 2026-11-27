@@ -178,7 +178,10 @@ fn needs(action: DeckAction) -> Needs {
         | DeckAction::Phase
         | DeckAction::PhaseAhead
         | DeckAction::PhaseBehind
-        | DeckAction::LoopAny => Needs::Nothing,
+        | DeckAction::LoopAny
+        // the screen's pads, which any deck shows
+        | DeckAction::Pads(_)
+        | DeckAction::PadsPage => Needs::Nothing,
     }
 }
 

@@ -177,6 +177,14 @@ actions! {
 }
 
 actions! {
+    /// A page of a deck's pads on the screen.
+    PadView {
+        Button: Cues = "cues", Loops = "loops", Roll = "roll", Jump = "jump", Slice = "slice",
+            Cut = "cut", Fx = "fx", Sampler = "sampler";
+    }
+}
+
+actions! {
     /// A band of a deck's EQ.
     Band {
         Button: Low = "low", Mid = "mid", High = "high";
@@ -306,7 +314,8 @@ actions! {
             GridPin = "grid.pin", GridUnpin = "grid.unpin",
             GridEarlier = "grid.earlier", GridLater = "grid.later", GridFaster = "grid.faster",
             GridSlower = "grid.slower", Tap = "tap", SlipHeld = "slip.held",
-            FilterToggle = "filter.toggle", FxPart = "fx.part", JogTouch = "jog.touch";
+            FilterToggle = "filter.toggle", FxPart = "fx.part", JogTouch = "jog.touch",
+            PadsPage = "pads.page";
         Fader: Pitch = "pitch", Volume = "volume", Trim = "trim", Filter = "filter",
             Position = "position", Key = "key", SamplerGain = "sampler.gain", FxSuper = "fx.super";
         Encoder: Jog = "jog", JogSearch = "jog.search", Size = "size", Tempo = "tempo",
@@ -328,6 +337,8 @@ actions! {
         FxKnob(usize),
         Stem(StemPart),
         StemLevel(StemPart),
+        /// The page of the deck's pads shown on the screen.
+        Pads(PadView),
         Eq(Band),
         EqKill(Band),
         /// The band killed, or back.
@@ -467,7 +478,9 @@ impl Target {
                 | GeneralAction::Decks
                 | GeneralAction::Assign
                 | GeneralAction::Close,
-            ) => Owner::Interface,
+            )
+            // the pads shown are the screen's
+            | Target::Deck(_, DeckAction::Pads(_) | DeckAction::PadsPage) => Owner::Interface,
             Target::Shift(_) | Target::Mode { .. } => Owner::Reader,
             _ => Owner::Rust,
         }
@@ -636,7 +649,11 @@ mod tests {
         ];
         assert_eq!("shift".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
         assert_eq!("mode.pads.roll".parse::<Target>().map(|t| t.owner()), Ok(Owner::Reader));
-        let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).collect();
+        let pads = (1..=MAX_DECKS).flat_map(|deck| {
+            ["cues", "loops", "roll", "jump", "slice", "cut", "fx", "sampler", "page"]
+                .map(|page| format!("deck{deck}.pads.{page}"))
+        });
+        let expected: BTreeSet<String> = windows.iter().map(|id| id.to_string()).chain(pads).collect();
         assert_eq!(ui, expected);
     }
 }

@@ -139,6 +139,9 @@ impl DeckAction {
     }
 
     fn of_part(id: &str) -> Option<Self> {
+        if let Some(view) = id.strip_prefix("pads.").and_then(PadView::named) {
+            return Some(DeckAction::Pads(view));
+        }
         if let Some(part) = StemPart::named(id) {
             return Some(DeckAction::Stem(part));
         }
@@ -200,6 +203,7 @@ impl fmt::Display for DeckAction {
             DeckAction::FxKnob(n) => write!(f, "fx.knob{}", slot(n)),
             DeckAction::Stem(part) => f.write_str(part.id()),
             DeckAction::StemLevel(part) => write!(f, "{}.level", part.id()),
+            DeckAction::Pads(view) => write!(f, "pads.{}", view.id()),
             DeckAction::Eq(band) => write!(f, "eq.{}", band.id()),
             DeckAction::EqKill(band) => write!(f, "eq.{}.kill", band.id()),
             DeckAction::EqKillToggle(band) => write!(f, "eq.{}.kill.toggle", band.id()),

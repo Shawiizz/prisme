@@ -1049,6 +1049,9 @@ mod tests {
         let ids = listed.iter().map(String::as_str).chain(measured);
         let told: Vec<&str> =
             ids.filter(|&id| matches!(Action::of(&id.into(), 1.0, false, None), Action::Ui(..))).collect();
+        // the pads each deck shows on the screen
+        let (pads, told): (Vec<&str>, Vec<&str>) = told.into_iter().partition(|id| id.contains(".pads."));
+        assert_eq!(pads.len(), 4 * 9, "{pads:?}");
         assert_eq!(
             told,
             [

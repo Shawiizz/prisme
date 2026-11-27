@@ -81,6 +81,8 @@ fn deck_actions() -> Vec<DeckAction> {
     }
     all.extend(StemPart::NAMED.iter().map(|part| Stem(*part)));
     all.extend(StemPart::NAMED.iter().map(|part| StemLevel(*part)));
+    all.extend(PadView::NAMED.iter().map(|view| Pads(*view)));
+    all.push(PadsPage);
     all.extend((0..SAMPLE_SLOTS).map(|slot| Sample(slot, SampleAction::Trigger)));
     for slot in 0..FX_SLOTS {
         let mut actions: Vec<FxAction> = Turn::ALL.map(FxAction::Enabled).to_vec();

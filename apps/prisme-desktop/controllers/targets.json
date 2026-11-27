@@ -546,6 +546,60 @@
   "kind": "fader"
  },
  {
+  "id": "deck1.pads.cues",
+  "group": "Deck A",
+  "label": "Pads: hot cues",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.loops",
+  "group": "Deck A",
+  "label": "Pads: loops",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.roll",
+  "group": "Deck A",
+  "label": "Pads: rolls",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.jump",
+  "group": "Deck A",
+  "label": "Pads: beat jumps",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.slice",
+  "group": "Deck A",
+  "label": "Pads: slicer",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.cut",
+  "group": "Deck A",
+  "label": "Pads: fader cuts",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.fx",
+  "group": "Deck A",
+  "label": "Pads: effects",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.sampler",
+  "group": "Deck A",
+  "label": "Pads: sampler",
+  "kind": "button"
+ },
+ {
+  "id": "deck1.pads.page",
+  "group": "Deck A",
+  "label": "Pads: the other page (1–8, 9–16)",
+  "kind": "button"
+ },
+ {
   "id": "deck1.sample1",
   "group": "Deck A",
   "label": "Sample 1",
@@ -2710,6 +2764,60 @@
   "group": "Deck B",
   "label": "Melody level",
   "kind": "fader"
+ },
+ {
+  "id": "deck2.pads.cues",
+  "group": "Deck B",
+  "label": "Pads: hot cues",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.loops",
+  "group": "Deck B",
+  "label": "Pads: loops",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.roll",
+  "group": "Deck B",
+  "label": "Pads: rolls",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.jump",
+  "group": "Deck B",
+  "label": "Pads: beat jumps",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.slice",
+  "group": "Deck B",
+  "label": "Pads: slicer",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.cut",
+  "group": "Deck B",
+  "label": "Pads: fader cuts",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.fx",
+  "group": "Deck B",
+  "label": "Pads: effects",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.sampler",
+  "group": "Deck B",
+  "label": "Pads: sampler",
+  "kind": "button"
+ },
+ {
+  "id": "deck2.pads.page",
+  "group": "Deck B",
+  "label": "Pads: the other page (1–8, 9–16)",
+  "kind": "button"
  },
  {
   "id": "deck2.sample1",
@@ -4878,6 +4986,60 @@
   "kind": "fader"
  },
  {
+  "id": "deck3.pads.cues",
+  "group": "Deck C",
+  "label": "Pads: hot cues",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.loops",
+  "group": "Deck C",
+  "label": "Pads: loops",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.roll",
+  "group": "Deck C",
+  "label": "Pads: rolls",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.jump",
+  "group": "Deck C",
+  "label": "Pads: beat jumps",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.slice",
+  "group": "Deck C",
+  "label": "Pads: slicer",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.cut",
+  "group": "Deck C",
+  "label": "Pads: fader cuts",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.fx",
+  "group": "Deck C",
+  "label": "Pads: effects",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.sampler",
+  "group": "Deck C",
+  "label": "Pads: sampler",
+  "kind": "button"
+ },
+ {
+  "id": "deck3.pads.page",
+  "group": "Deck C",
+  "label": "Pads: the other page (1–8, 9–16)",
+  "kind": "button"
+ },
+ {
   "id": "deck3.sample1",
   "group": "Deck C",
   "label": "Sample 1",
@@ -7042,6 +7204,60 @@
   "group": "Deck D",
   "label": "Melody level",
   "kind": "fader"
+ },
+ {
+  "id": "deck4.pads.cues",
+  "group": "Deck D",
+  "label": "Pads: hot cues",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.loops",
+  "group": "Deck D",
+  "label": "Pads: loops",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.roll",
+  "group": "Deck D",
+  "label": "Pads: rolls",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.jump",
+  "group": "Deck D",
+  "label": "Pads: beat jumps",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.slice",
+  "group": "Deck D",
+  "label": "Pads: slicer",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.cut",
+  "group": "Deck D",
+  "label": "Pads: fader cuts",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.fx",
+  "group": "Deck D",
+  "label": "Pads: effects",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.sampler",
+  "group": "Deck D",
+  "label": "Pads: sampler",
+  "kind": "button"
+ },
+ {
+  "id": "deck4.pads.page",
+  "group": "Deck D",
+  "label": "Pads: the other page (1–8, 9–16)",
+  "kind": "button"
  },
  {
   "id": "deck4.sample1",
