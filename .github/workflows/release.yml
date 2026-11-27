@@ -50,13 +50,10 @@ jobs:
         if: runner.os != 'Windows'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/prisme-desktop
           tauriScript: npx --yes @tauri-apps/cli@2.12.2
-          # signed update packages: only here, where the signing key is
-          args: --config tauri.release.conf.json ${{ matrix.args }}
+          args: ${{ matrix.args }}
       # Windows: Prisme alone, packed and signed for the copies that update themselves, then
       # carried by Prisme's own installer, which the versions before 0.7 run as their update
       - name: Prisme for Windows
@@ -77,27 +74,34 @@ jobs:
             cargo build --release -p prisme-setup
           cp target/release/prisme-setup.exe "packages/Prisme-$TAG-windows-x64.exe"
           for package in packages/*; do $tauri signer sign "$package"; done
-      # the packages under Prisme's names (docs/STANDARDS.md), each with its signature
+      # the packages under Prisme's names (docs/STANDARDS.md), those the copies update from
+      # signed with the releases' key: on a Mac the application packed, on Linux the AppImage
+      # and the .deb themselves
       - name: The packages
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           out=packages
           mkdir -p "$out"
-          put() {
-            cp "$1" "$out/$2"
-            if [ -f "$1.sig" ]; then cp "$1.sig" "$out/$2.sig"; fi
+          sign() {
+            for package in "$@"; do npx --yes @tauri-apps/cli@2.12.2 signer sign "$package"; done
           }
           case "$RUNNER_OS" in
             Linux)
-              put target/release/bundle/appimage/*.AppImage "Prisme-$TAG-linux-x64.AppImage"
-              put target/release/bundle/deb/*.deb "Prisme-$TAG-linux-x64.deb" ;;
+              cp target/release/bundle/appimage/*.AppImage "$out/Prisme-$TAG-linux-x64.AppImage"
+              cp target/release/bundle/deb/*.deb "$out/Prisme-$TAG-linux-x64.deb"
+              sign "$out/Prisme-$TAG-linux-x64.AppImage" "$out/Prisme-$TAG-linux-x64.deb" ;;
             macOS)
               bundle=target/universal-apple-darwin/release/bundle
-              put "$bundle"/dmg/*.dmg "Prisme-$TAG-macos-universal.dmg"
-              put "$bundle"/macos/*.app.tar.gz "Prisme-$TAG-macos-universal-update.tar.gz" ;;
+              cp "$bundle"/dmg/*.dmg "$out/Prisme-$TAG-macos-universal.dmg"
+              # the bundle at the top of the archive, without the Finder's own files
+              app=$(basename "$bundle"/macos/*.app)
+              COPYFILE_DISABLE=1 tar -czf "$out/Prisme-$TAG-macos-universal-update.tar.gz"                 -C "$bundle/macos" "$app"
+              sign "$out/Prisme-$TAG-macos-universal-update.tar.gz" ;;
           esac
           gh release upload "$TAG" "$out"/* --clobber
 
