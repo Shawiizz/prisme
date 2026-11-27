@@ -360,7 +360,7 @@ mod tests {
     fn measured_actions_say_their_number() {
         let label = |id: &str| id.parse::<Target>().unwrap().label().english();
         assert_eq!(label("deck2.jump.-8"), "Jump -8 beats");
-        assert_eq!(label("deck1.loop.0.5"), "Loop 0.5 beats");
+        assert_eq!(label("deck1.loop.0.5"), "Loop 1/2 beats");
         assert_eq!(label("deck1.key.+2"), "Key moved 2 semitones");
         assert_eq!(label("deck2.sample3.velocity"), "Sample 3 (as hard as the pad is hit)");
         assert_eq!(label("deck1.cut1"), "Fader cut on 1/16 while held");

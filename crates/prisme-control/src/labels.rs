@@ -158,9 +158,9 @@ fn deck_label(action: DeckAction) -> Label {
             return Label::new("Fader cut on {beats} while held").with("beats", beats_text(CUT_BEATS[n]))
         }
         Fx(slot, action) => return fx_label(slot, action),
-        JumpBeats(Beats(n)) => return Label::new("Jump {n} beats").with("n", n),
-        LoopBeats(Beats(n)) => return Label::new("Loop {n} beats").with("n", n),
-        RollBeats(Beats(n)) => return Label::new("Roll {n} beats while held").with("n", n),
+        JumpBeats(Beats(n)) => return Label::new("Jump {n} beats").with("n", beats_text(n)),
+        LoopBeats(Beats(n)) => return Label::new("Loop {n} beats").with("n", beats_text(n)),
+        RollBeats(Beats(n)) => return Label::new("Roll {n} beats while held").with("n", beats_text(n)),
         KeyTo(n) => return Label::new("Key moved {n} semitones").with("n", n),
         FxKnob(knob) => [
             "Effect knob 1: effect 1's amount, or the focused effect's",
