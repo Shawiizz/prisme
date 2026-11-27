@@ -5,6 +5,9 @@ import { ControllerService } from '../control/controller.service';
 import { KeyboardService } from '../keyboard/keyboard.service';
 import { PreferencesService } from '../services/preferences.service';
 import { EngineService } from '../services/engine.service';
+import { PerformanceService } from '../services/performance.service';
+import { labelText } from '../i18n/i18n';
+import { deckLetter } from '../../shared/time';
 import { errorText } from '../errors';
 import { describeMapping } from '../models/controllers';
 import type { Key, TakenKey } from '../models/backend';
@@ -56,6 +59,7 @@ export class AssignService {
   private readonly controllers = inject(ControllerService);
   private readonly preferences = inject(PreferencesService);
   private readonly engine = inject(EngineService);
+  private readonly performance = inject(PerformanceService);
 
   readonly on = signal(false);
   readonly way = signal<AssignWay>('keys');
@@ -116,15 +120,34 @@ export class AssignService {
 
   /** `control` can take what the mode gives: a key only for a key's action. */
   allows(control: string): boolean {
-    const found = this.controls.find(control);
+    const found = this.controls.find(control) ?? this.pad(control);
     if (!found?.inUse) return false;
     return this.way() === 'controller' ? this.canLearn() : found.kind === 'button';
   }
 
   /** What names the action: "PLAY · Deck A". */
   name(control: string): { label: string; group: string } {
-    const found = this.controls.find(control);
+    const found = this.controls.find(control) ?? this.pad(control);
     return { label: found?.label ?? control, group: found?.group ?? '' };
+  }
+
+  /** A pad's action the actions listed leave out, measured in beats (`deck1.loop.0.25`): the
+   * pads tell what it is called. */
+  private pad(control: string) {
+    const [, number, action] = /^deck(\d)\.(.+)$/.exec(control) ?? [];
+    if (!number) return undefined;
+    const deck = Number(number) - 1;
+    const pad = this.performance
+      .pages()
+      .flatMap((page) => page.pads)
+      .find((pad) => pad.action === action);
+    if (!pad) return undefined;
+    return {
+      label: labelText(pad.label),
+      group: labelText({ key: 'Deck {deck}', params: { deck: deckLetter(deck) } }),
+      kind: 'button',
+      inUse: this.engine.deckIndexes().includes(deck),
+    };
   }
 
   /** The keys of `control`, as printed on the user's keyboard. */
@@ -256,10 +279,12 @@ export class AssignService {
   private readonly hold = (event: Event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (target?.closest(ITS_OWN)) return;
+    const element = target?.closest<HTMLElement>('[data-assign]');
+    // a tab picked shows what it opens: the pads under it can be given keys next
+    if (event.type === 'click' && element?.hasAttribute('data-assign-opens')) return;
     event.preventDefault();
     event.stopImmediatePropagation();
     if (event.type !== 'pointerdown' || (event as PointerEvent).button !== 0) return;
-    const element = target?.closest<HTMLElement>('[data-assign]');
     const control = element?.dataset['assign'];
     if (element && control && this.allows(control)) this.pick(control, element);
     else this.drop();

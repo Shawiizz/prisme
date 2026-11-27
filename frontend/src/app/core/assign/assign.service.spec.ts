@@ -4,11 +4,20 @@ import { vi } from 'vitest';
 import { AssignService } from './assign.service';
 import { KeyboardService } from '../keyboard/keyboard.service';
 import { EngineService } from '../services/engine.service';
+import { PerformanceService } from '../services/performance.service';
 import { tellPreferences } from '../services/preferences.service';
 import type { ControlState } from '../models/engine';
-import type { Preferences, Target, TakenKey } from '../models/backend';
+import type { EngineStatus, Preferences, Target, TakenKey } from '../models/backend';
 
 const TARGETS: Target[] = [
+  {
+    id: 'deck1.pads.loops',
+    kind: 'button',
+    deck: 0,
+    group: { key: 'Deck {deck}', params: { deck: 'A' } },
+    label: { key: 'Pads: loops' },
+    inUse: true,
+  },
   {
     id: 'deck1.play',
     kind: 'button',
@@ -63,6 +72,8 @@ describe('AssignService', () => {
       <button id="play" data-assign="deck1.play"></button>
       <div id="volume" data-assign="deck1.volume"></div>
       <button id="other"></button>
+      <button id="loops" data-assign="deck1.pads.loops" data-assign-opens></button>
+      <button id="quarter" data-assign="deck1.loop.0.25"></button>
       <div data-assign-ui><button id="done"></button></div>`;
     // the actions listed
     TestBed.inject(AssignService);
@@ -129,6 +140,28 @@ describe('AssignService', () => {
       { control: 'deck1.play', keys: [{ code: 'KeyP' }], take: true },
     ]);
     expect(assign.chosen()).toBeNull();
+  });
+
+  it('show what a tab opens as it is picked, its pads then given keys too', () => {
+    const assign = TestBed.inject(AssignService);
+    TestBed.inject(EngineService).status.set({ decks: [{}, {}] } as unknown as EngineStatus);
+    TestBed.inject(PerformanceService).pages.set([
+      {
+        page: 'loops',
+        pads: [{ action: 'loop.0.25', caption: '1/4', label: { key: 'Loop 1/4' }, effect: null }],
+      },
+    ]);
+    const opened = vi.fn();
+    document.getElementById('loops')!.addEventListener('click', opened);
+    assign.begin();
+
+    press('loops');
+    expect(opened).toHaveBeenCalledTimes(1);
+    expect(assign.chosen()?.control).toBe('deck1.pads.loops');
+    expect(assign.allows('deck1.loop.0.25')).toBe(true);
+    press('quarter');
+    expect(assign.chosen()?.control).toBe('deck1.loop.0.25');
+    expect(assign.name('deck1.loop.0.25')).toEqual({ label: 'Loop 1/4', group: 'Deck A' });
   });
 
   it('give a key only to a key’s action, a controller’s control only with one open', () => {

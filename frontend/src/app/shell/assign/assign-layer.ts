@@ -13,12 +13,14 @@ interface Cap {
   y: number;
 }
 
-/** Where the bubble is: beside its button, on the side with room. */
+/** Where the bubble is: under its button, or over it where there is no room under. */
 interface Place {
   x: number;
   y: number;
-  /** On the button's left. */
-  left: boolean;
+  /** Over the button. */
+  above: boolean;
+  /** Where its arrow points, from its left edge (px). */
+  arrow: number;
 }
 
 /** Between the button and its bubble. */
@@ -48,7 +50,8 @@ const BUBBLE_WIDTH = 320;
         #bubble
         class="bubble"
         data-assign-ui
-        [class.left]="at?.left"
+        [class.above]="at?.above"
+        [style.--arrow.px]="at?.arrow"
         [style.left.px]="at?.x ?? -9999"
         [style.top.px]="at?.y ?? -9999"
         role="dialog"
@@ -191,18 +194,18 @@ const BUBBLE_WIDTH = 320;
       &::before {
         content: '';
         position: absolute;
-        top: 18px;
-        left: -7px;
+        top: -7px;
+        left: calc(var(--arrow, 24px) - 6px);
         width: 12px;
         height: 12px;
         background: var(--pr-raise);
         border-left: 1px solid var(--pr-line-2);
-        border-bottom: 1px solid var(--pr-line-2);
+        border-top: 1px solid var(--pr-line-2);
         transform: rotate(45deg);
       }
-      &.left::before {
-        left: auto;
-        right: -7px;
+      &.above::before {
+        top: auto;
+        bottom: -7px;
         transform: rotate(225deg);
       }
     }
@@ -378,15 +381,17 @@ export class AssignLayer {
     this.place.set(place);
   }
 
-  /** Beside the button chosen, on the right if there is room, held inside the window. */
+  /** Under the button chosen, or over it where there is no room under: off the row it is on,
+   * whose other buttons stay in sight to be picked next; held inside the window. */
   private placeBubble(): Place | null {
     const chosen = this.assign.chosen();
     if (!chosen) return null;
     const r = chosen.element.getBoundingClientRect();
     const height = this.bubble()?.nativeElement.offsetHeight ?? 200;
-    const left = r.right + GAP + BUBBLE_WIDTH > innerWidth - 8;
-    const x = left ? r.left - GAP - BUBBLE_WIDTH : r.right + GAP;
-    const y = Math.min(Math.max(r.top - 6, 8), innerHeight - height - 8);
-    return { x: Math.round(x), y: Math.round(y), left };
+    const above = r.bottom + GAP + height > innerHeight - 8 && r.top - GAP - height >= 8;
+    const y = above ? r.top - GAP - height : r.bottom + GAP;
+    const x = Math.min(Math.max(r.left + r.width / 2 - 40, 8), innerWidth - BUBBLE_WIDTH - 8);
+    const arrow = Math.min(Math.max(r.left + r.width / 2 - x, 16), BUBBLE_WIDTH - 16);
+    return { x: Math.round(x), y: Math.round(y), above, arrow: Math.round(arrow) };
   }
 }

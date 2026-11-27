@@ -1,4 +1,4 @@
-import { Directive, computed, inject, input } from '@angular/core';
+import { Directive, booleanAttribute, computed, inject, input } from '@angular/core';
 import { AssignService } from '../../core/assign/assign.service';
 
 /** The action `action` of deck `deck` (0 for A): `deck1.play`. */
@@ -16,6 +16,7 @@ export function deckAction(deck: number, action: string): string {
   selector: '[appAssign],[appAssignControl]',
   host: {
     '[attr.data-assign]': 'control()',
+    '[attr.data-assign-opens]': 'opens() || null',
     '[class.pr-assignable]': 'open()',
     '[class.pr-assign-chosen]': 'open() && assign.chosen()?.control === control()',
     '[class.pr-assign-pointed]': 'open() && assign.pointed() === control()',
@@ -26,6 +27,8 @@ export class AssignTarget {
   readonly pressed = input<string | null>(null, { alias: 'appAssign' });
   /** What a controller's control does when it is turned or slid: a knob's, a fader's. */
   readonly moved = input<string | null>(null, { alias: 'appAssignControl' });
+  /** A tab, or a page: picked, it shows what it opens too, for its own keys to be given next. */
+  readonly opens = input(false, { alias: 'appAssignOpens', transform: booleanAttribute });
   protected readonly assign = inject(AssignService);
   /** The action the mode gives a key or a control now. */
   protected readonly control = computed(() =>

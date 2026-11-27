@@ -4,6 +4,7 @@
       role="radio"
       [attr.aria-checked]="mode() === m.id"
       [appAssign]="action('pads.' + m.id)"
+      appAssignOpens
       (click)="choose(m.id)"
     >
       {{ m.label }}
@@ -128,6 +129,7 @@
           class="pr-btn pr-btn--sm page"
           [title]="'The other page of pads' | t"
           [appAssign]="action('pads.page')"
+          appAssignOpens
           (click)="turnPage()"
         >
           {{ page() === 0 ? '1–8' : '9–16' }}
