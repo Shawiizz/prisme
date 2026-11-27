@@ -3,7 +3,7 @@ use crate::commands::blocking;
 use crate::dto::{PreferencesDto, TakenKeyDto, TargetDto};
 use crate::error::{AppError, AppResult};
 use crate::library_service::LibraryService;
-use crate::preferences::{DeckCount, KeyPreference, Preferences, UiPreferences, VinylSync};
+use crate::preferences::{DeckCount, DecksLayout, KeyPreference, Preferences, UiPreferences, VinylSync};
 use crate::shortcuts;
 use crate::state::{lock, AppState};
 use crate::stems_service::{self, StemsService};
@@ -46,6 +46,7 @@ pub enum Setting {
     PhoneTouch(Option<bool>),
     /// The main window full screen at the next start.
     StartFullscreen(bool),
+    DecksLayout(DecksLayout),
     /// Prisme mixes on the sound card of a controller with no mixer of its own.
     AllInOneMixes(bool),
     /// New versions downloaded and put in place by themselves (a computer's).
@@ -124,6 +125,7 @@ impl Setting {
             }
             Setting::PhoneTouch(touch) => p.ui.phone_touch = touch,
             Setting::StartFullscreen(on) => p.ui.start_fullscreen = on,
+            Setting::DecksLayout(layout) => p.ui.decks_layout = layout,
             Setting::AllInOneMixes(on) => {
                 p.mixer.all_in_one_mixes = on;
                 return Ok(Then::Route);
@@ -340,10 +342,12 @@ mod tests {
         let before = state.revision();
         change(&state, Setting::PhoneTouch(Some(false))).unwrap();
         change(&state, Setting::StartFullscreen(true)).unwrap();
+        change(&state, Setting::DecksLayout(DecksLayout::Lanes)).unwrap();
         let moved = state.moved_since(before);
         assert!(moved.contains(&crate::state::Section::Settings), "{moved:?}");
         let shown = PreferencesDto::of(&state);
         assert_eq!((shown.ui.phone_touch, shown.ui.start_fullscreen), (Some(false), true));
+        assert_eq!(shown.ui.decks_layout, DecksLayout::Lanes);
         assert_eq!(shown.choices.deck_counts, [2, 4]);
     }
 }

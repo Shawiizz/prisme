@@ -59,6 +59,22 @@ pub struct UiPreferences {
     /// The screen the decks are on in a window of their own (its id, see `list_screens`), else in the main
     /// window.
     pub decks_screen: Option<String>,
+    /// How the decks are laid out in their own window.
+    pub decks_layout: DecksLayout,
+}
+
+/// How the decks are laid out in their own window.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(test, derive(ts_rs::TS))]
+pub enum DecksLayout {
+    /// As the screen's shape asks: lanes on a screen far wider than high, else as a controller.
+    #[default]
+    Auto,
+    /// As a controller: the waveforms across the screen, the pads and the mixer under them.
+    Stage,
+    /// A lane a deck, as in the main window.
+    Lanes,
 }
 
 impl UiPreferences {

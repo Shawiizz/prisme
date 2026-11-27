@@ -79,16 +79,17 @@ const METER_SEGMENTS = 24;
       display: grid;
       grid-template-columns: auto auto auto;
       grid-template-areas: 'strip fader meter';
+      justify-content: center;
       gap: 8px;
       padding: 0;
       .strip {
         grid-area: strip;
         margin: 0;
         align-self: start;
-        grid-template-columns: 48px;
+        grid-template-columns: calc(var(--knob-size) + 18px);
         gap: 2px 0;
-        --knob-size: 30px;
-        --knob-label-width: 46px;
+        --knob-size: var(--pr-channel-knob, 30px);
+        --knob-label-width: calc(var(--knob-size) + 16px);
       }
       app-fader {
         grid-area: fader;

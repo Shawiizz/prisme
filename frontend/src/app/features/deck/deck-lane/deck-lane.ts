@@ -18,10 +18,10 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
 @Component({
   selector: 'app-deck-lane',
   template: `
-    <app-deck-card [deck]="deck()" [compact]="compact()" />
+    <app-deck-card [deck]="deck()" [compact]="compact()" [tall]="tall()" />
     <app-deck-waveform [deck]="deck()" [compact]="compact()" />
     @if (mixer.internal()) {
-      <app-channel-slot [deck]="deck()" [compact]="compact()" />
+      <app-channel-slot [deck]="deck()" [compact]="compact()" [column]="tall()" />
     }
     <app-pitch-fader [deck]="deck()" [compact]="compact()" />
     <div class="rail pr-panel">
@@ -59,6 +59,14 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
         grid-column: 1 / 3;
       }
     }
+    // a tall lane: its channel as on a controller, its knobs as large as its height lets them
+    // be (five, each with its name, over the headphones)
+    :host(.tall) app-channel-slot {
+      container-type: size;
+      --pr-channel-knob: clamp(32px, calc((100cqh - 112px) / 5), 60px);
+      column-gap: 12px;
+      padding-block: 12px;
+    }
     .rail {
       grid-column: 1 / -2;
       grid-row: 2;
@@ -81,7 +89,7 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
       background: var(--pr-line);
     }
   `,
-  host: { '[class.compact]': 'compact()' },
+  host: { '[class.compact]': 'compact()', '[class.tall]': 'tall()' },
   hostDirectives: [{ directive: DeckDropTarget, inputs: ['appDeckDropTarget: deck'] }],
   imports: [ChannelSlot, DeckCard, DeckControls, DeckDrop, DeckPads, DeckWaveform, PitchFader],
 })
@@ -89,5 +97,8 @@ export class DeckLane {
   readonly deck = input.required<number>();
   /** Half the height, for four decks. */
   readonly compact = input(false, { transform: booleanAttribute });
+  /** Tall, in the decks' own window: the card's figures larger, the channel's knobs one
+   * over the other. */
+  readonly tall = input(false, { transform: booleanAttribute });
   protected readonly mixer = inject(MixerService);
 }

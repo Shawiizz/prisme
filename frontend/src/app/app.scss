@@ -31,6 +31,10 @@
       --pr-lane-columns: var(--pr-compact-panel) minmax(0, 1fr) 210px 32px;
     }
   }
+  // tall lanes: their channel in a column, narrower, the waveforms wider
+  &.tall.mix {
+    --pr-lane-columns: var(--pr-deck-panel) minmax(0, 1fr) 150px 32px;
+  }
 }
 // a lane come or gone with the number of decks opens or closes, its gap above it too
 app-deck-lane {
@@ -74,11 +78,25 @@ app-phase-strip {
   min-height: 0;
 }
 
-// the decks' own window: the lanes share its height, their waveforms grow with it
+// the decks' own window: as a controller, or the lanes sharing its height, their waveforms
+// growing with it
 .layout.on-their-own {
   padding: var(--pr-space-2) 10px;
   app-stage {
     flex: 1;
+  }
+  .decks {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    --pr-lane-top: minmax(124px, 1fr);
+    --pr-lane-top-compact: minmax(44px, 1fr);
+    app-deck-lane {
+      flex: 1;
+      min-height: 0;
+    }
   }
 }
 

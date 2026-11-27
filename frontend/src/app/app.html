@@ -7,7 +7,11 @@
     }
   } @else if (DECKS_WINDOW) {
     <main class="layout on-their-own">
-      <app-stage />
+      @if (stage()) {
+        <app-stage />
+      } @else {
+        <ng-container [ngTemplateOutlet]="lanes" />
+      }
     </main>
   } @else {
     <app-titlebar />
@@ -42,11 +46,17 @@
   }
 }
 <ng-template #lanes>
-  <section class="decks" [class.mix]="mixer.internal()" [class.compact]="compact()">
+  <section
+    class="decks"
+    [class.mix]="mixer.internal()"
+    [class.compact]="compact()"
+    [class.tall]="tall()"
+  >
     @for (deck of decks(); track deck) {
       <app-deck-lane
         [deck]="deck"
         [compact]="compact()"
+        [tall]="tall()"
         animate.enter="lane-in"
         animate.leave="lane-out"
       />

@@ -36,6 +36,13 @@ import { ModelsDialog } from './features/stems/models-dialog';
 
 /** The height whole lanes for two decks take in the decks' own window (CSS px). */
 const WHOLE_LANES_PX = 420;
+/** The height from which the decks' own window gives two decks tall lanes (CSS px): the
+ * channel's knobs one over the other as on a controller beside them. */
+const TALL_LANES_PX = 780;
+/** The shape of a screen far wider than high (width over height), on which the decks' own
+ * window takes lanes by itself: what is under the waveforms of a controller would leave
+ * them too little height. */
+const WIDE_AND_SHORT = 2.6;
 
 /**
  * Main window layout: title bar, a lane per deck (compact ones for four decks) with the phase
@@ -64,7 +71,7 @@ const WHOLE_LANES_PX = 420;
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss',
-  host: { '(window:resize)': 'height.set($any($event.target).innerHeight)' },
+  host: { '(window:resize)': 'resized($any($event.target))' },
 })
 export class App implements OnInit {
   private readonly engine = inject(EngineService);
@@ -89,10 +96,22 @@ export class App implements OnInit {
   private readonly window = inject(WindowService);
   private readonly recording = inject(RecordingService);
   private readonly fileDrops = inject(FileDropService);
+  protected readonly width = signal(innerWidth);
   protected readonly height = signal(innerHeight);
+  /** The decks' own window as a controller, else in lanes: as chosen, or by its screen's
+   * shape. */
+  protected readonly stage = computed(() => {
+    const layout = this.preferences.ui().decksLayout;
+    if (layout === 'auto') return this.width() / this.height() <= WIDE_AND_SHORT;
+    return layout === 'stage';
+  });
   /** Four decks, or the decks' own window too short for whole lanes: compact lanes. */
   protected readonly compact = computed(
     () => this.decks().length > 2 || (DECKS_WINDOW && this.height() < WHOLE_LANES_PX),
+  );
+  /** Two decks on lanes tall enough for a controller's channel, in their own window. */
+  protected readonly tall = computed(
+    () => DECKS_WINDOW && !this.compact() && this.height() >= TALL_LANES_PX,
   );
   /** The library over the whole main window: what plays recalled above it. */
   protected readonly libraryOnly = computed(
@@ -102,6 +121,11 @@ export class App implements OnInit {
   constructor() {
     // a touch screen, a phone's or a laptop's, takes several fingers at once
     clickWithEveryFinger();
+  }
+
+  protected resized(window: Window) {
+    this.width.set(window.innerWidth);
+    this.height.set(window.innerHeight);
   }
 
   async ngOnInit() {

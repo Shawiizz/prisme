@@ -200,6 +200,58 @@
   }
 }
 
+// a tall lane of the decks' own window: the track larger, the time over the tempo and key,
+// read from afar
+:host(.tall) {
+  .card {
+    padding: var(--pr-space-3) var(--pr-space-4);
+  }
+  .cover {
+    width: 52px;
+    height: 52px;
+  }
+  .meta {
+    .title {
+      font-size: 18px;
+      line-height: 1.25;
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+    .artist {
+      font-size: 14px;
+    }
+  }
+  .readouts {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(6, auto);
+    row-gap: 3px;
+  }
+  .readouts > .pr-readout {
+    grid-row: 1 / span 3;
+  }
+  .analysis {
+    grid-row: 4 / span 3;
+    column-gap: 28px;
+    margin-top: var(--pr-space-4);
+  }
+  .readouts > .pr-readout .pr-readout__value {
+    font-size: 54px;
+  }
+  .pr-readout__value--mid {
+    font-size: 32px;
+  }
+  .pr-key--lg {
+    min-width: 64px;
+    height: 36px;
+    font-size: 19px;
+  }
+  .pr-readout__sub {
+    font-size: 12.5px;
+  }
+}
+
 // a band over a waveform of the decks' own window, on one line: the track at the left, the
 // figures at the right with their names before them
 :host(.band) {

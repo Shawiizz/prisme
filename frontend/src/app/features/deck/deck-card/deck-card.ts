@@ -35,6 +35,7 @@ const SEND_SEGMENTS = 10;
   host: {
     '[class.compact]': 'compact()',
     '[class.band]': 'band()',
+    '[class.tall]': 'tall()',
     '(contextmenu)': 'menu().openAt($event)',
   },
   imports: [Cover, DeckMenu, GridEditor, KeyChip, TPipe],
@@ -46,6 +47,9 @@ export class DeckCard {
   /** On one line across the decks' own window, over or under its waveform: the figures large,
    * read from afar. */
   readonly band = input(false, { transform: booleanAttribute });
+  /** On a tall lane of the decks' own window: the track and the figures larger, the time over
+   * the tempo and key. */
+  readonly tall = input(false, { transform: booleanAttribute });
 
   protected readonly engine = inject(EngineService);
   protected readonly menu = viewChild.required(DeckMenu);

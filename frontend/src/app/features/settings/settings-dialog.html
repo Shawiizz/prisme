@@ -845,6 +845,19 @@
                     </button>
                   </div>
                 </app-setting-row>
+                <app-setting-row id="interface.decksLayout">
+                  <div class="pr-seg pr-seg--lg" role="radiogroup" settingControl>
+                    @for (l of decksLayouts; track l.id) {
+                      <button
+                        role="radio"
+                        [attr.aria-checked]="preferences.ui().decksLayout === l.id"
+                        (click)="set('decksLayout', l.id)"
+                      >
+                        {{ l.label() }}
+                      </button>
+                    }
+                  </div>
+                </app-setting-row>
               }
             </div>
           </section>

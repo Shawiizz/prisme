@@ -381,6 +381,15 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
       ),
   },
   {
+    id: 'interface.decksLayout',
+    page: 'interface',
+    label: () => t('Decks window layout'),
+    description: () =>
+      t(
+        'As a controller, the waveforms across the screen and the pads and mixer under them; or a lane per deck, as in the main window. Auto takes the lanes on a screen far wider than high.',
+      ),
+  },
+  {
     id: 'interface.startFullscreen',
     page: 'interface',
     label: () => t('Start in full screen'),
@@ -422,6 +431,7 @@ const ALL_SETTINGS: readonly SettingEntry[] = [
 /** The settings a phone has no use for: it has one screen. */
 const COMPUTER_ONLY_SETTINGS: readonly string[] = [
   'interface.decksScreen',
+  'interface.decksLayout',
   'interface.startFullscreen',
   'about.automaticUpdates',
 ];

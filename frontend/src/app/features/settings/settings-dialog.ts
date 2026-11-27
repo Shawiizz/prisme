@@ -45,6 +45,7 @@ import type {
   AudioDevice,
   AudioDraft,
   AudioSettings,
+  DecksLayout,
   DeviceChoice,
   InputChannels,
   LatencyChannels,
@@ -141,6 +142,11 @@ export class SettingsDialog implements OnInit {
   protected readonly PHONE = PHONE;
   protected readonly ANDROID = ANDROID;
   protected readonly languages = LANGUAGES;
+  protected readonly decksLayouts: readonly { id: DecksLayout; label: () => string }[] = [
+    { id: 'auto', label: () => t('Automatic') },
+    { id: 'stage', label: () => t('Controller') },
+    { id: 'lanes', label: () => t('Lanes') },
+  ];
   protected readonly decks = this.engine.deckIndexes;
   /** What the settings offer where there are a few values. */
   protected readonly choices = this.preferences.choices;

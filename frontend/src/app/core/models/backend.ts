@@ -771,6 +771,11 @@ export type DeckStatus = {
 };
 
 /**
+ * How the decks are laid out in their own window.
+ */
+export type DecksLayout = "auto" | "stage" | "lanes";
+
+/**
  * A device chosen in the settings: the id its system gives it, by which it is found again, and
  * its name, shown, and by which the same model is found when its id is not there (see
  * [`DeviceRef`]).
@@ -2011,6 +2016,7 @@ export type Setting =
   | { "setting": "language"; "value": string | null }
   | { "setting": "phoneTouch"; "value": boolean | null }
   | { "setting": "startFullscreen"; "value": boolean }
+  | { "setting": "decksLayout"; "value": DecksLayout }
   | { "setting": "allInOneMixes"; "value": boolean }
   | { "setting": "automaticUpdates"; "value": boolean };
 
@@ -2417,6 +2423,10 @@ export type UiPreferences = {
    * window.
    */
   decksScreen: string | null;
+  /**
+   * How the decks are laid out in their own window.
+   */
+  decksLayout: DecksLayout;
 };
 
 /**
