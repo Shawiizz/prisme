@@ -28,7 +28,9 @@ pub mod waveform;
 
 pub use key::{Key, KeyConfig, KeyEstimate, Mode, Profiles};
 pub use loudness::{loudness, Loudness};
-pub use priority::{analysis_priority, background_priority, full_speed, normal_priority, set_full_speed};
+pub use priority::{
+    analysis_priority, background_priority, for_a_deck, full_speed, normal_priority, set_full_speed,
+};
 pub use stem_activity::{stem_activity, ACTIVITY_SLICES_PER_S};
 pub use tempo::{octave_ratio, Tempo, DEFAULT_MIN_BPM};
 pub use waveform::{compute_waveform, Waveform, WaveformBuilder};
@@ -143,11 +145,14 @@ fn analyze_signal(
     excerpts: &[Excerpt],
     options: &AnalysisOptions,
 ) -> TrackAnalysis {
+    // between its steps, it gives way to a deck that starts or waits for its own track
     let envelopes = onset::onset_envelopes(signal);
+    analysis_priority();
     let mut attacks = Vec::new();
     let tempo = tempo::estimate_tempo(&envelopes, options.min_bpm).map(|onsets| {
         let (first, then) = where_the_kick_plays(excerpts, &envelopes);
         let mut heard = beat_model::hear(&first, options.network_threads);
+        analysis_priority();
         let fitted = grid::fit_grid(signal, onsets);
         let on_onsets = grid::on_click(signal, fitted);
         let fitted = heard_beats(onsets, &heard)
@@ -165,6 +170,7 @@ fn analyze_signal(
             grid::kick_attacks(signal, fitted.bpm, fitted.first_beat_s).iter().map(|a| a.time_s).collect();
         let first_kick = attacks.first().copied();
         let music_start_s = first_kick.unwrap_or_else(|| envelopes.first_onset_s());
+        analysis_priority();
         let bars = on_bars(fitted, &heard, music_start_s);
         // an intro's first kicks may be hits off the bars: the sections know better
         let heard_on = beat_model::bar_start(&heard, bars.bpm, bars.first_beat_s).map(|beat| beat as usize);
@@ -172,6 +178,7 @@ fn analyze_signal(
         let downbeat_s = bars.first_beat_s + said.beat as f64 * bars.beat_period_s();
         Tempo { bars_sure: said.sure, ..first_bar(bars, downbeat_s, music_start_s) }
     });
+    analysis_priority();
     // a tempo that drifts: the grid pinned on the kicks, its tempo theirs on average
     let pinned = tempo.and_then(|steady| {
         let anchors = drift::follow(signal, &steady, &attacks).anchors?;

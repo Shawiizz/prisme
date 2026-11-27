@@ -153,13 +153,38 @@ impl Completion {
     pub fn run(self, app: &AppHandle) {
         let state = app.state::<AppState>();
         let library = app.state::<Arc<LibraryService>>();
-        // the track on the deck first: the library's analysis leaves it the processor
-        let awaited = self.analysis_missing.then(|| state.await_analysis());
+        let path = self.path.clone();
+        // a track never analysed: the deck waits for it from its decoding on, so the library's
+        // analysis takes no other track and every analysis under way stops until it is done
+        let duration_s = if self.analysis_missing {
+            let _awaited = state.await_analysis();
+            prisme_analysis::for_a_deck(|| self.complete(app, &state, &library))
+        } else {
+            self.complete(app, &state, &library)
+        };
+        // after the analysis, which a track dropped from the file manager has to go through:
+        // not both at once on the processor
+        if crate::stems_service::separates_on_load(&state) {
+            if let Err(e) =
+                app.state::<crate::stems_service::StemsService>().separate_played(&path, duration_s)
+            {
+                warn!("{} not separated: {e}", path.display());
+            }
+        }
+        // a track loaded from outside the music folder is told again by its audio too
+        if library.db.audio_id(&path).is_ok_and(|id| id.is_none()) {
+            prisme_library::remember_audio(&library.db, &path);
+        }
+    }
+
+    /// The rest of the track decoded, then what is made of it: its waveform, its level, and its
+    /// analysis if it has none. Returns its length (s).
+    fn complete(self, app: &AppHandle, state: &AppState, library: &LibraryService) -> f64 {
         let audio = self.loading.audio().clone();
         let mut feed = self.waveform_missing.then(|| WaveformFeed::new(&audio, WAVEFORM_SLICES_PER_S));
         let (audio, decoded) = self.loading.decode_rest_while(|| {
             if let Some(feed) = &mut feed {
-                feed.follow(&audio, &state);
+                feed.follow(&audio, state);
             }
             true
         });
@@ -169,7 +194,7 @@ impl Completion {
         // what is made of a file read in part serves the decks, but is not kept as the file's
         let stamp = self.stamp.filter(|_| decoded.is_ok());
         if let Some(feed) = feed {
-            let waveform = feed.finish(&audio, &state);
+            let waveform = feed.finish(&audio, state);
             if let Some(stamp) = stamp {
                 if let Err(e) = library.db.save_waveform(&self.path, stamp, &waveform) {
                     error!("waveform of {} not saved: {e}", self.path.display());
@@ -208,20 +233,6 @@ impl Completion {
                 let _ = state.send_if_running(Command::SetBeatGrid { deck, grid });
             }
         }
-        drop(awaited);
-        // after the analysis, which a track dropped from the file manager has to go through:
-        // not both at once on the processor
-        if crate::stems_service::separates_on_load(&state) {
-            if let Err(e) = app
-                .state::<crate::stems_service::StemsService>()
-                .separate_played(&self.path, audio.duration_s())
-            {
-                warn!("{} not separated: {e}", self.path.display());
-            }
-        }
-        // a track loaded from outside the music folder is told again by its audio too
-        if library.db.audio_id(&self.path).is_ok_and(|id| id.is_none()) {
-            prisme_library::remember_audio(&library.db, &self.path);
-        }
+        audio.duration_s()
     }
 }

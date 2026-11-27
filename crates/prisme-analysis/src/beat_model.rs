@@ -151,7 +151,9 @@ fn threads() -> Arc<rten::ThreadPool> {
             }
         }
     });
-    pool.run(|| rayon::broadcast(|_| crate::analysis_priority()));
+    // its threads work for the calling one: for a deck, or waiting for the deck's to be done
+    let for_a_deck = crate::priority::analysing_for_a_deck();
+    pool.run(|| rayon::broadcast(|_| crate::priority::as_for_a_deck(for_a_deck)));
     pool
 }
 
@@ -172,6 +174,8 @@ pub fn hear(excerpts: &[&Excerpt], threads: usize) -> Vec<Heard> {
         excerpts
             .iter()
             .filter_map(|excerpt| {
+                // between two excerpts, it gives way to a deck that starts or waits for its track
+                crate::analysis_priority();
                 let heard = network.analyze_audio(&excerpt.samples, excerpt.sample_rate).ok()?;
                 let sigmoid =
                     |logits: Vec<f32>| logits.into_iter().map(|x| 1.0 / (1.0 + (-x).exp())).collect();
