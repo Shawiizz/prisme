@@ -87,7 +87,8 @@ const METER_SEGMENTS = 24;
         margin: 0;
         align-self: start;
         grid-template-columns: calc(var(--knob-size) + 18px);
-        gap: 2px 0;
+        // a knob's name closer to it than to the knob under it
+        gap: 10px 0;
         --knob-size: var(--pr-channel-knob, 30px);
         --knob-label-width: calc(var(--knob-size) + 16px);
       }
@@ -102,10 +103,8 @@ const METER_SEGMENTS = 24;
       grid-template-areas: 'meter fader strip';
     }
     :host(.column.compact) .strip {
-      grid-template-columns: 42px;
-      gap: 0;
-      --knob-size: 24px;
-      --knob-label-width: 40px;
+      gap: 8px 0;
+      --knob-size: 30px;
     }
   `,
   host: {

@@ -63,7 +63,7 @@ import { PitchFader } from '../pitch-fader/pitch-fader';
     // be (five, each with its name, over the headphones)
     :host(.tall) app-channel-slot {
       container-type: size;
-      --pr-channel-knob: clamp(32px, calc((100cqh - 112px) / 5), 60px);
+      --pr-channel-knob: clamp(32px, calc((100cqh - 144px) / 5), 60px);
       column-gap: 12px;
       padding-block: 12px;
     }
