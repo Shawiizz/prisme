@@ -146,8 +146,10 @@ export class PhaseStrip {
     const bar = tempo.beatsPerBar;
     for (let n = first; n <= last; n++) {
       const x = Math.round(((timeOf(tempo, n) - from) / span) * width);
-      ctx.fillStyle = ((n % bar) + bar) % bar === 0 ? this.palette.light : this.palette.text2;
-      ctx.fillRect(x, top, ratio, bottom - top);
+      // a bar's first beat red and wider, as on the waveforms: found at a glance
+      const first = ((n % bar) + bar) % bar === 0;
+      ctx.fillStyle = first ? this.palette.bar : this.palette.text2;
+      ctx.fillRect(first ? x - ratio : x, top, first ? 2 * ratio : ratio, bottom - top);
     }
   }
 }
