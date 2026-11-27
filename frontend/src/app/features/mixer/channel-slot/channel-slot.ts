@@ -44,12 +44,13 @@ const METER_SEGMENTS = 24;
       padding: 8px 12px 8px 8px;
       min-width: 0;
     }
+    // the bands on a row, the trim, the filter and the headphones on the next, apart
     .strip {
       margin-right: auto;
       align-self: center;
       display: grid;
       grid-template-columns: repeat(3, 44px);
-      gap: 6px 0;
+      gap: 10px 0;
       justify-items: center;
       align-items: start;
       --knob-size: 28px;
@@ -65,7 +66,7 @@ const METER_SEGMENTS = 24;
     :host(.compact) {
       padding-block: 4px;
       .strip {
-        row-gap: 0;
+        row-gap: 6px;
       }
     }
     .pr-meter {
