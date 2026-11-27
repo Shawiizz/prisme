@@ -4583,7 +4583,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-actions"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "prisme-analysis",
  "prisme-control",
@@ -4594,7 +4594,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-analysis"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "beat-this",
@@ -4613,7 +4613,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-audio-io"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "cpal",
  "libc",
@@ -4626,7 +4626,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -4639,7 +4639,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-control"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -4649,7 +4649,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-desktop"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "dirs",
@@ -4699,11 +4699,11 @@ dependencies = [
 
 [[package]]
 name = "prisme-dsp"
-version = "0.6.0"
+version = "0.7.0"
 
 [[package]]
 name = "prisme-engine"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "criterion",
  "prisme-dsp",
@@ -4717,11 +4717,11 @@ dependencies = [
 
 [[package]]
 name = "prisme-grid"
-version = "0.6.0"
+version = "0.7.0"
 
 [[package]]
 name = "prisme-import"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.22.1",
  "lofty",
@@ -4736,7 +4736,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-library"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "criterion",
  "image",
@@ -4755,7 +4755,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-media"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "libc",
  "lofty",
@@ -4767,7 +4767,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-session"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -4776,7 +4776,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-setup"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "prisme-update",
  "serde_json",
@@ -4788,7 +4788,7 @@ dependencies = [
 
 [[package]]
 name = "prisme-stems"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bytemuck",
  "flacenc",
@@ -4809,14 +4809,14 @@ dependencies = [
 
 [[package]]
 name = "prisme-timecode"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "criterion",
 ]
 
 [[package]]
 name = "prisme-update"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.22.1",
  "flate2",

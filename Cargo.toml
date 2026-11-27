@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "apps/prisme-cli", "apps/prisme-desktop", "apps/prisme-setup"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.92"
 publish = false
