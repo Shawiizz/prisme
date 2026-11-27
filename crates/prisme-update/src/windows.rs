@@ -291,6 +291,26 @@ fn shortcut(link: &Path, identity: &Identity, exe: &Path) -> windows::core::Resu
     Ok(())
 }
 
+/// The window `window` (its handle) apart from Prisme's other windows in the taskbar: a button
+/// of its own, with the window's icon, Prisme's identity followed by `apart`. Not to be pinned:
+/// a pin opens Prisme, not this window.
+pub fn taskbar_button_apart(window: isize, identity: &Identity, apart: &str) -> windows::core::Result<()> {
+    use windows::Win32::Foundation::HWND;
+    use windows::Win32::Storage::EnhancedStorage::{PKEY_AppUserModel_ID, PKEY_AppUserModel_PreventPinning};
+    use windows::Win32::System::Com::StructuredStorage::PROPVARIANT;
+    use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, SHGetPropertyStoreForWindow};
+
+    let app_id = format!("{}.{apart}", identity.app_id());
+    // SAFETY: the window is Prisme's own, alive through the call; the values outlive their use
+    unsafe {
+        let store: IPropertyStore = SHGetPropertyStoreForWindow(HWND(window as *mut _))?;
+        store.SetValue(&PKEY_AppUserModel_PreventPinning, &PROPVARIANT::from(true))?;
+        store.SetValue(&PKEY_AppUserModel_ID, &PROPVARIANT::from(app_id.as_str()))?;
+        store.Commit()?;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 enum Folder {
     StartMenu,

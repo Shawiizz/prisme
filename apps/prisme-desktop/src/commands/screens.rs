@@ -12,6 +12,8 @@ use tauri::{AppHandle, State};
 pub const DECKS: &str = "decks";
 /// Tells the main window whether the decks are in a window of their own.
 pub const APART_EVENT: &str = "decks-apart";
+/// What the decks' window is called, in the taskbar and among the windows.
+const DECKS_TITLE: &str = "Prisme Decks";
 
 /// A screen plugged in.
 #[derive(Debug, Clone, Serialize, PartialEq)]
@@ -66,15 +68,27 @@ pub async fn set_decks_screen(
     Ok(())
 }
 
+/// The decks' window, if they have one, in front of the others: a program put over it, or the
+/// window minimised.
+#[tauri::command]
+pub fn show_decks(app: AppHandle) -> AppResult<()> {
+    #[cfg(desktop)]
+    desktop::bring_to_front(&app)?;
+    #[cfg(mobile)]
+    let _ = app;
+    Ok(())
+}
+
 #[cfg(desktop)]
 pub use desktop::{closed_by_the_dj, start};
 
 #[cfg(desktop)]
 mod desktop {
-    use super::{ScreenDto, APART_EVENT, DECKS};
+    use super::{ScreenDto, APART_EVENT, DECKS, DECKS_TITLE};
     use crate::error::{AppError, AppResult};
     use crate::state::AppState;
     use std::time::Duration;
+    use tauri::image::Image;
     use tauri::{AppHandle, Emitter, Manager, Monitor, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
     use tracing::warn;
 
@@ -156,14 +170,17 @@ mod desktop {
             (Some(screen), None) => {
                 let window =
                     WebviewWindowBuilder::new(app, DECKS, WebviewUrl::App("index.html?view=decks".into()))
-                        .title("Prisme")
+                        .title(DECKS_TITLE)
+                        .icon(decks_icon())
+                        .map_err(failed)?
                         .decorations(false)
                         .visible(false)
-                        .skip_taskbar(true)
                         .disable_drag_drop_handler()
                         .build()
                         .map_err(failed)?;
                 fill(&window, &screen).map_err(failed)?;
+                #[cfg(windows)]
+                button_apart(&window);
                 window.show().map_err(failed)?;
                 tell(app, true);
             }
@@ -174,6 +191,37 @@ mod desktop {
             (None, None) => {}
         }
         Ok(())
+    }
+
+    /// Prisme's icon with a record in its corner, to tell the decks' window from the main one.
+    fn decks_icon() -> Image<'static> {
+        Image::from_bytes(include_bytes!("../../icons/decks.png")).expect("the decks' icon is a PNG")
+    }
+
+    /// The decks' window, a button of its own in the taskbar, beside Prisme's: Windows groups
+    /// an application's windows under one button otherwise, with Prisme's icon.
+    #[cfg(windows)]
+    fn button_apart(window: &WebviewWindow) {
+        let apart = window.hwnd().map_err(|e| e.to_string()).and_then(|hwnd| {
+            prisme_update::windows::taskbar_button_apart(
+                hwnd.0 as isize,
+                &prisme_update::Identity::current(),
+                DECKS,
+            )
+            .map_err(|e| e.to_string())
+        });
+        if let Err(e) = apart {
+            warn!("the decks' window grouped with the main one in the taskbar: {e}");
+        }
+    }
+
+    /// The decks' window, if there is one, shown in front of the others.
+    pub fn bring_to_front(app: &AppHandle) -> AppResult<()> {
+        let Some(window) = app.get_webview_window(DECKS) else { return Ok(()) };
+        let failed = |e: tauri::Error| AppError::Other(e.to_string());
+        window.unminimize().map_err(failed)?;
+        window.show().map_err(failed)?;
+        window.set_focus().map_err(failed)
     }
 
     /// The window full screen on `screen`.

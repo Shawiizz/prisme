@@ -444,6 +444,7 @@ impl Performing<'_> {
             | GeneralAction::Palette
             | GeneralAction::Settings
             | GeneralAction::FullScreen
+            | GeneralAction::Decks
             | GeneralAction::Assign
             | GeneralAction::Close => Err(AppError::NotPerformed(Target::General(action).to_string())),
         }

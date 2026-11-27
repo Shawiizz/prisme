@@ -52,6 +52,7 @@ export class ControlService {
     'general.palette': pressed(() => this.navigation.togglePalette()),
     'general.settings': pressed(() => this.navigation.openSettings()),
     'general.fullscreen': pressed(() => void this.window.toggleFullscreen()),
+    'general.decks': pressed(() => void invoke('show_decks')),
     'general.assign': pressed(() => this.injector.get(AssignService).toggle()),
     'general.close': pressed(() => this.overlays.closeTop()),
   };

@@ -9144,6 +9144,12 @@
   "kind": "button"
  },
  {
+  "id": "general.decks",
+  "group": "General",
+  "label": "Bring the decks to the front",
+  "kind": "button"
+ },
+ {
   "id": "general.assign",
   "group": "General",
   "label": "Assign keys and controls",

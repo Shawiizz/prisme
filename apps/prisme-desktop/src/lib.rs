@@ -481,6 +481,7 @@ fn invoke_handler() -> impl Fn(tauri::ipc::Invoke) -> bool + Send + Sync + 'stat
         commands::screens::list_screens,
         commands::screens::decks_apart,
         commands::screens::set_decks_screen,
+        commands::screens::show_decks,
         commands::stems::cancel_separation,
         commands::stems::download_stems_model,
         commands::stems::download_stems_models,

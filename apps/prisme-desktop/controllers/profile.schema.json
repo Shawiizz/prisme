@@ -2504,6 +2504,7 @@
             "general.palette",
             "general.settings",
             "general.fullscreen",
+            "general.decks",
             "general.assign",
             "general.close"
           ],
@@ -4032,6 +4033,7 @@
             "General: Command palette (button)",
             "General: Settings (button)",
             "General: Full screen (button)",
+            "General: Bring the decks to the front (button)",
             "General: Assign keys and controls (button)",
             "General: Close what is open (Escape) (button)"
           ]

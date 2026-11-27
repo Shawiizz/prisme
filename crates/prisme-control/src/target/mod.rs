@@ -398,7 +398,8 @@ actions! {
         Button: Library = "general.library", Record = "general.record",
             TempoRange = "general.tempoRange", TempoRangePrevious = "general.tempoRange.previous",
             Help = "general.help", Palette = "general.palette", Settings = "general.settings",
-            FullScreen = "general.fullscreen", Assign = "general.assign", Close = "general.close";
+            FullScreen = "general.fullscreen", Decks = "general.decks", Assign = "general.assign",
+            Close = "general.close";
     }
     {
         Quantize(Turn),
@@ -463,6 +464,7 @@ impl Target {
                 | GeneralAction::Palette
                 | GeneralAction::Settings
                 | GeneralAction::FullScreen
+                | GeneralAction::Decks
                 | GeneralAction::Assign
                 | GeneralAction::Close,
             ) => Owner::Interface,
@@ -628,6 +630,7 @@ mod tests {
             "general.palette",
             "general.settings",
             "general.fullscreen",
+            "general.decks",
             "general.assign",
             "general.close",
         ];

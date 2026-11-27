@@ -62,6 +62,7 @@ fn general_label(action: GeneralAction) -> Label {
         GeneralAction::Palette => Label::new("Command palette"),
         GeneralAction::Settings => Label::new("Settings"),
         GeneralAction::FullScreen => Label::new("Full screen"),
+        GeneralAction::Decks => Label::new("Bring the decks to the front"),
         GeneralAction::Assign => Label::new("Assign keys and controls"),
         GeneralAction::Close => Label::new("Close what is open (Escape)"),
         GeneralAction::Quantize(turn) => switched(Label::new("Quantize"), turn),
